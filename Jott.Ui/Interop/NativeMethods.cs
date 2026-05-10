@@ -58,7 +58,40 @@ internal static class NativeMethods
 
     public const uint MONITOR_DEFAULTTONULL = 0;
 
+    public const uint SPI_GETWORKAREA = 0x0030;
+
     public static readonly IntPtr IDI_APPLICATION = new IntPtr(32512);
+
+    /// <summary>
+    /// Defines a rectangle by its left, top, right, and bottom edges.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    /// <summary>
+    /// Contains information about a display monitor, including the monitor bounds
+    /// and the working area (excluding taskbar and docked toolbars).
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct MONITORINFO
+    {
+        public uint cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
+    /// <summary>
+    /// Callback invoked by <see cref="EnumDisplayMonitors"/> for each monitor in the virtual screen.
+    /// Return <c>true</c> to continue enumeration; return <c>false</c> to stop.
+    /// </summary>
+    public delegate bool EnumDisplayMonitorsDelegate(IntPtr hMonitor, IntPtr hdcMonitor, ref RECT lprcMonitor, IntPtr dwData);
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     public struct NOTIFYICONDATA
@@ -191,4 +224,28 @@ internal static class NativeMethods
     /// </summary>
     [DllImport("user32.dll")]
     public static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
+
+    /// <summary>
+    /// Enumerates display monitors that intersect the given clipping rectangle,
+    /// invoking <paramref name="lpfnEnum"/> for each monitor found.
+    /// Pass <see cref="IntPtr.Zero"/> for both <c>hdc</c> and <c>lprcClip</c> to
+    /// enumerate all monitors in the virtual screen.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lprcClip, EnumDisplayMonitorsDelegate lpfnEnum, IntPtr dwData);
+
+    /// <summary>
+    /// Retrieves information about a display monitor. The caller must set
+    /// <see cref="MONITORINFO.cbSize"/> before calling, or the function returns <c>false</c>.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+    /// <summary>
+    /// Retrieves or sets a system-wide parameter. When <paramref name="uiAction"/> is
+    /// <see cref="SPI_GETWORKAREA"/>, <paramref name="pvParam"/> receives the working area
+    /// rectangle of the primary monitor in physical pixels.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, ref RECT pvParam, uint fWinIni);
 }

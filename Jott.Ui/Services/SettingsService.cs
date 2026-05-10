@@ -75,21 +75,21 @@ public sealed class SettingsService
     }
 
     /// <summary>
-    /// Last saved window X position in physical (screen) pixels.
+    /// Last saved window left position in logical pixels (DIP). Zero means use the default anchor.
     /// </summary>
-    public int WindowX
+    public int WindowLeft
     {
-        get => settings.WindowX;
-        set => settings.WindowX = value;
+        get => settings.WindowLeft;
+        set => settings.WindowLeft = value;
     }
 
     /// <summary>
-    /// Last saved window Y position in physical (screen) pixels.
+    /// Last saved window top position in logical pixels (DIP). Zero means use the default anchor.
     /// </summary>
-    public int WindowY
+    public int WindowTop
     {
-        get => settings.WindowY;
-        set => settings.WindowY = value;
+        get => settings.WindowTop;
+        set => settings.WindowTop = value;
     }
 
     /// <summary>
@@ -157,7 +157,7 @@ public sealed class SettingsService
         public int WindowWidth { get; set; }
         public int WindowHeight { get; set; }
         public bool HasSavedPosition { get; set; }
-        public int WindowX { get; set; }
-        public int WindowY { get; set; }
+        public int WindowLeft { get; set; }
+        public int WindowTop { get; set; }
     }
 }

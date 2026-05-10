@@ -1,11 +1,15 @@
 using Jott.Ui.Services;
 using Microsoft.UI;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
+using Windows.System;
 using Windows.UI;
+using Windows.UI.Core;
 using Buffer = Jott.Ui.Models.Buffer;
 
 namespace Jott.Ui.Views;
@@ -65,6 +69,8 @@ public sealed partial class BufferPanel : UserControl
         {
             BufferPivot.SelectedIndex = 0;
         }
+
+        RootGrid.PreviewKeyDown += OnPanelPreviewKeyDown;
     }
 
     private PivotItem BuildPivotItem(Buffer buffer)
@@ -130,6 +136,68 @@ public sealed partial class BufferPanel : UserControl
         if (textBox.Tag is int index)
         {
             bufferService.UpdateContent(index, textBox.Text);
+        }
+    }
+
+    private void OnPanelPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Tab)
+        {
+            var shiftState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift);
+            bool back = (shiftState & CoreVirtualKeyStates.Down) != 0;
+            CycleBuffer(back ? -1 : 1);
+            e.Handled = true;
+            return;
+        }
+
+        var ctrlState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control);
+        bool ctrl = (ctrlState & CoreVirtualKeyStates.Down) != 0;
+        if (!ctrl)
+        {
+            return;
+        }
+
+        int bufferIndex = -1;
+        if (e.Key >= VirtualKey.Number1 && e.Key <= VirtualKey.Number7)
+        {
+            bufferIndex = (int)e.Key - (int)VirtualKey.Number1;
+        }
+        else if (e.Key >= VirtualKey.NumberPad1 && e.Key <= VirtualKey.NumberPad7)
+        {
+            bufferIndex = (int)e.Key - (int)VirtualKey.NumberPad1;
+        }
+
+        if (bufferIndex >= 0)
+        {
+            SelectBuffer(bufferIndex);
+            e.Handled = true;
+        }
+    }
+
+    private void CycleBuffer(int direction)
+    {
+        int count = BufferPivot.Items.Count;
+        if (count == 0)
+        {
+            return;
+        }
+
+        int next = ((BufferPivot.SelectedIndex + direction) % count + count) % count;
+        SelectBuffer(next);
+    }
+
+    private void SelectBuffer(int zeroBasedIndex)
+    {
+        if (zeroBasedIndex < 0 || zeroBasedIndex >= BufferPivot.Items.Count)
+        {
+            return;
+        }
+
+        BufferPivot.SelectedIndex = zeroBasedIndex;
+        int bufferIndex = zeroBasedIndex + 1;
+        if (editorsByBufferIndex.TryGetValue(bufferIndex, out TextBox editor))
+        {
+            editor.Focus(FocusState.Programmatic);
         }
     }
 

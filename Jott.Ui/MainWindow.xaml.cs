@@ -31,6 +31,7 @@ public sealed partial class MainWindow : Window
     private const int PanelDefaultHeight = 680;
     private const int PanelMinWidth = 300;
     private const int PanelMinHeight = 400;
+    private const int PanelDefaultInset = 16;
     private const int SettingsDebounceMilliseconds = 500;
 
     private Timer settingsDebounceTimer;
@@ -124,19 +125,34 @@ public sealed partial class MainWindow : Window
         }
 
         float scale = NativeMethods.GetDpiForWindow(windowHandle) / 96.0f;
+
+        // Size: restore from settings or use default
         int logicalWidth = settingsService.WindowWidth > 0 ? settingsService.WindowWidth : PanelDefaultWidth;
         int logicalHeight = settingsService.WindowHeight > 0 ? settingsService.WindowHeight : PanelDefaultHeight;
-        appWindow.Resize(new Windows.Graphics.SizeInt32(
-            (int)Math.Round(logicalWidth * scale),
-            (int)Math.Round(logicalHeight * scale)));
+        int physicalWidth = (int)Math.Round(logicalWidth * scale);
+        int physicalHeight = (int)Math.Round(logicalHeight * scale);
+        appWindow.Resize(new Windows.Graphics.SizeInt32(physicalWidth, physicalHeight));
 
+        // Position: restore from settings if on screen, otherwise default to bottom-right
+        bool positionRestored = false;
         if (settingsService.HasSavedPosition)
         {
-            var pt = new NativeMethods.POINT { X = settingsService.WindowX, Y = settingsService.WindowY };
-            if (NativeMethods.MonitorFromPoint(pt, NativeMethods.MONITOR_DEFAULTTONULL) != IntPtr.Zero)
+            int physX = (int)Math.Round(settingsService.WindowLeft * scale);
+            int physY = (int)Math.Round(settingsService.WindowTop * scale);
+            if (IsWindowRectOnScreen(physX, physY, physicalWidth, physicalHeight))
             {
-                appWindow.Move(new Windows.Graphics.PointInt32(settingsService.WindowX, settingsService.WindowY));
+                appWindow.Move(new Windows.Graphics.PointInt32(physX, physY));
+                positionRestored = true;
             }
+        }
+
+        if (!positionRestored)
+        {
+            var workArea = GetPrimaryWorkArea();
+            int physInset = (int)Math.Round(PanelDefaultInset * scale);
+            int defaultX = workArea.Right - physicalWidth - physInset;
+            int defaultY = workArea.Bottom - physicalHeight - physInset;
+            appWindow.Move(new Windows.Graphics.PointInt32(defaultX, defaultY));
         }
 
         var presenter = appWindow.Presenter as OverlappedPresenter;
@@ -148,6 +164,44 @@ public sealed partial class MainWindow : Window
         }
 
         appWindow.Changed += OnAppWindowChanged;
+    }
+
+    private NativeMethods.RECT GetPrimaryWorkArea()
+    {
+        var workArea = new NativeMethods.RECT();
+        NativeMethods.SystemParametersInfo(NativeMethods.SPI_GETWORKAREA, 0, ref workArea, 0);
+        return workArea;
+    }
+
+    private bool IsWindowRectOnScreen(int physX, int physY, int physWidth, int physHeight)
+    {
+        var workingAreas = new List<NativeMethods.RECT>();
+        var callback = new NativeMethods.EnumDisplayMonitorsDelegate(
+            (IntPtr hMonitor, IntPtr hdc, ref NativeMethods.RECT rect, IntPtr data) =>
+            {
+                var info = new NativeMethods.MONITORINFO
+                {
+                    cbSize = (uint)Marshal.SizeOf<NativeMethods.MONITORINFO>()
+                };
+                if (NativeMethods.GetMonitorInfo(hMonitor, ref info))
+                {
+                    workingAreas.Add(info.rcWork);
+                }
+                return true;
+            });
+
+        NativeMethods.EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, callback, IntPtr.Zero);
+
+        foreach (var workArea in workingAreas)
+        {
+            if (physX < workArea.Right && physX + physWidth > workArea.Left &&
+                physY < workArea.Bottom && physY + physHeight > workArea.Top)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
@@ -188,8 +242,8 @@ public sealed partial class MainWindow : Window
 
             settingsService.WindowWidth = logicalWidth;
             settingsService.WindowHeight = logicalHeight;
-            settingsService.WindowX = posX;
-            settingsService.WindowY = posY;
+            settingsService.WindowLeft = (int)Math.Round(posX / scale);
+            settingsService.WindowTop = (int)Math.Round(posY / scale);
             settingsService.HasSavedPosition = true;
             _ = settingsService.SaveAsync();
         });
@@ -356,8 +410,8 @@ public sealed partial class MainWindow : Window
             float scale = NativeMethods.GetDpiForWindow(windowHandle) / 96.0f;
             settingsService.WindowWidth = (int)Math.Round(appWindow.Size.Width / scale);
             settingsService.WindowHeight = (int)Math.Round(appWindow.Size.Height / scale);
-            settingsService.WindowX = appWindow.Position.X;
-            settingsService.WindowY = appWindow.Position.Y;
+            settingsService.WindowLeft = (int)Math.Round(appWindow.Position.X / scale);
+            settingsService.WindowTop = (int)Math.Round(appWindow.Position.Y / scale);
             settingsService.HasSavedPosition = true;
             settingsService.SaveSync();
         }

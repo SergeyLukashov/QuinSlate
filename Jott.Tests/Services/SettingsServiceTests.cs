@@ -133,4 +133,41 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(0, settingsService.WindowWidth);
         Assert.Equal(0, settingsService.WindowHeight);
     }
+
+    [Fact]
+    public void WindowLeft_Default_IsZero()
+    {
+        Assert.Equal(0, settingsService.WindowLeft);
+    }
+
+    [Fact]
+    public void WindowTop_Default_IsZero()
+    {
+        Assert.Equal(0, settingsService.WindowTop);
+    }
+
+    [Fact]
+    public async Task SaveAsync_PersistsWindowPosition()
+    {
+        settingsService.WindowLeft = 100;
+        settingsService.WindowTop = 200;
+
+        await settingsService.SaveAsync();
+
+        var content = await File.ReadAllTextAsync(settingsService.SettingsFilePath);
+        Assert.Contains("\"WindowLeft\":100", content);
+        Assert.Contains("\"WindowTop\":200", content);
+    }
+
+    [Fact]
+    public async Task LoadAsync_ExistingFile_RestoresWindowPosition()
+    {
+        var json = "{\"WindowLeft\":100,\"WindowTop\":200}";
+        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json);
+
+        await settingsService.LoadAsync();
+
+        Assert.Equal(100, settingsService.WindowLeft);
+        Assert.Equal(200, settingsService.WindowTop);
+    }
 }

@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Jott.Ui (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Jott.Ui (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

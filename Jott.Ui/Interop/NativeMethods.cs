@@ -10,6 +10,7 @@ namespace Jott.Ui.Interop;
 internal static class NativeMethods
 {
     public const int WM_NULL = 0x0000;
+    public const int WM_GETMINMAXINFO = 0x0024;
     public const int WM_HOTKEY = 0x0312;
     public const int WM_LBUTTONUP = 0x0202;
     public const int WM_RBUTTONUP = 0x0205;
@@ -54,6 +55,8 @@ internal static class NativeMethods
 
     public const int SM_CXSMICON = 49;
     public const int SM_CYSMICON = 50;
+
+    public const uint MONITOR_DEFAULTTONULL = 0;
 
     public static readonly IntPtr IDI_APPLICATION = new IntPtr(32512);
 
@@ -158,4 +161,34 @@ internal static class NativeMethods
         public int X;
         public int Y;
     }
+
+    /// <summary>
+    /// Contains information about a window's maximised size and position, and its
+    /// minimum and maximum tracking sizes. Passed via <c>lParam</c> of
+    /// <c>WM_GETMINMAXINFO</c>.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MINMAXINFO
+    {
+        public POINT ptReserved;
+        public POINT ptMaxSize;
+        public POINT ptMaxPosition;
+        public POINT ptMinTrackSize;
+        public POINT ptMaxTrackSize;
+    }
+
+    /// <summary>
+    /// Returns the dots-per-inch (DPI) value for the monitor associated with
+    /// <paramref name="hWnd"/>. Returns 96 if the window handle is invalid.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern uint GetDpiForWindow(IntPtr hWnd);
+
+    /// <summary>
+    /// Returns the monitor handle for the monitor nearest to <paramref name="pt"/>,
+    /// or <see cref="IntPtr.Zero"/> when <c>MONITOR_DEFAULTTONULL</c> is passed and
+    /// the point is not on any monitor.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
 }

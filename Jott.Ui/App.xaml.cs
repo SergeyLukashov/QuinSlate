@@ -89,7 +89,7 @@ public partial class App : Application
         await startupService.EnsureRegisteredOnFirstLaunchAsync();
 
         window = new MainWindow();
-        window.Initialise(bufferService, ResolveTrayIconPath(), startupService);
+        window.Initialise(bufferService, ResolveTrayIconPath(), startupService, settingsService);
     }
 
     private static string ResolveAppDataDirectory()

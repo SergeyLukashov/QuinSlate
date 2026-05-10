@@ -48,6 +48,51 @@ public sealed class SettingsService
     }
 
     /// <summary>
+    /// Last saved window width in logical pixels (DIP). Zero means use the default.
+    /// </summary>
+    public int WindowWidth
+    {
+        get => settings.WindowWidth;
+        set => settings.WindowWidth = value;
+    }
+
+    /// <summary>
+    /// Last saved window height in logical pixels (DIP). Zero means use the default.
+    /// </summary>
+    public int WindowHeight
+    {
+        get => settings.WindowHeight;
+        set => settings.WindowHeight = value;
+    }
+
+    /// <summary>
+    /// Whether a saved window position exists and should be restored on next launch.
+    /// </summary>
+    public bool HasSavedPosition
+    {
+        get => settings.HasSavedPosition;
+        set => settings.HasSavedPosition = value;
+    }
+
+    /// <summary>
+    /// Last saved window X position in physical (screen) pixels.
+    /// </summary>
+    public int WindowX
+    {
+        get => settings.WindowX;
+        set => settings.WindowX = value;
+    }
+
+    /// <summary>
+    /// Last saved window Y position in physical (screen) pixels.
+    /// </summary>
+    public int WindowY
+    {
+        get => settings.WindowY;
+        set => settings.WindowY = value;
+    }
+
+    /// <summary>
     /// Loads settings from disk asynchronously. A missing or malformed file is
     /// not an error; defaults are used instead.
     /// </summary>
@@ -89,8 +134,30 @@ public sealed class SettingsService
         }
     }
 
+    /// <summary>
+    /// Persists the current settings to disk synchronously. Call this only in
+    /// shutdown paths where the UI thread must not await (e.g. <c>Teardown</c>).
+    /// </summary>
+    public void SaveSync()
+    {
+        try
+        {
+            var json = JsonSerializer.Serialize(settings);
+            File.WriteAllText(settingsFilePath, json, Encoding.UTF8);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"SettingsService: failed to save settings — {ex.Message}");
+        }
+    }
+
     private sealed class AppSettings
     {
         public bool HasRegisteredStartup { get; set; }
+        public int WindowWidth { get; set; }
+        public int WindowHeight { get; set; }
+        public bool HasSavedPosition { get; set; }
+        public int WindowX { get; set; }
+        public int WindowY { get; set; }
     }
 }

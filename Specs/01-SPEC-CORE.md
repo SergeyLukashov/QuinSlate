@@ -49,10 +49,11 @@ dialog.
 
 ## Panel
 
-- Default size: fixed, approximately 420 × 520 px.
-- Not resizable in v1.
+- Default size: 560 × 680 logical px (device-independent pixels at 96 DPI = 1 DIP).
+- Minimum size: 300 × 400 logical px, enforced via `WM_GETMINMAXINFO`.
+- Resizable. The user may drag the window edges to any size above the minimum.
 - Font: system monospace, 13 pt.
 
 ## Out of scope
 
-Hotkey configuration, custom colours, font settings, resize.
+Hotkey configuration, custom colours, font settings.

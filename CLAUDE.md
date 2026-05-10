@@ -23,20 +23,32 @@ Jott.Ui/
 ├── MainWindow.xaml
 ├── MainWindow.xaml.cs     # Panel show/hide, pin toggle, keyboard nav
 ├── Interop/
-│   ├── TrayIcon.cs        # Shell_NotifyIcon wrapper
 │   ├── HotkeyManager.cs   # RegisterHotKey / UnregisterHotKey
-│   ├── ClipboardHelper.cs # Capture-without-opening clipboard dance
-│   └── NativeMethods.cs   # All P/Invoke signatures
+│   ├── NativeMethods.cs   # All P/Invoke signatures
+│   ├── TrayIcon.cs        # Shell_NotifyIcon wrapper
+│   └── TrayMenu.cs
 ├── Models/
 │   └── Buffer.cs          # Buffer index (1–7), color, file path, content
 ├── Services/
 │   ├── BufferService.cs   # Read/write files, debounce timer, in-memory state
-│   └── SettingsService.cs # Window position, pin state, startup toggle (JSON)
+│   ├── SettingsService.cs # Window position, pin state, startup toggle (JSON)
+│   └── StartupService.cs
 ├── Views/
 │   ├── BufferPanel.xaml   # The 7-tab panel UI
 │   └── BufferPanel.xaml.cs
-└── Assets/
-    └── tray-icon.ico
+└── Assets/                # App logos and icons
+
+Jott.Tests/
+├── Models/
+│   └── BufferTests.cs
+└── Services/
+    ├── BufferServiceTests.cs
+    └── SettingsServiceTests.cs
+
+Specs/
+├── 01-SPEC-CORE.md
+├── ...
+└── FEATURE-QUEUE.md
 ```
 
 ---
@@ -113,6 +125,12 @@ dotnet format Jott.sln
 ```
 
 This applies to new files and edited files alike. Do not skip it for trivial changes.
+
+---
+
+## Specs
+
+If it is decided during implementation to drift away from the initial requirements, agents should modify the corresponding `Specs/` `.md` files to reflect the new direction.
 
 ---
 

@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using WinRT.Interop;
 using Buffer = Jott.Ui.Models.Buffer;
@@ -26,8 +27,18 @@ public sealed partial class MainWindow : Window
     /// </summary>
     public const string WindowTitle = "JottMainWindow";
 
-    private const int PanelWidth = 420;
-    private const int PanelHeight = 520;
+    private const int PanelDefaultWidth = 560;
+    private const int PanelDefaultHeight = 680;
+    private const int PanelMinWidth = 300;
+    private const int PanelMinHeight = 400;
+    private const int SettingsDebounceMilliseconds = 500;
+
+    private Timer settingsDebounceTimer;
+    private volatile int pendingSizeWidth;
+    private volatile int pendingSizeHeight;
+    private volatile int pendingPositionX;
+    private volatile int pendingPositionY;
+    private volatile bool isTornDown;
 
     private const string AboutDialogTitle = "Jott";
     private const string AboutDialogContent = "Version 1.0.0\n\nHotkeys:\nShow / Hide: Win + `";
@@ -40,10 +51,12 @@ public sealed partial class MainWindow : Window
 
     private BufferService bufferService;
     private StartupService startupService;
+    private SettingsService settingsService;
     private HotkeyManager hotkeyManager;
     private TrayIcon trayIcon;
 
     private bool isPanelVisible;
+    private bool isAboutDialogOpen;
 
     /// <summary>
     /// Constructs the window. Call <see cref="Initialise"/> immediately
@@ -58,7 +71,7 @@ public sealed partial class MainWindow : Window
     /// Wires the buffer service, registers the global hotkey, installs the
     /// tray icon, and hides the window. Must be called once after construction.
     /// </summary>
-    public void Initialise(BufferService bufferService, string trayIconFilePath, StartupService startupService)
+    public void Initialise(BufferService bufferService, string trayIconFilePath, StartupService startupService, SettingsService settingsService)
     {
         if (bufferService == null)
         {
@@ -70,8 +83,14 @@ public sealed partial class MainWindow : Window
             throw new ArgumentNullException(nameof(startupService));
         }
 
+        if (settingsService == null)
+        {
+            throw new ArgumentNullException(nameof(settingsService));
+        }
+
         this.bufferService = bufferService;
         this.startupService = startupService;
+        this.settingsService = settingsService;
 
         Title = WindowTitle;
 
@@ -104,15 +123,76 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        appWindow.Resize(new Windows.Graphics.SizeInt32(PanelWidth, PanelHeight));
+        float scale = NativeMethods.GetDpiForWindow(windowHandle) / 96.0f;
+        int logicalWidth = settingsService.WindowWidth > 0 ? settingsService.WindowWidth : PanelDefaultWidth;
+        int logicalHeight = settingsService.WindowHeight > 0 ? settingsService.WindowHeight : PanelDefaultHeight;
+        appWindow.Resize(new Windows.Graphics.SizeInt32(
+            (int)Math.Round(logicalWidth * scale),
+            (int)Math.Round(logicalHeight * scale)));
+
+        if (settingsService.HasSavedPosition)
+        {
+            var pt = new NativeMethods.POINT { X = settingsService.WindowX, Y = settingsService.WindowY };
+            if (NativeMethods.MonitorFromPoint(pt, NativeMethods.MONITOR_DEFAULTTONULL) != IntPtr.Zero)
+            {
+                appWindow.Move(new Windows.Graphics.PointInt32(settingsService.WindowX, settingsService.WindowY));
+            }
+        }
 
         var presenter = appWindow.Presenter as OverlappedPresenter;
         if (presenter != null)
         {
-            presenter.IsResizable = false;
+            presenter.IsResizable = true;
             presenter.IsMaximizable = false;
             presenter.IsMinimizable = false;
         }
+
+        appWindow.Changed += OnAppWindowChanged;
+    }
+
+    private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        if (args.DidSizeChange == false && args.DidPositionChange == false)
+        {
+            return;
+        }
+
+        pendingSizeWidth = appWindow.Size.Width;
+        pendingSizeHeight = appWindow.Size.Height;
+        pendingPositionX = appWindow.Position.X;
+        pendingPositionY = appWindow.Position.Y;
+
+        if (settingsDebounceTimer == null)
+        {
+            settingsDebounceTimer = new Timer(OnSettingsDebounceElapsed, null, SettingsDebounceMilliseconds, Timeout.Infinite);
+        }
+        else
+        {
+            settingsDebounceTimer.Change(SettingsDebounceMilliseconds, Timeout.Infinite);
+        }
+    }
+
+    private void OnSettingsDebounceElapsed(object state)
+    {
+        float scale = NativeMethods.GetDpiForWindow(windowHandle) / 96.0f;
+        int logicalWidth = (int)Math.Round(pendingSizeWidth / scale);
+        int logicalHeight = (int)Math.Round(pendingSizeHeight / scale);
+        int posX = pendingPositionX;
+        int posY = pendingPositionY;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (isTornDown)
+            {
+                return;
+            }
+
+            settingsService.WindowWidth = logicalWidth;
+            settingsService.WindowHeight = logicalHeight;
+            settingsService.WindowX = posX;
+            settingsService.WindowY = posY;
+            settingsService.HasSavedPosition = true;
+            _ = settingsService.SaveAsync();
+        });
     }
 
     private void SubclassWindowProc()
@@ -124,6 +204,19 @@ public sealed partial class MainWindow : Window
 
     private IntPtr WindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
+        if (msg == NativeMethods.WM_GETMINMAXINFO)
+        {
+            float scale = NativeMethods.GetDpiForWindow(hWnd) / 96.0f;
+            var info = Marshal.PtrToStructure<NativeMethods.MINMAXINFO>(lParam);
+            info.ptMinTrackSize = new NativeMethods.POINT
+            {
+                X = (int)Math.Round(PanelMinWidth * scale),
+                Y = (int)Math.Round(PanelMinHeight * scale)
+            };
+            Marshal.StructureToPtr(info, lParam, false);
+            return IntPtr.Zero;
+        }
+
         if (msg == NativeMethods.WM_HOTKEY)
         {
             if (hotkeyManager != null && wParam.ToInt32() == hotkeyManager.HotkeyIdentifier)
@@ -202,6 +295,11 @@ public sealed partial class MainWindow : Window
 
     private async Task ShowAboutDialog()
     {
+        if (isAboutDialogOpen)
+        {
+            return;
+        }
+
         if (Content == null || Content.XamlRoot == null)
         {
             return;
@@ -213,11 +311,21 @@ public sealed partial class MainWindow : Window
         dialog.CloseButtonText = AboutDialogCloseButton;
         dialog.XamlRoot = Content.XamlRoot;
 
-        await dialog.ShowAsync();
+        isAboutDialogOpen = true;
+        try
+        {
+            await dialog.ShowAsync();
+        }
+        finally
+        {
+            isAboutDialogOpen = false;
+        }
     }
 
     private void Teardown()
     {
+        isTornDown = true;
+
         if (originalWndProc != IntPtr.Zero)
         {
             NativeMethods.SetWindowLongPtr(windowHandle, NativeMethods.GWLP_WNDPROC, originalWndProc);
@@ -235,6 +343,23 @@ public sealed partial class MainWindow : Window
         {
             hotkeyManager.Dispose();
             hotkeyManager = null;
+        }
+
+        if (settingsDebounceTimer != null)
+        {
+            settingsDebounceTimer.Dispose();
+            settingsDebounceTimer = null;
+        }
+
+        if (appWindow != null && settingsService != null)
+        {
+            float scale = NativeMethods.GetDpiForWindow(windowHandle) / 96.0f;
+            settingsService.WindowWidth = (int)Math.Round(appWindow.Size.Width / scale);
+            settingsService.WindowHeight = (int)Math.Round(appWindow.Size.Height / scale);
+            settingsService.WindowX = appWindow.Position.X;
+            settingsService.WindowY = appWindow.Position.Y;
+            settingsService.HasSavedPosition = true;
+            settingsService.SaveSync();
         }
 
         if (bufferService != null)
@@ -286,6 +411,7 @@ public sealed partial class MainWindow : Window
 
     private void OnWindowClosed(object sender, WindowEventArgs args)
     {
-        Teardown();
+        args.Handled = true;
+        HidePanel();
     }
 }

@@ -1,13 +1,15 @@
 # SPEC: Inline calculator
 
 ## What
-When a line ends with ` =` and the user types the `=` character, Jott
-evaluates the mathematical expression to the left of the `=` and appends
-the result on the same line — instantly, without pressing Enter.
+When a line ends with `=` (with or without a preceding space) and the user
+types the `=` character, Jott evaluates the mathematical expression to the
+left of the `=` and appends the result on the same line — instantly,
+without pressing Enter.
 
     subtotal * 1.21 =         →   subtotal * 1.21 = 594.77
     (450 + 38.50) / 4 =       →   (450 + 38.50) / 4 = 122.13
     2^10 =                    →   2^10 = 1024
+    1+2=                      →   1+2= 3
 
 ---
 
@@ -17,8 +19,7 @@ Evaluation fires the moment the user types `=`, if all of the following
 are true:
 
 1. The character just typed is `=`.
-2. The line up to the caret ends with ` =` (a space immediately before
-   the `=` — confirming intent, not an operator run).
+2. The line up to the caret ends with `=` (optionally preceded by a space).
 3. The adjacent-operator guard passes (see below).
 4. The expression heuristic passes (see below).
 
@@ -26,13 +27,16 @@ If any condition fails, the `=` is inserted normally with no side effects.
 
 ### Adjacent-operator guard
 
-Check the character immediately before the ` =` sequence. If it is one
-of `> < ! =`, do not evaluate. This prevents `>=`, `<=`, `!=`, `==`
-from triggering.
+Check the character immediately before the `=` (ignoring the optional
+preceding space). If it is one of `> < ! =`, do not evaluate. This
+prevents `>=`, `<=`, `!=`, `==` from triggering in both the spaced and
+no-space forms.
 
-    450 + 38 =     → triggers   (digit before the space-=)
-    a >= b         → no trigger (> immediately before =)
-    x == y         → no trigger (= immediately before =)
+    450 + 38 =     → triggers   (digit before the =)
+    1+2=           → triggers   (digit before the =, no space)
+    a >= b =       → no trigger (> immediately before the space-=)
+    a >= b=        → no trigger (> immediately before =)
+    x == y=        → no trigger (= immediately before =)
 
 ---
 
@@ -95,8 +99,13 @@ Do not use **NCalc2** (archived August 2025, read-only). Do not use
 **mXparser** (dual license — commercial use requires a paid licence,
 which is a blocker for distributing a free app).
 
-NCalc handles operator precedence, parentheses, exponentiation (`^`),
-modulo (`%`), and `System.Math` functions without custom configuration.
+NCalc handles operator precedence, parentheses, modulo (`%`), and
+`System.Math` functions without custom configuration.
+
+**NCalcSync 5.x deviation:** `^` is parsed as bitwise XOR in NCalcSync 5.x,
+not exponentiation. `CalcService` pre-processes expressions before evaluation:
+each top-level `^` is rewritten as `Pow(left, right)` to restore the
+expected exponentiation behaviour.
 
 ---
 

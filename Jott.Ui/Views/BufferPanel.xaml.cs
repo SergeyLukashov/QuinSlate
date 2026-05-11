@@ -1,6 +1,7 @@
 using Jott.Ui.Services;
 using Microsoft.UI;
 using Microsoft.UI.Input;
+using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -16,7 +17,7 @@ namespace Jott.Ui.Views;
 
 /// <summary>
 /// The 7-tab buffer UI surface. Each tab is a coloured header containing a
-/// monospace multiline text box bound to a single <see cref="Buffer"/>.
+/// monospace multiline rich-edit box bound to a single <see cref="Buffer"/>.
 /// </summary>
 public sealed partial class BufferPanel : UserControl
 {
@@ -42,9 +43,10 @@ public sealed partial class BufferPanel : UserControl
     private const byte ConfirmBackgroundG = 60;
     private const byte ConfirmBackgroundB = 60;
     private const byte ConfirmBackgroundA = 220;
+    private const int VKeyOemPlus = 187;
 
     private BufferService bufferService;
-    private readonly Dictionary<int, TextBox> editorsByBufferIndex = new Dictionary<int, TextBox>();
+    private readonly Dictionary<int, RichEditBox> editorsByBufferIndex = new Dictionary<int, RichEditBox>();
     private readonly Dictionary<int, Grid> headerContainersByIndex = new Dictionary<int, Grid>();
     private readonly Dictionary<int, StackPanel> normalPanelsByIndex = new Dictionary<int, StackPanel>();
     private readonly Dictionary<int, Border> confirmPanelsByIndex = new Dictionary<int, Border>();
@@ -52,6 +54,8 @@ public sealed partial class BufferPanel : UserControl
 
     private int confirmingBufferIndex = -1;
     private DispatcherTimer confirmCancelTimer;
+    private bool isCalcReplacing = false;
+    private bool wasEqualsTyped = false;
 
     /// <summary>
     /// Creates the panel. <see cref="Initialise"/> must be called before the
@@ -192,7 +196,7 @@ public sealed partial class BufferPanel : UserControl
         headerContainer.Children.Add(confirmPanel);
         headerContainersByIndex[buffer.Index] = headerContainer;
 
-        var editor = new TextBox
+        var editor = new RichEditBox
         {
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap,
@@ -200,12 +204,19 @@ public sealed partial class BufferPanel : UserControl
             FontSize = EditorFontSize,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
+            IsSpellCheckEnabled = false,
             Tag = buffer.Index,
-            Text = buffer.Content,
+            SelectionFlyout = null,
         };
 
+        // Set initial content before subscribing to TextChanged so the load
+        // does not trigger a redundant UpdateContent call.
+        editor.Document.SetText(TextSetOptions.None, buffer.Content ?? string.Empty);
+
         editor.TextChanged += OnEditorTextChanged;
+        editor.KeyDown += OnEditorKeyDown;
         editor.PointerPressed += OnEditorPointerPressed;
+        editor.Paste += OnEditorPaste;
         editorsByBufferIndex[buffer.Index] = editor;
 
         var item = new PivotItem
@@ -252,6 +263,23 @@ public sealed partial class BufferPanel : UserControl
         if (confirmingBufferIndex != -1)
         {
             ExitConfirmState();
+        }
+    }
+
+    private async void OnEditorPaste(object sender, TextControlPasteEventArgs e)
+    {
+        e.Handled = true;
+        var editor = sender as RichEditBox;
+        if (editor == null)
+        {
+            return;
+        }
+
+        var dataView = Windows.ApplicationModel.DataTransfer.Clipboard.GetContent();
+        if (dataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text))
+        {
+            string text = await dataView.GetTextAsync();
+            editor.Document.Selection.TypeText(text);
         }
     }
 
@@ -318,9 +346,9 @@ public sealed partial class BufferPanel : UserControl
     {
         ExitConfirmState();
 
-        if (editorsByBufferIndex.TryGetValue(bufferIndex, out TextBox editor))
+        if (editorsByBufferIndex.TryGetValue(bufferIndex, out RichEditBox editor))
         {
-            editor.Text = string.Empty;
+            editor.Document.SetText(TextSetOptions.None, string.Empty);
         }
 
         if (bufferService != null)
@@ -344,23 +372,87 @@ public sealed partial class BufferPanel : UserControl
         ExitConfirmState();
     }
 
-    private void OnEditorTextChanged(object sender, TextChangedEventArgs e)
+    private void OnEditorKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != (VirtualKey)VKeyOemPlus)
+        {
+            return;
+        }
+
+        var shiftState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift);
+        if ((shiftState & CoreVirtualKeyStates.Down) == 0)
+        {
+            wasEqualsTyped = true;
+        }
+    }
+
+    private void OnEditorTextChanged(object sender, RoutedEventArgs e)
     {
         if (bufferService == null)
         {
             return;
         }
 
-        var textBox = sender as TextBox;
-        if (textBox == null)
+        var editor = sender as RichEditBox;
+        if (editor == null)
         {
             return;
         }
 
-        if (textBox.Tag is int index)
+        if (editor.Tag is int index)
         {
-            bufferService.UpdateContent(index, textBox.Text);
-            UpdateClearButtonState(index, isEmpty: string.IsNullOrEmpty(textBox.Text));
+            if (!isCalcReplacing && wasEqualsTyped)
+            {
+                wasEqualsTyped = false;
+                TryCalcReplace(editor);
+            }
+            else
+            {
+                wasEqualsTyped = false;
+            }
+
+            editor.Document.GetText(TextGetOptions.UseCrlf, out string text);
+            text = text.TrimEnd('\r', '\n');
+            bufferService.UpdateContent(index, text);
+            UpdateClearButtonState(index, isEmpty: string.IsNullOrEmpty(text));
+        }
+    }
+
+    private void TryCalcReplace(RichEditBox editor)
+    {
+        var sel = editor.Document.Selection;
+
+        var lineRange = sel.GetClone();
+        lineRange.Expand(TextRangeUnit.Line);
+        int lineStart = lineRange.StartPosition;
+
+        lineRange.GetText(TextGetOptions.None, out string fullLineText);
+
+        bool lineHasBreak = fullLineText.Length > 0 && fullLineText[fullLineText.Length - 1] == '\r';
+        string lineContent = lineHasBreak
+            ? fullLineText.Substring(0, fullLineText.Length - 1)
+            : fullLineText;
+
+        int contentEnd = lineStart + lineContent.Length;
+
+        if (!CalcService.TryEvaluate(lineContent, out string result))
+        {
+            return;
+        }
+
+        string newLineContent = lineContent + " " + result;
+
+        isCalcReplacing = true;
+        try
+        {
+            var contentRange = editor.Document.GetRange(lineStart, contentEnd);
+            contentRange.SetText(TextSetOptions.None, newLineContent);
+            int newCaretPos = lineStart + newLineContent.Length;
+            editor.Document.Selection.SetRange(newCaretPos, newCaretPos);
+        }
+        finally
+        {
+            isCalcReplacing = false;
         }
     }
 
@@ -386,6 +478,12 @@ public sealed partial class BufferPanel : UserControl
         bool ctrl = (ctrlState & CoreVirtualKeyStates.Down) != 0;
         if (!ctrl)
         {
+            return;
+        }
+
+        if (e.Key == VirtualKey.B || e.Key == VirtualKey.I || e.Key == VirtualKey.U)
+        {
+            e.Handled = true;
             return;
         }
 
@@ -427,7 +525,7 @@ public sealed partial class BufferPanel : UserControl
 
         BufferPivot.SelectedIndex = zeroBasedIndex;
         int bufferIndex = zeroBasedIndex + 1;
-        if (editorsByBufferIndex.TryGetValue(bufferIndex, out TextBox editor))
+        if (editorsByBufferIndex.TryGetValue(bufferIndex, out RichEditBox editor))
         {
             editor.Focus(FocusState.Programmatic);
         }

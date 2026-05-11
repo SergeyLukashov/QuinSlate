@@ -94,6 +94,12 @@ run first.
 
 ---
 
+## UI controls
+
+Always use modern WinUI 3 controls. Some examples, documentation, and a comprehensive list of all available controls can be found in the [WinUI Gallery repository](https://github.com/microsoft/WinUI-Gallery).
+
+---
+
 ## Win32 gotchas
 
 - **Message loop** — `RegisterHotKey` requires a Win32 message loop. Hook into the existing HWND via WindowNative` / `Win32Interop`; do not create a hidden secondary window for this.

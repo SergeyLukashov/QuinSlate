@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using Windows.System;
 using Windows.UI;
 using Windows.UI.Core;
+using Windows.UI.ViewManagement;
 using Buffer = Jott.Ui.Models.Buffer;
 
 namespace Jott.Ui.Views;
@@ -44,6 +45,8 @@ public sealed partial class BufferPanel : UserControl
     private const byte ConfirmBackgroundB = 60;
     private const byte ConfirmBackgroundA = 220;
     private const int VKeyOemPlus = 187;
+    private const int AnimationDurationMs = 1600;
+    private const int AnimationTickMs = 16;
 
     private BufferService bufferService;
     private readonly Dictionary<int, RichEditBox> editorsByBufferIndex = new Dictionary<int, RichEditBox>();
@@ -56,6 +59,16 @@ public sealed partial class BufferPanel : UserControl
     private DispatcherTimer confirmCancelTimer;
     private bool isCalcReplacing = false;
     private bool wasEqualsTyped = false;
+
+    private DispatcherTimer animationTimer;
+    private RichEditBox animationEditor;
+    private int animationResultStart;
+    private int animationResultEnd;
+    private Color animationAccentColor;
+    private Color animationNormalColor;
+    private DateTime animationStartTime;
+    private bool isApplyingAnimationColor = false;
+    private int animationExpectedTextLength;
 
     /// <summary>
     /// Creates the panel. <see cref="Initialise"/> must be called before the
@@ -401,6 +414,15 @@ public sealed partial class BufferPanel : UserControl
 
         if (editor.Tag is int index)
         {
+            if (!isCalcReplacing && !isApplyingAnimationColor && animationTimer != null && animationEditor == editor)
+            {
+                editor.Document.GetText(TextGetOptions.UseCrlf, out string currentText);
+                if (currentText.Length != animationExpectedTextLength)
+                {
+                    CancelAnimation();
+                }
+            }
+
             if (!isCalcReplacing && wasEqualsTyped)
             {
                 wasEqualsTyped = false;
@@ -440,7 +462,9 @@ public sealed partial class BufferPanel : UserControl
             return;
         }
 
-        string newLineContent = lineContent + " " + result;
+        bool hasSpaceBefore = lineContent.EndsWith(" =");
+        string separator = hasSpaceBefore ? " " : "";
+        string newLineContent = lineContent + separator + result;
 
         isCalcReplacing = true;
         try
@@ -454,6 +478,93 @@ public sealed partial class BufferPanel : UserControl
         {
             isCalcReplacing = false;
         }
+
+        // Highlight only the result value (skip the appended separator).
+        int highlightStart = lineStart + lineContent.Length + separator.Length;
+        int highlightEnd = lineStart + newLineContent.Length;
+        StartResultAnimation(editor, highlightStart, highlightEnd);
+    }
+
+    private void StartResultAnimation(RichEditBox editor, int resultStart, int resultEnd)
+    {
+        var uiSettings = new UISettings();
+        CancelAnimation();
+
+        animationAccentColor = uiSettings.GetColorValue(UIColorType.Accent);
+        animationNormalColor = uiSettings.GetColorValue(UIColorType.Background);
+        animationEditor = editor;
+        animationResultStart = resultStart;
+        animationResultEnd = resultEnd;
+        animationStartTime = DateTime.UtcNow;
+
+        ApplyAnimationColor(animationAccentColor);
+
+        editor.Document.GetText(TextGetOptions.UseCrlf, out string textAfterRewrite);
+        animationExpectedTextLength = textAfterRewrite.Length;
+
+        animationTimer = new DispatcherTimer();
+        animationTimer.Interval = TimeSpan.FromMilliseconds(AnimationTickMs);
+        animationTimer.Tick += OnAnimationTick;
+        animationTimer.Start();
+    }
+
+    private void CancelAnimation()
+    {
+        if (animationTimer == null)
+        {
+            return;
+        }
+
+        animationTimer.Stop();
+        animationTimer.Tick -= OnAnimationTick;
+        animationTimer = null;
+
+        ApplyAnimationColor(animationNormalColor);
+        animationEditor = null;
+    }
+
+    private void ApplyAnimationColor(Color color)
+    {
+        if (animationEditor == null)
+        {
+            return;
+        }
+
+        isApplyingAnimationColor = true;
+        try
+        {
+            var range = animationEditor.Document.GetRange(animationResultStart, animationResultEnd);
+            range.CharacterFormat.BackgroundColor = color;
+        }
+        finally
+        {
+            isApplyingAnimationColor = false;
+        }
+    }
+
+    private void OnAnimationTick(object sender, object e)
+    {
+        double elapsed = (DateTime.UtcNow - animationStartTime).TotalMilliseconds;
+        double t = Math.Min(elapsed / AnimationDurationMs, 1.0);
+
+        ApplyAnimationColor(InterpolateColor(animationAccentColor, animationNormalColor, t));
+
+        if (t >= 1.0)
+        {
+            animationTimer.Stop();
+            animationTimer.Tick -= OnAnimationTick;
+            animationTimer = null;
+            animationEditor = null;
+        }
+    }
+
+    private static Color InterpolateColor(Color from, Color to, double t)
+    {
+        return Color.FromArgb(
+            (byte)(from.A + (to.A - from.A) * t),
+            (byte)(from.R + (to.R - from.R) * t),
+            (byte)(from.G + (to.G - from.G) * t),
+            (byte)(from.B + (to.B - from.B) * t));
     }
 
     private void OnPanelPreviewKeyDown(object sender, KeyRoutedEventArgs e)

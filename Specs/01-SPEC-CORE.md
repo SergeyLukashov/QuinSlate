@@ -8,7 +8,7 @@ automatic saving to plain text files.
 ## Behaviour
 
 - On launch the app appears only as a tray icon. No window is shown.
-- A global hotkey (Win+`) toggles the panel visible/hidden.
+- A global hotkey (Ctrl+Shift+Q) toggles the panel visible/hidden. If the panel is visible but not the active foreground window, it brings the panel to the foreground instead of hiding it.
 - The panel contains 7 tabs, numbered 1–7, each with a distinct colour.
 - Each tab holds a plain multiline text box. No formatting controls.
 - Text is saved automatically. There is no save button.

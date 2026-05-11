@@ -10,3 +10,4 @@
 - [x] 08 Clear buffer with confirmation — [SPEC](08-SPEC-CLEAR-CONFIRM.md)
 - [x] 09 Pin window — [SPEC](09-SPEC-PIN-WINDOW.md)
 - [ ] 10 Capture without opening — [SPEC](10-SPEC-CAPTURE.md)
+- [ ] 11 Inline calculator — [SPEC](11-SPEC-INLINE-CALC)

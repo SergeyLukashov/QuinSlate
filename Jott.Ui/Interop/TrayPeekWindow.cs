@@ -191,7 +191,7 @@ public sealed class TrayPeekWindow : IDisposable
             else
             {
                 string firstLine = content;
-                int newlineIndex = content.IndexOf('\n');
+                int newlineIndex = content.IndexOfAny(new[] { '\r', '\n' });
                 if (newlineIndex >= 0)
                 {
                     firstLine = content.Substring(0, newlineIndex);

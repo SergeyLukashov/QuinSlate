@@ -126,7 +126,11 @@ public sealed partial class MainWindow : Window
         ApplyPinState();
         UpdatePinButtonAppearance();
 
+#if DEBUG
+        ShowPanel();
+#else
         HidePanel();
+#endif
     }
 
     private void ConfigureWindowAppearance()
@@ -485,7 +489,15 @@ public sealed partial class MainWindow : Window
     {
         if (isPanelVisible)
         {
-            HidePanel();
+            IntPtr foregroundWindow = NativeMethods.GetForegroundWindow();
+            if (foregroundWindow == windowHandle)
+            {
+                HidePanel();
+            }
+            else
+            {
+                ShowPanel();
+            }
         }
         else
         {

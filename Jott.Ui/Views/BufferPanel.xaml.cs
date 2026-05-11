@@ -194,7 +194,6 @@ public sealed partial class BufferPanel : UserControl
 
         var editor = new TextBox
         {
-            Text = buffer.Content,
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap,
             FontFamily = new FontFamily(MonospaceFont),
@@ -202,6 +201,7 @@ public sealed partial class BufferPanel : UserControl
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
             Tag = buffer.Index,
+            Text = buffer.Content,
         };
 
         editor.TextChanged += OnEditorTextChanged;
@@ -212,6 +212,8 @@ public sealed partial class BufferPanel : UserControl
         {
             Header = headerContainer,
             Content = editor,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Stretch,
         };
 
         return item;

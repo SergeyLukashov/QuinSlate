@@ -36,7 +36,7 @@ public sealed class HotkeyManager : IDisposable
     public int HotkeyIdentifier => HotkeyId;
 
     /// <summary>
-    /// Registers the v1 hardcoded hotkey (Win+`).
+    /// Registers the global hotkey (Ctrl+Shift+Q).
     /// Returns <c>false</c> if registration failed (for example a conflict with another app).
     /// Failures are logged and never throw or surface a dialog.
     /// </summary>
@@ -47,12 +47,12 @@ public sealed class HotkeyManager : IDisposable
             return true;
         }
 
-        var modifiers = NativeMethods.MOD_WIN | NativeMethods.MOD_NOREPEAT;
-        var result = NativeMethods.RegisterHotKey(windowHandle, HotkeyId, modifiers, (uint)NativeMethods.VK_OEM_3);
+        var modifiers = NativeMethods.MOD_CONTROL | NativeMethods.MOD_SHIFT | NativeMethods.MOD_NOREPEAT;
+        var result = NativeMethods.RegisterHotKey(windowHandle, HotkeyId, modifiers, (uint)NativeMethods.VK_Q);
         if (result == false)
         {
             var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
-            Debug.WriteLine($"[Jott] RegisterHotKey failed for Win+`. Win32 error: {error}");
+            Debug.WriteLine($"[Jott] RegisterHotKey failed for Ctrl+Shift+Q. Win32 error: {error}");
             return false;
         }
 

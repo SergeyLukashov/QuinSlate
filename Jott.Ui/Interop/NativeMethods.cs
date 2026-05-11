@@ -33,10 +33,12 @@ internal static class NativeMethods
     public const uint IDM_EXIT = 4;
     public const uint IDM_PEEK_PREVIEW = 5;
 
+    public const uint MOD_CONTROL = 0x0002;
+    public const uint MOD_SHIFT = 0x0004;
     public const uint MOD_WIN = 0x0008;
     public const uint MOD_NOREPEAT = 0x4000;
 
-    public const int VK_OEM_3 = 0xC0;
+    public const int VK_Q = 0x51;
 
     public const int GWLP_WNDPROC = -4;
 

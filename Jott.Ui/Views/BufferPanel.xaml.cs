@@ -21,7 +21,7 @@ namespace Jott.Ui.Views;
 public sealed partial class BufferPanel : UserControl
 {
     private const string MonospaceFont = "Consolas";
-    private const double EditorFontSize = 13;
+    private const double EditorFontSize = 14;
     private const double TabHeaderWidth = 28;
     private const double TabHeaderHeight = 28;
     private const double TabHeaderCornerRadius = 4;

@@ -12,7 +12,6 @@ namespace Jott.Ui.Interop;
 public sealed class TrayIcon : IDisposable
 {
     private const uint TrayIconId = 1;
-    private const string DefaultTooltip = "Jott";
 
     private readonly IntPtr windowHandle;
     private IntPtr iconHandle;
@@ -29,6 +28,18 @@ public sealed class TrayIcon : IDisposable
     /// surface the tray context menu.
     /// </summary>
     public event EventHandler RightClicked;
+
+    /// <summary>
+    /// Raised when the mouse pointer enters the tray icon area
+    /// (<c>NIN_POPUPOPEN</c>).
+    /// </summary>
+    public event EventHandler MouseHovered;
+
+    /// <summary>
+    /// Raised when the mouse pointer leaves the tray icon area
+    /// (<c>NIN_POPUPCLOSE</c>).
+    /// </summary>
+    public event EventHandler MouseLeft;
 
     /// <summary>
     /// Creates a tray icon bound to <paramref name="windowHandle"/>. The window
@@ -63,7 +74,12 @@ public sealed class TrayIcon : IDisposable
         iconHandle = LoadIcon(iconFilePath);
 
         var data = BuildData(tooltip);
-        data.uFlags = NativeMethods.NIF_MESSAGE | NativeMethods.NIF_ICON | NativeMethods.NIF_TIP | NativeMethods.NIF_SHOWTIP;
+        data.uFlags = NativeMethods.NIF_MESSAGE | NativeMethods.NIF_ICON | NativeMethods.NIF_TIP;
+        if (!string.IsNullOrEmpty(tooltip))
+        {
+            data.uFlags |= NativeMethods.NIF_SHOWTIP;
+        }
+
         data.hIcon = iconHandle;
 
         var addResult = NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_ADD, ref data);
@@ -104,8 +120,38 @@ public sealed class TrayIcon : IDisposable
         {
             RightClicked?.Invoke(this, EventArgs.Empty);
         }
+        else if (loWord == NativeMethods.WM_MOUSEMOVE)
+        {
+            MouseHovered?.Invoke(this, EventArgs.Empty);
+        }
+        else if (loWord == NativeMethods.NIN_POPUPCLOSE)
+        {
+            MouseLeft?.Invoke(this, EventArgs.Empty);
+        }
 
         return true;
+    }
+
+    /// <summary>
+    /// Updates the tooltip text shown on hover. Pass an empty string to suppress
+    /// the tooltip (e.g. when the peek preview window is enabled instead).
+    /// </summary>
+    /// <param name="tooltip">The new tooltip text, or empty to disable.</param>
+    public void SetTooltip(string tooltip)
+    {
+        if (!added)
+        {
+            return;
+        }
+
+        var data = BuildData(tooltip);
+        data.uFlags = NativeMethods.NIF_TIP;
+        if (!string.IsNullOrEmpty(tooltip))
+        {
+            data.uFlags |= NativeMethods.NIF_SHOWTIP;
+        }
+
+        NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
     }
 
     /// <summary>
@@ -149,7 +195,7 @@ public sealed class TrayIcon : IDisposable
         data.hWnd = windowHandle;
         data.uID = TrayIconId;
         data.uCallbackMessage = (uint)NativeMethods.WM_TRAYICON;
-        data.szTip = tooltip ?? DefaultTooltip;
+        data.szTip = tooltip ?? string.Empty;
         data.szInfo = string.Empty;
         data.szInfoTitle = string.Empty;
         return data;

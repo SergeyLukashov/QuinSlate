@@ -104,12 +104,22 @@ run first.
 
 ---
 
+## Build
+
+To verify compilation during development, run:
+
+```bash
+dotnet build Jott.slnx
+```
+
+---
+
 ## Testing
 
 After making significant changes, run the tests to verify correctness and catch regressions:
 
 ```bash
-dotnet test Jott.sln
+dotnet test Jott.slnx
 ```
 
 This must be done before considering any task complete.
@@ -121,7 +131,7 @@ This must be done before considering any task complete.
 After **every** task that writes, modifies, or generates any `.cs` file, run:
 
 ```bash
-dotnet format Jott.sln
+dotnet format Jott.slnx
 ```
 
 This applies to new files and edited files alike. Do not skip it for trivial changes.

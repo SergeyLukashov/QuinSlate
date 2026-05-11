@@ -50,11 +50,14 @@ public sealed partial class MainWindow : Window
     private IntPtr windowHandle;
     private AppWindow appWindow;
 
+    private const uint TrayIconId = 1;
+
     private BufferService bufferService;
     private StartupService startupService;
     private SettingsService settingsService;
     private HotkeyManager hotkeyManager;
     private TrayIcon trayIcon;
+    private TrayPeekWindow trayPeekWindow;
 
     private bool isPanelVisible;
     private bool isAboutDialogOpen;
@@ -105,10 +108,16 @@ public sealed partial class MainWindow : Window
         hotkeyManager = new HotkeyManager(windowHandle);
         hotkeyManager.RegisterDefaultHotkey();
 
+        trayPeekWindow = new TrayPeekWindow();
+
         trayIcon = new TrayIcon(windowHandle);
         trayIcon.LeftClicked += OnTrayLeftClicked;
         trayIcon.RightClicked += OnTrayRightClicked;
-        trayIcon.Add(trayIconFilePath, "Jott");
+        trayIcon.MouseHovered += OnTrayMouseHovered;
+        trayIcon.MouseLeft += OnTrayMouseLeft;
+
+        string trayTooltip = settingsService.TrayPeekEnabled ? string.Empty : "Jott";
+        trayIcon.Add(trayIconFilePath, trayTooltip);
 
         Closed += OnWindowClosed;
 
@@ -307,6 +316,28 @@ public sealed partial class MainWindow : Window
         DispatcherQueue.TryEnqueue(ShowContextMenu);
     }
 
+    private void OnTrayMouseHovered(object sender, EventArgs e)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (trayPeekWindow != null && settingsService != null && settingsService.TrayPeekEnabled)
+            {
+                trayPeekWindow.Show(bufferService, windowHandle, TrayIconId);
+            }
+        });
+    }
+
+    private void OnTrayMouseLeft(object sender, EventArgs e)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (trayPeekWindow != null)
+            {
+                trayPeekWindow.Hide();
+            }
+        });
+    }
+
     private void ShowContextMenu()
     {
         if (startupService == null)
@@ -315,8 +346,9 @@ public sealed partial class MainWindow : Window
         }
 
         bool startupEnabled = startupService.IsEnabled();
+        bool peekEnabled = settingsService != null && settingsService.TrayPeekEnabled;
         var menu = new TrayMenu();
-        uint command = menu.Show(windowHandle, startupEnabled);
+        uint command = menu.Show(windowHandle, startupEnabled, peekEnabled);
         HandleMenuCommand(command, startupEnabled);
     }
 
@@ -337,8 +369,16 @@ public sealed partial class MainWindow : Window
                 startupService.Enable();
             }
         }
+        else if (command == NativeMethods.IDM_PEEK_PREVIEW)
+        {
+            bool newPeekEnabled = !settingsService.TrayPeekEnabled;
+            settingsService.TrayPeekEnabled = newPeekEnabled;
+            trayIcon.SetTooltip(newPeekEnabled ? string.Empty : "Jott");
+            _ = settingsService.SaveAsync();
+        }
         else if (command == NativeMethods.IDM_ABOUT)
         {
+            ShowPanel();
             await ShowAboutDialog();
         }
         else if (command == NativeMethods.IDM_EXIT)
@@ -386,6 +426,12 @@ public sealed partial class MainWindow : Window
         }
 
         newWndProc = null;
+
+        if (trayPeekWindow != null)
+        {
+            trayPeekWindow.Dispose();
+            trayPeekWindow = null;
+        }
 
         if (trayIcon != null)
         {

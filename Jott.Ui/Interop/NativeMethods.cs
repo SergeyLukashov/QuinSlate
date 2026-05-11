@@ -31,6 +31,7 @@ internal static class NativeMethods
     public const uint IDM_LAUNCH_STARTUP = 2;
     public const uint IDM_ABOUT = 3;
     public const uint IDM_EXIT = 4;
+    public const uint IDM_PEEK_PREVIEW = 5;
 
     public const uint MOD_WIN = 0x0008;
     public const uint MOD_NOREPEAT = 0x4000;
@@ -40,6 +41,7 @@ internal static class NativeMethods
     public const int GWLP_WNDPROC = -4;
 
     public const uint NIM_ADD = 0x00000000;
+    public const uint NIM_MODIFY = 0x00000001;
     public const uint NIM_DELETE = 0x00000002;
     public const uint NIM_SETVERSION = 0x00000004;
 
@@ -59,6 +61,21 @@ internal static class NativeMethods
     public const uint MONITOR_DEFAULTTONULL = 0;
 
     public const uint SPI_GETWORKAREA = 0x0030;
+
+    public const uint NIN_POPUPOPEN = 0x0406;
+    public const uint NIN_POPUPCLOSE = 0x0407;
+
+    public const uint WS_POPUP = 0x80000000;
+    public const uint WS_EX_TOPMOST = 0x00000008;
+    public const uint WS_EX_TOOLWINDOW = 0x00000080;
+    public const uint WS_EX_NOACTIVATE = 0x08000000;
+
+    public const int SW_SHOWNOACTIVATE = 4;
+    public const int SW_HIDE = 0;
+
+    public const uint WM_MOUSEMOVE = 0x0200;
+    public const uint WM_SHOWWINDOW = 0x0018;
+    public const uint WM_TIMER = 0x0113;
 
     public static readonly IntPtr IDI_APPLICATION = new IntPtr(32512);
 
@@ -248,4 +265,220 @@ internal static class NativeMethods
     /// </summary>
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, ref RECT pvParam, uint fWinIni);
+
+    /// <summary>
+    /// Identifies a notification icon by its host window handle, icon ID, and
+    /// optional GUID. Used with <see cref="Shell_NotifyIconGetRect"/>.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct NOTIFYICONIDENTIFIER
+    {
+        public uint cbSize;
+        public IntPtr hWnd;
+        public uint uID;
+        public Guid guidItem;
+    }
+
+    /// <summary>
+    /// Describes a Win32 window class. Used with <see cref="RegisterClassEx"/>.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct WNDCLASSEX
+    {
+        public uint cbSize;
+        public uint style;
+        public WndProcDelegate lpfnWndProc;
+        public int cbClsExtra;
+        public int cbWndExtra;
+        public IntPtr hInstance;
+        public IntPtr hIcon;
+        public IntPtr hCursor;
+        public IntPtr hbrBackground;
+        public string lpszMenuName;
+        public string lpszClassName;
+        public IntPtr hIconSm;
+    }
+
+    /// <summary>
+    /// Contains paint information passed to <see cref="BeginPaint"/>.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct PAINTSTRUCT
+    {
+        public IntPtr hdc;
+        public bool fErase;
+        public RECT rcPaint;
+        public bool fRestore;
+        public bool fIncUpdate;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
+        public byte[] rgbReserved;
+    }
+
+    /// <summary>
+    /// Defines the attributes of a logical font for use with <see cref="CreateFontIndirect"/>.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct LOGFONT
+    {
+        public int lfHeight;
+        public int lfWidth;
+        public int lfEscapement;
+        public int lfOrientation;
+        public int lfWeight;
+        public byte lfItalic;
+        public byte lfUnderline;
+        public byte lfStrikeOut;
+        public byte lfCharSet;
+        public byte lfOutPrecision;
+        public byte lfClipPrecision;
+        public byte lfQuality;
+        public byte lfPitchAndFamily;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string lfFaceName;
+    }
+
+    /// <summary>
+    /// Returns the bounding rectangle of a notification icon in screen coordinates.
+    /// </summary>
+    [DllImport("shell32.dll")]
+    public static extern int Shell_NotifyIconGetRect(ref NOTIFYICONIDENTIFIER identifier, out RECT iconLocation);
+
+    /// <summary>
+    /// Registers a window class for use with <see cref="CreateWindowEx"/>.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern ushort RegisterClassEx(ref WNDCLASSEX lpwcx);
+
+    /// <summary>
+    /// Creates a window with extended style, class, and other attributes.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr CreateWindowEx(uint dwExStyle, string lpClassName, string lpWindowName, uint dwStyle, int x, int y, int nWidth, int nHeight, IntPtr hWndParent, IntPtr hMenu, IntPtr hInstance, IntPtr lpParam);
+
+    /// <summary>
+    /// Destroys the specified window.
+    /// </summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool DestroyWindow(IntPtr hWnd);
+
+    /// <summary>
+    /// Shows or hides a window according to <paramref name="nCmdShow"/>.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    /// <summary>
+    /// Changes the position and size of the specified window.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool MoveWindow(IntPtr hWnd, int x, int y, int nWidth, int nHeight, bool bRepaint);
+
+    /// <summary>
+    /// Prepares the specified window for painting and returns a display context.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern IntPtr BeginPaint(IntPtr hWnd, out PAINTSTRUCT lpPaint);
+
+    /// <summary>
+    /// Marks the end of painting for the specified window.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool EndPaint(IntPtr hWnd, ref PAINTSTRUCT lpPaint);
+
+    /// <summary>
+    /// Creates a logical font from the specified <see cref="LOGFONT"/> structure.
+    /// </summary>
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateFontIndirect(ref LOGFONT lplf);
+
+    /// <summary>
+    /// Selects a GDI object into a device context, returning the previously selected object.
+    /// </summary>
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr SelectObject(IntPtr hdc, IntPtr h);
+
+    /// <summary>
+    /// Deletes a logical GDI object and frees any associated system resources.
+    /// </summary>
+    [DllImport("gdi32.dll")]
+    public static extern bool DeleteObject(IntPtr ho);
+
+    /// <summary>
+    /// Sets the background mix mode for text and hatched brush drawing.
+    /// </summary>
+    [DllImport("gdi32.dll")]
+    public static extern int SetBkMode(IntPtr hdc, int mode);
+
+    /// <summary>
+    /// Sets the foreground (text) colour for the specified device context.
+    /// </summary>
+    [DllImport("gdi32.dll")]
+    public static extern uint SetTextColor(IntPtr hdc, uint color);
+
+    /// <summary>
+    /// Sets the background colour for the specified device context.
+    /// </summary>
+    [DllImport("gdi32.dll")]
+    public static extern uint SetBkColor(IntPtr hdc, uint color);
+
+    /// <summary>
+    /// Draws formatted text in the specified rectangle using the given format flags.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern int DrawText(IntPtr hdc, string lpchText, int cchText, ref RECT lprc, uint uFormat);
+
+    /// <summary>
+    /// Adds a rectangle to the specified window's update region, scheduling a repaint.
+    /// </summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool InvalidateRect(IntPtr hWnd, IntPtr lpRect, bool bErase);
+
+    /// <summary>
+    /// Calls the default window procedure for messages not handled by the application.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern IntPtr DefWindowProc(IntPtr hWnd, uint uMsg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>
+    /// Fills a rectangle using the specified brush.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool FillRect(IntPtr hDC, ref RECT lprc, IntPtr hbr);
+
+    /// <summary>
+    /// Creates a logical brush that has the specified solid colour.
+    /// </summary>
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateSolidBrush(uint crColor);
+
+    /// <summary>
+    /// Returns the handle to the desktop window.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetDesktopWindow();
+
+    /// <summary>
+    /// Retrieves the dimensions of the bounding rectangle of the specified window.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    /// <summary>
+    /// Creates a timer that fires <see cref="WM_TIMER"/> to <paramref name="hWnd"/>
+    /// every <paramref name="uElapse"/> milliseconds.
+    /// </summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern uint SetTimer(IntPtr hWnd, uint nIDEvent, uint uElapse, IntPtr lpTimerFunc);
+
+    /// <summary>
+    /// Destroys the timer created by <see cref="SetTimer"/>.
+    /// </summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool KillTimer(IntPtr hWnd, uint uIDEvent);
+
+    /// <summary>
+    /// Returns the system DPI, which equals the DPI of the primary monitor.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern uint GetDpiForSystem();
 }

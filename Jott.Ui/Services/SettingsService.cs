@@ -93,6 +93,15 @@ public sealed class SettingsService
     }
 
     /// <summary>
+    /// Whether the tray peek preview window is shown on hover. Disabled by default.
+    /// </summary>
+    public bool TrayPeekEnabled
+    {
+        get => settings.TrayPeekEnabled;
+        set => settings.TrayPeekEnabled = value;
+    }
+
+    /// <summary>
     /// Loads settings from disk asynchronously. A missing or malformed file is
     /// not an error; defaults are used instead.
     /// </summary>
@@ -159,5 +168,6 @@ public sealed class SettingsService
         public bool HasSavedPosition { get; set; }
         public int WindowLeft { get; set; }
         public int WindowTop { get; set; }
+        public bool TrayPeekEnabled { get; set; }
     }
 }

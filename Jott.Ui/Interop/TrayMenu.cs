@@ -11,6 +11,7 @@ public sealed class TrayMenu
 {
     private const string OpenLabel = "Open";
     private const string LaunchOnStartupLabel = "Launch on startup";
+    private const string PeekPreviewLabel = "Peek preview";
     private const string AboutLabel = "About";
     private const string ExitLabel = "Exit";
 
@@ -22,8 +23,10 @@ public sealed class TrayMenu
     /// foreground window so the menu dismisses correctly when focus is lost.</param>
     /// <param name="startupEnabled">Whether the "Launch on startup" item is
     /// rendered with a check mark.</param>
+    /// <param name="peekEnabled">Whether the "Peek preview" item is rendered with
+    /// a check mark.</param>
     /// <returns>The selected command identifier, or zero if no item was chosen.</returns>
-    public uint Show(IntPtr windowHandle, bool startupEnabled)
+    public uint Show(IntPtr windowHandle, bool startupEnabled, bool peekEnabled)
     {
         if (windowHandle == IntPtr.Zero)
         {
@@ -54,6 +57,9 @@ public sealed class TrayMenu
 
             var startupFlags = NativeMethods.MF_STRING | (startupEnabled ? NativeMethods.MF_CHECKED : NativeMethods.MF_UNCHECKED);
             NativeMethods.AppendMenu(menu, startupFlags, NativeMethods.IDM_LAUNCH_STARTUP, LaunchOnStartupLabel);
+
+            var peekFlags = NativeMethods.MF_STRING | (peekEnabled ? NativeMethods.MF_CHECKED : NativeMethods.MF_UNCHECKED);
+            NativeMethods.AppendMenu(menu, peekFlags, NativeMethods.IDM_PEEK_PREVIEW, PeekPreviewLabel);
 
             NativeMethods.AppendMenu(menu, NativeMethods.MF_SEPARATOR, 0, null);
             NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, NativeMethods.IDM_ABOUT, AboutLabel);

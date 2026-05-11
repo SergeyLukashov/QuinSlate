@@ -61,6 +61,7 @@ public sealed partial class MainWindow : Window
 
     private bool isPanelVisible;
     private bool isAboutDialogOpen;
+    private bool isPinned;
 
     /// <summary>
     /// Constructs the window. Call <see cref="Initialise"/> immediately
@@ -120,6 +121,10 @@ public sealed partial class MainWindow : Window
         trayIcon.Add(trayIconFilePath, trayTooltip);
 
         Closed += OnWindowClosed;
+
+        isPinned = settingsService.IsPinned;
+        ApplyPinState();
+        UpdatePinButtonAppearance();
 
         HidePanel();
     }
@@ -495,6 +500,7 @@ public sealed partial class MainWindow : Window
             appWindow.Show();
         }
 
+        ApplyPinState();
         NativeMethods.SetForegroundWindow(windowHandle);
         isPanelVisible = true;
     }
@@ -507,6 +513,31 @@ public sealed partial class MainWindow : Window
         }
 
         isPanelVisible = false;
+    }
+
+    private void ApplyPinState()
+    {
+        IntPtr insertAfter = isPinned ? NativeMethods.HWND_TOPMOST : NativeMethods.HWND_NOTOPMOST;
+        NativeMethods.SetWindowPos(windowHandle, insertAfter, 0, 0, 0, 0, NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE);
+    }
+
+    private void UpdatePinButtonAppearance()
+    {
+        if (PinButton == null)
+        {
+            return;
+        }
+
+        PinButton.Opacity = isPinned ? 1.0 : 0.4;
+    }
+
+    private void OnPinButtonClicked(object sender, RoutedEventArgs e)
+    {
+        isPinned = !isPinned;
+        settingsService.IsPinned = isPinned;
+        ApplyPinState();
+        UpdatePinButtonAppearance();
+        _ = settingsService.SaveAsync();
     }
 
     private void OnWindowClosed(object sender, WindowEventArgs args)

@@ -102,6 +102,15 @@ public sealed class SettingsService
     }
 
     /// <summary>
+    /// Whether the main panel is pinned above all other windows (HWND_TOPMOST).
+    /// </summary>
+    public bool IsPinned
+    {
+        get => settings.IsPinned;
+        set => settings.IsPinned = value;
+    }
+
+    /// <summary>
     /// Loads settings from disk asynchronously. A missing or malformed file is
     /// not an error; defaults are used instead.
     /// </summary>
@@ -169,5 +178,6 @@ public sealed class SettingsService
         public int WindowLeft { get; set; }
         public int WindowTop { get; set; }
         public bool TrayPeekEnabled { get; set; }
+        public bool IsPinned { get; set; }
     }
 }

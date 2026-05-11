@@ -7,6 +7,6 @@
 - [x] 05 Panel anchor and position memory — [SPEC](05-SPEC-PANEL-POSITION.md)
 - [x] 06 Buffer keyboard navigation — [SPEC](06-SPEC-KEYBOARD-NAV.md)
 - [x] 07 Buffer peek — [SPEC](07-SPEC-BUFFER-PEEK.md)
-- [ ] 08 Clear buffer with confirmation — [SPEC](08-SPEC-CLEAR-CONFIRM.md)
-- [ ] 09 Pin window — [SPEC](09-SPEC-PIN-WINDOW.md)
+- [x] 08 Clear buffer with confirmation — [SPEC](08-SPEC-CLEAR-CONFIRM.md)
+- [x] 09 Pin window — [SPEC](09-SPEC-PIN-WINDOW.md)
 - [ ] 10 Capture without opening — [SPEC](10-SPEC-CAPTURE.md)

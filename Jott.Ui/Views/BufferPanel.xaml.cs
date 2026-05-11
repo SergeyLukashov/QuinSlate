@@ -26,9 +26,32 @@ public sealed partial class BufferPanel : UserControl
     private const double TabHeaderHeight = 28;
     private const double TabHeaderCornerRadius = 4;
     private const double TabHeaderMargin = 2;
+    private const double ClearButtonWidth = 20;
+    private const double ClearButtonHeight = 20;
+    private const double ClearButtonMarginLeft = 4;
+    private const double ConfirmBorderCornerRadius = 4;
+    private const double ConfirmBorderPaddingH = 6;
+    private const double ConfirmBorderPaddingV = 2;
+    private const double ConfirmBorderMarginLeft = 4;
+    private const double ConfirmTextFontSize = 11;
+    private const double ConfirmButtonWidth = 22;
+    private const double ConfirmButtonHeight = 22;
+    private const double ConfirmButtonMarginLeft = 4;
+    private const int ConfirmAutoCancelSeconds = 4;
+    private const byte ConfirmBackgroundR = 180;
+    private const byte ConfirmBackgroundG = 60;
+    private const byte ConfirmBackgroundB = 60;
+    private const byte ConfirmBackgroundA = 220;
 
     private BufferService bufferService;
     private readonly Dictionary<int, TextBox> editorsByBufferIndex = new Dictionary<int, TextBox>();
+    private readonly Dictionary<int, Grid> headerContainersByIndex = new Dictionary<int, Grid>();
+    private readonly Dictionary<int, StackPanel> normalPanelsByIndex = new Dictionary<int, StackPanel>();
+    private readonly Dictionary<int, Border> confirmPanelsByIndex = new Dictionary<int, Border>();
+    private readonly Dictionary<int, Button> clearButtonsByIndex = new Dictionary<int, Button>();
+
+    private int confirmingBufferIndex = -1;
+    private DispatcherTimer confirmCancelTimer;
 
     /// <summary>
     /// Creates the panel. <see cref="Initialise"/> must be called before the
@@ -58,6 +81,10 @@ public sealed partial class BufferPanel : UserControl
         this.bufferService = bufferService;
         BufferPivot.Items.Clear();
         editorsByBufferIndex.Clear();
+        headerContainersByIndex.Clear();
+        normalPanelsByIndex.Clear();
+        confirmPanelsByIndex.Clear();
+        clearButtonsByIndex.Clear();
 
         foreach (var buffer in buffers)
         {
@@ -77,7 +104,7 @@ public sealed partial class BufferPanel : UserControl
     {
         var headerColor = ParseColor(buffer.ColorHex);
 
-        var headerBorder = new Border
+        var numberBadge = new Border
         {
             Width = TabHeaderWidth,
             Height = TabHeaderHeight,
@@ -96,6 +123,75 @@ public sealed partial class BufferPanel : UserControl
             },
         };
 
+        var clearButton = new Button
+        {
+            Content = "✕",
+            Width = ClearButtonWidth,
+            Height = ClearButtonHeight,
+            Padding = new Thickness(0),
+            Margin = new Thickness(ClearButtonMarginLeft, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Tag = buffer.Index,
+            IsEnabled = !string.IsNullOrEmpty(buffer.Content),
+        };
+        clearButton.Click += OnClearButtonClick;
+        clearButtonsByIndex[buffer.Index] = clearButton;
+
+        var normalPanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        normalPanel.Children.Add(numberBadge);
+        normalPanel.Children.Add(clearButton);
+        normalPanelsByIndex[buffer.Index] = normalPanel;
+
+        var confirmCheckButton = new Button
+        {
+            Content = "✓",
+            Width = ConfirmButtonWidth,
+            Height = ConfirmButtonHeight,
+            Padding = new Thickness(0),
+            Margin = new Thickness(ConfirmButtonMarginLeft, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Tag = buffer.Index,
+        };
+        confirmCheckButton.Click += OnConfirmCheckButtonClick;
+
+        var confirmContent = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        confirmContent.Children.Add(new TextBlock
+        {
+            Text = "Clear?",
+            FontSize = ConfirmTextFontSize,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = new SolidColorBrush(Colors.White),
+        });
+        confirmContent.Children.Add(confirmCheckButton);
+
+        var confirmPanel = new Border
+        {
+            CornerRadius = new CornerRadius(ConfirmBorderCornerRadius),
+            Padding = new Thickness(ConfirmBorderPaddingH, ConfirmBorderPaddingV, ConfirmBorderPaddingH, ConfirmBorderPaddingV),
+            Margin = new Thickness(ConfirmBorderMarginLeft, 0, 0, 0),
+            Background = new SolidColorBrush(Color.FromArgb(ConfirmBackgroundA, ConfirmBackgroundR, ConfirmBackgroundG, ConfirmBackgroundB)),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = confirmContent,
+            Visibility = Visibility.Collapsed,
+        };
+        confirmPanelsByIndex[buffer.Index] = confirmPanel;
+
+        var headerContainer = new Grid
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        headerContainer.Children.Add(normalPanel);
+        headerContainer.Children.Add(confirmPanel);
+        headerContainersByIndex[buffer.Index] = headerContainer;
+
         var editor = new TextBox
         {
             Text = buffer.Content,
@@ -109,15 +205,141 @@ public sealed partial class BufferPanel : UserControl
         };
 
         editor.TextChanged += OnEditorTextChanged;
+        editor.PointerPressed += OnEditorPointerPressed;
         editorsByBufferIndex[buffer.Index] = editor;
 
         var item = new PivotItem
         {
-            Header = headerBorder,
+            Header = headerContainer,
             Content = editor,
         };
 
         return item;
+    }
+
+    private void OnClearButtonClick(object sender, RoutedEventArgs e)
+    {
+        var button = sender as Button;
+        if (button == null)
+        {
+            return;
+        }
+
+        if (button.Tag is int index)
+        {
+            EnterConfirmState(index);
+        }
+    }
+
+    private void OnConfirmCheckButtonClick(object sender, RoutedEventArgs e)
+    {
+        var button = sender as Button;
+        if (button == null)
+        {
+            return;
+        }
+
+        if (button.Tag is int index)
+        {
+            ConfirmClear(index);
+        }
+    }
+
+    private void OnEditorPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (confirmingBufferIndex != -1)
+        {
+            ExitConfirmState();
+        }
+    }
+
+    private void EnterConfirmState(int bufferIndex)
+    {
+        if (confirmingBufferIndex != -1 && confirmingBufferIndex != bufferIndex)
+        {
+            ExitConfirmState();
+        }
+
+        confirmingBufferIndex = bufferIndex;
+
+        if (normalPanelsByIndex.TryGetValue(bufferIndex, out StackPanel normalPanel))
+        {
+            normalPanel.Visibility = Visibility.Collapsed;
+        }
+
+        if (confirmPanelsByIndex.TryGetValue(bufferIndex, out Border confirmPanel))
+        {
+            confirmPanel.Visibility = Visibility.Visible;
+        }
+
+        if (confirmCancelTimer != null)
+        {
+            confirmCancelTimer.Stop();
+            confirmCancelTimer = null;
+        }
+
+        confirmCancelTimer = new DispatcherTimer();
+        confirmCancelTimer.Interval = TimeSpan.FromSeconds(ConfirmAutoCancelSeconds);
+        confirmCancelTimer.Tick += OnConfirmTimerTick;
+        confirmCancelTimer.Start();
+    }
+
+    private void ExitConfirmState()
+    {
+        if (confirmCancelTimer != null)
+        {
+            confirmCancelTimer.Stop();
+            confirmCancelTimer.Tick -= OnConfirmTimerTick;
+            confirmCancelTimer = null;
+        }
+
+        int index = confirmingBufferIndex;
+        confirmingBufferIndex = -1;
+
+        if (index == -1)
+        {
+            return;
+        }
+
+        if (normalPanelsByIndex.TryGetValue(index, out StackPanel normalPanel))
+        {
+            normalPanel.Visibility = Visibility.Visible;
+        }
+
+        if (confirmPanelsByIndex.TryGetValue(index, out Border confirmPanel))
+        {
+            confirmPanel.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void ConfirmClear(int bufferIndex)
+    {
+        ExitConfirmState();
+
+        if (editorsByBufferIndex.TryGetValue(bufferIndex, out TextBox editor))
+        {
+            editor.Text = string.Empty;
+        }
+
+        if (bufferService != null)
+        {
+            bufferService.UpdateContent(bufferIndex, string.Empty);
+        }
+
+        UpdateClearButtonState(bufferIndex, isEmpty: true);
+    }
+
+    private void UpdateClearButtonState(int bufferIndex, bool isEmpty)
+    {
+        if (clearButtonsByIndex.TryGetValue(bufferIndex, out Button clearButton))
+        {
+            clearButton.IsEnabled = !isEmpty;
+        }
+    }
+
+    private void OnConfirmTimerTick(object sender, object e)
+    {
+        ExitConfirmState();
     }
 
     private void OnEditorTextChanged(object sender, TextChangedEventArgs e)
@@ -136,11 +358,19 @@ public sealed partial class BufferPanel : UserControl
         if (textBox.Tag is int index)
         {
             bufferService.UpdateContent(index, textBox.Text);
+            UpdateClearButtonState(index, isEmpty: string.IsNullOrEmpty(textBox.Text));
         }
     }
 
     private void OnPanelPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (e.Key == VirtualKey.Escape && confirmingBufferIndex != -1)
+        {
+            ExitConfirmState();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == VirtualKey.Tab)
         {
             var shiftState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift);

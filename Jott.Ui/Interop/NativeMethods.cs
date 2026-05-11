@@ -65,6 +65,12 @@ internal static class NativeMethods
     public const uint NIN_POPUPOPEN = 0x0406;
     public const uint NIN_POPUPCLOSE = 0x0407;
 
+    public const uint SWP_NOSIZE = 0x0001;
+    public const uint SWP_NOMOVE = 0x0002;
+
+    public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+    public static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+
     public const uint WS_POPUP = 0x80000000;
     public const uint WS_EX_TOPMOST = 0x00000008;
     public const uint WS_EX_TOOLWINDOW = 0x00000080;
@@ -481,4 +487,13 @@ internal static class NativeMethods
     /// </summary>
     [DllImport("user32.dll")]
     public static extern uint GetDpiForSystem();
+
+    /// <summary>
+    /// Changes the size, position, and Z order of a window.
+    /// Pass <see cref="HWND_TOPMOST"/> or <see cref="HWND_NOTOPMOST"/> as
+    /// <paramref name="hWndInsertAfter"/> with <see cref="SWP_NOMOVE"/> |
+    /// <see cref="SWP_NOSIZE"/> to set topmost state without moving or resizing.
+    /// </summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
 }

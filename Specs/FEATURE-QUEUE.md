@@ -12,4 +12,5 @@
 - [ ] 10 Capture without opening — [SPEC](10-SPEC-CAPTURE.md)
 - [x] 11 Inline calculator — [SPEC](11-SPEC-INLINE-CALC)
 - [x] 12 Calculation result highlight animation — [SPEC](12-SPEC-CALC-RESULT-ANIMATION)
+- [ ] 13 Dictate into slot — [SPEC](13-SPEC-DICTATE-INTO-SLOT)
 

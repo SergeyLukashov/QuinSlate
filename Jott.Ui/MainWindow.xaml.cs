@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.UI;
 using WinRT.Interop;
 using Buffer = Jott.Ui.Models.Buffer;
 
@@ -35,14 +36,15 @@ public sealed partial class MainWindow : Window
     private const int SettingsDebounceMilliseconds = 500;
 
     private Timer settingsDebounceTimer;
-    private volatile int pendingSizeWidth;
-    private volatile int pendingSizeHeight;
-    private volatile int pendingPositionX;
-    private volatile int pendingPositionY;
+    private readonly object pendingStateLock = new object();
+    private int pendingSizeWidth;
+    private int pendingSizeHeight;
+    private int pendingPositionX;
+    private int pendingPositionY;
     private volatile bool isTornDown;
 
     private const string AboutDialogTitle = "Jott";
-    private const string AboutDialogContent = "Version 1.0.0\n\nHotkeys:\nShow / Hide: Win + `";
+    private const string AboutDialogContent = "Version 1.0.0\n\nHotkeys:\nShow / Hide: Ctrl+Shift+Q";
     private const string AboutDialogCloseButton = "OK";
 
     private NativeMethods.WndProcDelegate newWndProc;
@@ -62,6 +64,7 @@ public sealed partial class MainWindow : Window
     private bool isPanelVisible;
     private bool isAboutDialogOpen;
     private bool isPinned;
+    private bool isInitialised;
 
     /// <summary>
     /// Constructs the window. Call <see cref="Initialise"/> immediately
@@ -75,9 +78,15 @@ public sealed partial class MainWindow : Window
     /// <summary>
     /// Wires the buffer service, registers the global hotkey, installs the
     /// tray icon, and hides the window. Must be called once after construction.
+    /// Calling it more than once is a no-op after the first successful call.
     /// </summary>
     public void Initialise(BufferService bufferService, string trayIconFilePath, StartupService startupService, SettingsService settingsService)
     {
+        if (isInitialised)
+        {
+            return;
+        }
+
         if (bufferService == null)
         {
             throw new ArgumentNullException(nameof(bufferService));
@@ -104,6 +113,7 @@ public sealed partial class MainWindow : Window
 
         windowHandle = WindowNative.GetWindowHandle(this);
         ConfigureWindowAppearance();
+        ConfigureTitleBar();
         SubclassWindowProc();
 
         hotkeyManager = new HotkeyManager(windowHandle);
@@ -121,10 +131,17 @@ public sealed partial class MainWindow : Window
         trayIcon.Add(trayIconFilePath, trayTooltip);
 
         Closed += OnWindowClosed;
+        Panel.PinToggleRequested += OnPanelPinToggleRequested;
 
         isPinned = settingsService.IsPinned;
         ApplyPinState();
-        UpdatePinButtonAppearance();
+        Panel.SetPinned(isPinned);
+
+        isInitialised = true;
+
+        // Activate must be called once to initialise the XAML island before
+        // the window is hidden via AppWindow.Hide().
+        this.Activate();
 
 #if DEBUG
         ShowPanel();
@@ -229,10 +246,13 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        pendingSizeWidth = appWindow.Size.Width;
-        pendingSizeHeight = appWindow.Size.Height;
-        pendingPositionX = appWindow.Position.X;
-        pendingPositionY = appWindow.Position.Y;
+        lock (pendingStateLock)
+        {
+            pendingSizeWidth = appWindow.Size.Width;
+            pendingSizeHeight = appWindow.Size.Height;
+            pendingPositionX = appWindow.Position.X;
+            pendingPositionY = appWindow.Position.Y;
+        }
 
         if (settingsDebounceTimer == null)
         {
@@ -246,11 +266,17 @@ public sealed partial class MainWindow : Window
 
     private void OnSettingsDebounceElapsed(object state)
     {
+        int sizeWidth, sizeHeight, posX, posY;
+        lock (pendingStateLock)
+        {
+            sizeWidth = pendingSizeWidth;
+            sizeHeight = pendingSizeHeight;
+            posX = pendingPositionX;
+            posY = pendingPositionY;
+        }
         float scale = NativeMethods.GetDpiForWindow(windowHandle) / 96.0f;
-        int logicalWidth = (int)Math.Round(pendingSizeWidth / scale);
-        int logicalHeight = (int)Math.Round(pendingSizeHeight / scale);
-        int posX = pendingPositionX;
-        int posY = pendingPositionY;
+        int logicalWidth = (int)Math.Round(sizeWidth / scale);
+        int logicalHeight = (int)Math.Round(sizeHeight / scale);
         DispatcherQueue.TryEnqueue(() =>
         {
             if (isTornDown)
@@ -300,7 +326,21 @@ public sealed partial class MainWindow : Window
 
         if (msg == NativeMethods.WM_JOTT_ACTIVATE)
         {
-            DispatcherQueue.TryEnqueue(ShowPanel);
+            ShowPanel();
+            return IntPtr.Zero;
+        }
+
+        if (msg == NativeMethods.WM_QUERYENDSESSION)
+        {
+            return new IntPtr(1);
+        }
+
+        if (msg == NativeMethods.WM_ENDSESSION)
+        {
+            if (wParam != IntPtr.Zero && !isTornDown)
+            {
+                Teardown();
+            }
             return IntPtr.Zero;
         }
 
@@ -317,34 +357,28 @@ public sealed partial class MainWindow : Window
 
     private void OnTrayLeftClicked(object sender, EventArgs e)
     {
-        DispatcherQueue.TryEnqueue(TogglePanelVisibility);
+        TogglePanelVisibility();
     }
 
     private void OnTrayRightClicked(object sender, EventArgs e)
     {
-        DispatcherQueue.TryEnqueue(ShowContextMenu);
+        ShowContextMenu();
     }
 
     private void OnTrayMouseHovered(object sender, EventArgs e)
     {
-        DispatcherQueue.TryEnqueue(() =>
+        if (trayPeekWindow != null && settingsService != null && settingsService.TrayPeekEnabled)
         {
-            if (trayPeekWindow != null && settingsService != null && settingsService.TrayPeekEnabled)
-            {
-                trayPeekWindow.Show(bufferService, windowHandle, TrayIconId);
-            }
-        });
+            trayPeekWindow.Show(bufferService, windowHandle, TrayIconId);
+        }
     }
 
     private void OnTrayMouseLeft(object sender, EventArgs e)
     {
-        DispatcherQueue.TryEnqueue(() =>
+        if (trayPeekWindow != null)
         {
-            if (trayPeekWindow != null)
-            {
-                trayPeekWindow.Hide();
-            }
-        });
+            trayPeekWindow.Hide();
+        }
     }
 
     private void ShowContextMenu()
@@ -361,7 +395,7 @@ public sealed partial class MainWindow : Window
         HandleMenuCommand(command, startupEnabled);
     }
 
-    private async void HandleMenuCommand(uint command, bool startupWasEnabled)
+    private void HandleMenuCommand(uint command, bool startupWasEnabled)
     {
         if (command == NativeMethods.IDM_OPEN)
         {
@@ -388,7 +422,7 @@ public sealed partial class MainWindow : Window
         else if (command == NativeMethods.IDM_ABOUT)
         {
             ShowPanel();
-            await ShowAboutDialog();
+            _ = ShowAboutDialog();
         }
         else if (command == NativeMethods.IDM_EXIT)
         {
@@ -418,6 +452,10 @@ public sealed partial class MainWindow : Window
         try
         {
             await dialog.ShowAsync();
+        }
+        catch (Exception)
+        {
+            // Dialog dismissed by the OS or XamlRoot invalidated; no user action needed.
         }
         finally
         {
@@ -533,22 +571,42 @@ public sealed partial class MainWindow : Window
         NativeMethods.SetWindowPos(windowHandle, insertAfter, 0, 0, 0, 0, NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE);
     }
 
-    private void UpdatePinButtonAppearance()
+    private void ConfigureTitleBar()
     {
-        if (PinButton == null)
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(Panel.TitleBarDragArea);
+
+        if (appWindow == null || !AppWindowTitleBar.IsCustomizationSupported())
         {
             return;
         }
 
-        PinButton.Opacity = isPinned ? 1.0 : 0.4;
+        bool isDark = Application.Current.RequestedTheme == ApplicationTheme.Dark;
+        byte fgFull = isDark ? (byte)255 : (byte)0;
+        byte fgInactive = isDark ? (byte)128 : (byte)96;
+        byte hoverBg = isDark ? (byte)255 : (byte)0;
+        byte hoverBgAlpha = isDark ? (byte)24 : (byte)16;
+        byte pressedBgAlpha = isDark ? (byte)48 : (byte)32;
+
+        appWindow.TitleBar.ButtonBackgroundColor = Color.FromArgb(0, 0, 0, 0);
+        appWindow.TitleBar.ButtonInactiveBackgroundColor = Color.FromArgb(0, 0, 0, 0);
+        appWindow.TitleBar.ButtonHoverBackgroundColor = Color.FromArgb(hoverBgAlpha, hoverBg, hoverBg, hoverBg);
+        appWindow.TitleBar.ButtonPressedBackgroundColor = Color.FromArgb(pressedBgAlpha, hoverBg, hoverBg, hoverBg);
+        appWindow.TitleBar.ButtonForegroundColor = Color.FromArgb(255, fgFull, fgFull, fgFull);
+        appWindow.TitleBar.ButtonHoverForegroundColor = Color.FromArgb(255, fgFull, fgFull, fgFull);
+        appWindow.TitleBar.ButtonInactiveForegroundColor = Color.FromArgb(fgInactive, fgFull, fgFull, fgFull);
+        appWindow.TitleBar.ButtonPressedForegroundColor = Color.FromArgb(255, fgFull, fgFull, fgFull);
+
+        float scale = NativeMethods.GetDpiForWindow(windowHandle) / 96.0f;
+        Panel.SetCaptionRightInset(appWindow.TitleBar.RightInset / scale);
     }
 
-    private void OnPinButtonClicked(object sender, RoutedEventArgs e)
+    private void OnPanelPinToggleRequested(object sender, EventArgs e)
     {
         isPinned = !isPinned;
         settingsService.IsPinned = isPinned;
         ApplyPinState();
-        UpdatePinButtonAppearance();
+        Panel.SetPinned(isPinned);
         _ = settingsService.SaveAsync();
     }
 

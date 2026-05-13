@@ -10,18 +10,10 @@
     mc:Ignorable="d"
     Title="JottMainWindow">
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
+    <Window.SystemBackdrop>
+        <MicaBackdrop />
+    </Window.SystemBackdrop>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Padding="4">
-            <Button x:Name="PinButton" Content="📌" Click="OnPinButtonClicked"
-                    Width="32" Height="32" Padding="0"
-                    ToolTipService.ToolTip="Pin window" />
-        </StackPanel>
+    <views:BufferPanel x:Name="Panel" />
 
-        <views:BufferPanel x:Name="Panel" Grid.Row="1" />
-    </Grid>
 </Window>

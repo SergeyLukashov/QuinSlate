@@ -84,6 +84,8 @@ internal static class NativeMethods
     public const uint WM_MOUSEMOVE = 0x0200;
     public const uint WM_SHOWWINDOW = 0x0018;
     public const uint WM_TIMER = 0x0113;
+    public const uint WM_QUERYENDSESSION = 0x0011;
+    public const uint WM_ENDSESSION = 0x0016;
 
     public static readonly IntPtr IDI_APPLICATION = new IntPtr(32512);
 
@@ -475,6 +477,13 @@ internal static class NativeMethods
     public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     /// <summary>
+    /// Retrieves the client-area rectangle of the specified window. The coordinates
+    /// are always relative to the client area's upper-left corner (0, 0).
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
+    /// <summary>
     /// Creates a timer that fires <see cref="WM_TIMER"/> to <paramref name="hWnd"/>
     /// every <paramref name="uElapse"/> milliseconds.
     /// </summary>
@@ -492,6 +501,20 @@ internal static class NativeMethods
     /// </summary>
     [DllImport("user32.dll")]
     public static extern uint GetDpiForSystem();
+
+    /// <summary>
+    /// Returns the module handle for the specified module, or the calling process's
+    /// module handle when <paramref name="moduleName"/> is <c>null</c>.
+    /// </summary>
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr GetModuleHandle(string moduleName);
+
+    /// <summary>
+    /// Unregisters a window class created with <see cref="RegisterClassEx"/>.
+    /// Must be called after all windows of the class are destroyed.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool UnregisterClass(string lpClassName, IntPtr hInstance);
 
     /// <summary>
     /// Changes the size, position, and Z order of a window.

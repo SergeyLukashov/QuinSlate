@@ -1,5 +1,5 @@
-using NCalc;
 using System;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace Jott.Ui.Services;
@@ -57,9 +57,6 @@ internal static class CalcService
             }
         }
 
-        // For follow-up calculations (e.g. "2+3= 5+3="), take only the expression
-        // after the last '=' in the LHS — the rest is already-evaluated history.
-        // Without this, NCalc sees "2+3= 5+3" and treats '=' as equality (returns 0).
         int lastPriorEquals = lhs.LastIndexOf('=');
         string expr = lastPriorEquals >= 0
             ? lhs.Substring(lastPriorEquals + 1).TrimStart()
@@ -72,17 +69,7 @@ internal static class CalcService
 
         try
         {
-            // NCalcSync 5.x treats ^ as bitwise XOR; convert to Pow() for exponentiation.
-            string processedLhs = ConvertCaretToPow(expr);
-            var expression = new Expression(processedLhs);
-            object value = expression.Evaluate();
-
-            if (value == null)
-            {
-                return false;
-            }
-
-            double d = Convert.ToDouble(value);
+            double d = Evaluate(expr);
 
             if (double.IsInfinity(d) || double.IsNaN(d))
             {
@@ -98,123 +85,165 @@ internal static class CalcService
         }
     }
 
-    /// <summary>
-    /// Rewrites every top-level <c>^</c> as <c>Pow(base, exp)</c> so that
-    /// NCalcSync 5.x (which treats <c>^</c> as bitwise XOR) evaluates it as
-    /// exponentiation. Only the immediately adjacent primary expression
-    /// (number or parenthesised group) is used as each operand, so surrounding
-    /// additive/multiplicative terms are left in place.
-    /// </summary>
-    private static string ConvertCaretToPow(string expr)
+    private static double Evaluate(string expr)
     {
-        int depth = 0;
-
-        for (int i = 0; i < expr.Length; i++)
+        int pos = 0;
+        double result = ParseAdditive(expr, ref pos);
+        SkipWhitespace(expr, ref pos);
+        if (pos < expr.Length)
         {
-            char c = expr[i];
-            if (c == '(')
+            throw new FormatException("Unexpected character");
+        }
+
+        return result;
+    }
+
+    private static double ParseAdditive(string expr, ref int pos)
+    {
+        double left = ParseMultiplicative(expr, ref pos);
+        while (true)
+        {
+            SkipWhitespace(expr, ref pos);
+            if (pos >= expr.Length)
             {
-                depth++;
+                break;
             }
-            else if (c == ')')
+
+            char op = expr[pos];
+            if (op != '+' && op != '-')
             {
-                depth--;
+                break;
             }
-            else if (c == '^' && depth == 0)
+
+            pos++;
+            double right = ParseMultiplicative(expr, ref pos);
+            left = op == '+' ? left + right : left - right;
+        }
+
+        return left;
+    }
+
+    private static double ParseMultiplicative(string expr, ref int pos)
+    {
+        double left = ParseUnary(expr, ref pos);
+        while (true)
+        {
+            SkipWhitespace(expr, ref pos);
+            if (pos >= expr.Length)
             {
-                // Left operand: the primary immediately before ^
-                int leftEnd = i - 1;
-                while (leftEnd >= 0 && expr[leftEnd] == ' ')
-                {
-                    leftEnd--;
-                }
+                break;
+            }
 
-                int leftStart;
-                if (leftEnd >= 0 && expr[leftEnd] == ')')
-                {
-                    int d = 0;
-                    int j = leftEnd;
-                    while (j >= 0)
-                    {
-                        if (expr[j] == ')')
-                        {
-                            d++;
-                        }
-                        else if (expr[j] == '(')
-                        {
-                            d--; if (d == 0)
-                            {
-                                break;
-                            }
-                        }
-                        j--;
-                    }
-                    leftStart = j;
-                }
-                else
-                {
-                    int j = leftEnd;
-                    while (j >= 0 && (char.IsDigit(expr[j]) || expr[j] == '.'))
-                    {
-                        j--;
-                    }
+            char op = expr[pos];
+            if (op != '*' && op != '/' && op != '%')
+            {
+                break;
+            }
 
-                    leftStart = j + 1;
-                }
-
-                // Right operand: the primary immediately after ^
-                int rightStart = i + 1;
-                while (rightStart < expr.Length && expr[rightStart] == ' ')
-                {
-                    rightStart++;
-                }
-
-                int rightEnd;
-                if (rightStart < expr.Length && expr[rightStart] == '(')
-                {
-                    int d = 0;
-                    int j = rightStart;
-                    while (j < expr.Length)
-                    {
-                        if (expr[j] == '(')
-                        {
-                            d++;
-                        }
-                        else if (expr[j] == ')')
-                        {
-                            d--; if (d == 0)
-                            {
-                                break;
-                            }
-                        }
-                        j++;
-                    }
-                    rightEnd = j;
-                }
-                else
-                {
-                    int j = rightStart;
-                    while (j < expr.Length && (char.IsDigit(expr[j]) || expr[j] == '.'))
-                    {
-                        j++;
-                    }
-
-                    rightEnd = j - 1;
-                }
-
-                string prefix = expr.Substring(0, leftStart);
-                string leftOp = expr.Substring(leftStart, leftEnd - leftStart + 1).Trim();
-                string rightOp = expr.Substring(rightStart, rightEnd - rightStart + 1).Trim();
-                string suffix = expr.Substring(rightEnd + 1);
-
-                // Recurse on right operand for right-associativity (e.g. 2^3^2 → Pow(2,Pow(3,2)))
-                string processedRight = ConvertCaretToPow(rightOp);
-                string rebuilt = $"{prefix}Pow({leftOp},{processedRight}){suffix}";
-                return ConvertCaretToPow(rebuilt);
+            pos++;
+            double right = ParseUnary(expr, ref pos);
+            if (op == '*')
+            {
+                left *= right;
+            }
+            else if (op == '/')
+            {
+                left /= right;
+            }
+            else
+            {
+                left %= right;
             }
         }
 
-        return expr;
+        return left;
+    }
+
+    private static double ParseUnary(string expr, ref int pos)
+    {
+        SkipWhitespace(expr, ref pos);
+        if (pos >= expr.Length)
+        {
+            throw new FormatException("Expected value");
+        }
+
+        if (expr[pos] == '-')
+        {
+            pos++;
+            return -ParseUnary(expr, ref pos);
+        }
+
+        if (expr[pos] == '+')
+        {
+            pos++;
+            return ParseUnary(expr, ref pos);
+        }
+
+        return ParseExponential(expr, ref pos);
+    }
+
+    private static double ParseExponential(string expr, ref int pos)
+    {
+        double left = ParsePrimary(expr, ref pos);
+        SkipWhitespace(expr, ref pos);
+        if (pos < expr.Length && expr[pos] == '^')
+        {
+            pos++;
+            double right = ParseUnary(expr, ref pos);
+            return Math.Pow(left, right);
+        }
+
+        return left;
+    }
+
+    private static double ParsePrimary(string expr, ref int pos)
+    {
+        SkipWhitespace(expr, ref pos);
+        if (pos >= expr.Length)
+        {
+            throw new FormatException("Expected value");
+        }
+
+        if (expr[pos] == '(')
+        {
+            pos++;
+            double value = ParseAdditive(expr, ref pos);
+            SkipWhitespace(expr, ref pos);
+            if (pos >= expr.Length || expr[pos] != ')')
+            {
+                throw new FormatException("Expected ')'");
+            }
+
+            pos++;
+            return value;
+        }
+
+        int start = pos;
+        while (pos < expr.Length && (char.IsDigit(expr[pos]) || expr[pos] == '.'))
+        {
+            pos++;
+        }
+
+        if (pos == start)
+        {
+            throw new FormatException("Expected number");
+        }
+
+        string numStr = expr.Substring(start, pos - start);
+        if (!double.TryParse(numStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double num))
+        {
+            throw new FormatException("Invalid number");
+        }
+
+        return num;
+    }
+
+    private static void SkipWhitespace(string expr, ref int pos)
+    {
+        while (pos < expr.Length && expr[pos] == ' ')
+        {
+            pos++;
+        }
     }
 
     private static string FormatResult(double value)
@@ -224,6 +253,6 @@ internal static class CalcService
             return ((long)value).ToString();
         }
 
-        return value.ToString("G6");
+        return value.ToString("G3");
     }
 }

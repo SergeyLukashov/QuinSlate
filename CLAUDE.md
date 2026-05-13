@@ -97,6 +97,7 @@ run first.
 ## UI controls
 
 Always use modern WinUI 3 controls. Some examples, documentation, and a comprehensive list of all available controls can be found in the [WinUI Gallery repository](https://github.com/microsoft/WinUI-Gallery).
+Always use the WinUI 3 Expert agent when working with UI.
 
 ---
 
@@ -115,7 +116,7 @@ Always use modern WinUI 3 controls. Some examples, documentation, and a comprehe
 To verify compilation during development, run:
 
 ```bash
-dotnet build Jott.slnx
+dotnet build Jott.slnx -p:Platform=x64
 ```
 
 ---
@@ -125,7 +126,7 @@ dotnet build Jott.slnx
 After making significant changes, run the tests to verify correctness and catch regressions:
 
 ```bash
-dotnet test Jott.slnx
+dotnet test Jott.slnx -p:Platform=x64
 ```
 
 This must be done before considering any task complete.

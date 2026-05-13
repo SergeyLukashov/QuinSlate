@@ -8,7 +8,58 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid x:Name="RootGrid">
-        <Pivot x:Name="BufferPivot" />
+    <Grid x:Name="RootGrid" Background="Transparent">
+        <TabView
+            x:Name="BufferTabView"
+            IsAddTabButtonVisible="False"
+            CanReorderTabs="False"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch">
+
+            <TabView.TabStripHeader>
+                <Image
+                    Source="ms-appx:///Assets/Square44x44Logo.scale-200.png"
+                    Width="16"
+                    Height="16"
+                    Margin="12,0,6,0"
+                    VerticalAlignment="Center" />
+            </TabView.TabStripHeader>
+
+            <TabView.TabStripFooter>
+                <Grid
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch">
+                    <Grid
+                        x:Name="TitleBarDragGrid"
+                        Background="Transparent"
+                        HorizontalAlignment="Stretch"
+                        VerticalAlignment="Stretch" />
+                    <StackPanel
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                        <ToggleButton
+                            x:Name="PinButton"
+                            Width="40"
+                            Height="32"
+                            Padding="0"
+                            ToolTipService.ToolTip="Pin window"
+                            Click="OnPinButtonClicked">
+                            <FontIcon
+                                x:Name="PinIcon"
+                                Glyph="&#xE718;"
+                                FontSize="14" />
+                        </ToggleButton>
+                        <Border
+                            x:Name="SystemCloseButtonSpacer"
+                            Width="0"
+                            VerticalAlignment="Stretch" />
+                    </StackPanel>
+                </Grid>
+            </TabView.TabStripFooter>
+
+        </TabView>
     </Grid>
 </UserControl>

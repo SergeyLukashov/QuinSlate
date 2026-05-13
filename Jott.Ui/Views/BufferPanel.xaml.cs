@@ -1,4 +1,4 @@
-using Jott.Ui.Services;
+﻿using Jott.Ui.Services;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Text;
@@ -10,8 +10,6 @@ using System;
 using System.Collections.Generic;
 using Windows.System;
 using Windows.UI;
-using Windows.UI.Core;
-using Windows.UI.ViewManagement;
 using Buffer = Jott.Ui.Models.Buffer;
 
 namespace Jott.Ui.Views;
@@ -22,8 +20,10 @@ namespace Jott.Ui.Views;
 /// </summary>
 public sealed partial class BufferPanel : UserControl
 {
-    private const string MonospaceFont = "Consolas";
-    private const double EditorFontSize = 14;
+    private const string MonospaceFont = "Cascadia Code";
+    private const double EditorFontSize = 15;
+    private const string PinGlyph = "";
+    private const string PinnedGlyph = "";
     private const double TabHeaderWidth = 28;
     private const double TabHeaderHeight = 28;
     private const double TabHeaderCornerRadius = 4;
@@ -39,7 +39,7 @@ public sealed partial class BufferPanel : UserControl
     private const double ConfirmButtonWidth = 22;
     private const double ConfirmButtonHeight = 22;
     private const double ConfirmButtonMarginLeft = 4;
-    private const int ConfirmAutoCancelSeconds = 4;
+    private const int ConfirmAutoCancelMilliseconds = 4000;
     private const byte ConfirmBackgroundR = 180;
     private const byte ConfirmBackgroundG = 60;
     private const byte ConfirmBackgroundB = 60;
@@ -71,12 +71,41 @@ public sealed partial class BufferPanel : UserControl
     private int animationExpectedTextLength;
 
     /// <summary>
+    /// Raised when the user clicks the pin button. The caller should toggle
+    /// the pinned state and call <see cref="SetPinned"/> to update the icon.
+    /// </summary>
+    public event EventHandler PinToggleRequested;
+
+    /// <summary>
+    /// The element to pass to <c>Window.SetTitleBar</c> as the drag region.
+    /// </summary>
+    public FrameworkElement TitleBarDragArea => TitleBarDragGrid;
+
+    /// <summary>
     /// Creates the panel. <see cref="Initialise"/> must be called before the
     /// panel is shown.
     /// </summary>
     public BufferPanel()
     {
         InitializeComponent();
+    }
+
+    /// <summary>
+    /// Updates the pin button checked state and icon to reflect <paramref name="isPinned"/>.
+    /// </summary>
+    public void SetPinned(bool isPinned)
+    {
+        PinButton.IsChecked = isPinned;
+        PinIcon.Glyph = isPinned ? PinnedGlyph : PinGlyph;
+    }
+
+    /// <summary>
+    /// Reserves space on the right of the title bar footer for the system
+    /// caption close button so our controls do not overlap it.
+    /// </summary>
+    public void SetCaptionRightInset(double logicalWidth)
+    {
+        SystemCloseButtonSpacer.Width = logicalWidth;
     }
 
     /// <summary>
@@ -96,7 +125,7 @@ public sealed partial class BufferPanel : UserControl
         }
 
         this.bufferService = bufferService;
-        BufferPivot.Items.Clear();
+        BufferTabView.TabItems.Clear();
         editorsByBufferIndex.Clear();
         headerContainersByIndex.Clear();
         normalPanelsByIndex.Clear();
@@ -105,19 +134,19 @@ public sealed partial class BufferPanel : UserControl
 
         foreach (var buffer in buffers)
         {
-            var item = BuildPivotItem(buffer);
-            BufferPivot.Items.Add(item);
+            var item = BuildTabViewItem(buffer);
+            BufferTabView.TabItems.Add(item);
         }
 
-        if (BufferPivot.Items.Count > 0)
+        if (BufferTabView.TabItems.Count > 0)
         {
-            BufferPivot.SelectedIndex = 0;
+            BufferTabView.SelectedIndex = 0;
         }
 
         RootGrid.PreviewKeyDown += OnPanelPreviewKeyDown;
     }
 
-    private PivotItem BuildPivotItem(Buffer buffer)
+    private TabViewItem BuildTabViewItem(Buffer buffer)
     {
         var headerColor = ParseColor(buffer.ColorHex);
 
@@ -136,7 +165,7 @@ public sealed partial class BufferPanel : UserControl
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Colors.Black),
+                Foreground = new SolidColorBrush(GetContrastForeground(headerColor)),
             },
         };
 
@@ -180,12 +209,13 @@ public sealed partial class BufferPanel : UserControl
             Orientation = Orientation.Horizontal,
             VerticalAlignment = VerticalAlignment.Center,
         };
+        var confirmBgColor = Color.FromArgb(ConfirmBackgroundA, ConfirmBackgroundR, ConfirmBackgroundG, ConfirmBackgroundB);
         confirmContent.Children.Add(new TextBlock
         {
             Text = "Clear?",
             FontSize = ConfirmTextFontSize,
             VerticalAlignment = VerticalAlignment.Center,
-            Foreground = new SolidColorBrush(Colors.White),
+            Foreground = new SolidColorBrush(GetContrastForeground(confirmBgColor)),
         });
         confirmContent.Children.Add(confirmCheckButton);
 
@@ -232,15 +262,21 @@ public sealed partial class BufferPanel : UserControl
         editor.Paste += OnEditorPaste;
         editorsByBufferIndex[buffer.Index] = editor;
 
-        var item = new PivotItem
+        var item = new TabViewItem
         {
             Header = headerContainer,
             Content = editor,
+            IsClosable = false,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             VerticalContentAlignment = VerticalAlignment.Stretch,
         };
 
         return item;
+    }
+
+    private void OnPinButtonClicked(object sender, RoutedEventArgs e)
+    {
+        PinToggleRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnClearButtonClick(object sender, RoutedEventArgs e)
@@ -322,7 +358,7 @@ public sealed partial class BufferPanel : UserControl
         }
 
         confirmCancelTimer = new DispatcherTimer();
-        confirmCancelTimer.Interval = TimeSpan.FromSeconds(ConfirmAutoCancelSeconds);
+        confirmCancelTimer.Interval = TimeSpan.FromMilliseconds(ConfirmAutoCancelMilliseconds);
         confirmCancelTimer.Tick += OnConfirmTimerTick;
         confirmCancelTimer.Start();
     }
@@ -385,15 +421,27 @@ public sealed partial class BufferPanel : UserControl
         ExitConfirmState();
     }
 
+    private static bool IsKeyDown(Windows.UI.Core.CoreVirtualKeyStates state)
+    {
+        return (state & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0;
+    }
+
     private void OnEditorKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (e.Key == VirtualKey.Tab)
+        {
+            bool back = IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift));
+            CycleBuffer(back ? -1 : 1);
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key != (VirtualKey)VKeyOemPlus)
         {
             return;
         }
 
-        var shiftState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift);
-        if ((shiftState & CoreVirtualKeyStates.Down) == 0)
+        if (!IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)))
         {
             wasEqualsTyped = true;
         }
@@ -487,11 +535,14 @@ public sealed partial class BufferPanel : UserControl
 
     private void StartResultAnimation(RichEditBox editor, int resultStart, int resultEnd)
     {
-        var uiSettings = new UISettings();
         CancelAnimation();
 
-        animationAccentColor = uiSettings.GetColorValue(UIColorType.Accent);
-        animationNormalColor = uiSettings.GetColorValue(UIColorType.Background);
+        animationAccentColor = (Color)Application.Current.Resources["SystemAccentColor"];
+        // Win32 COLORREF has no alpha channel, so semi-transparent theme brushes (e.g.
+        // WinUI 3 Mica dark TextControlBackground = #0EFFFFFF) map to white regardless of theme.
+        // Use an opaque approximation derived from the app theme for the fade target.
+        bool isDark = Application.Current.RequestedTheme == ApplicationTheme.Dark;
+        animationNormalColor = isDark ? Color.FromArgb(255, 32, 32, 32) : Color.FromArgb(255, 242, 242, 242);
         animationEditor = editor;
         animationResultStart = resultStart;
         animationResultEnd = resultEnd;
@@ -519,7 +570,7 @@ public sealed partial class BufferPanel : UserControl
         animationTimer.Tick -= OnAnimationTick;
         animationTimer = null;
 
-        ApplyAnimationColor(animationNormalColor);
+        ClearAnimationColor();
         animationEditor = null;
     }
 
@@ -542,19 +593,43 @@ public sealed partial class BufferPanel : UserControl
         }
     }
 
+    private void ClearAnimationColor()
+    {
+        if (animationEditor == null)
+        {
+            return;
+        }
+
+        isApplyingAnimationColor = true;
+        try
+        {
+            var range = animationEditor.Document.GetRange(animationResultStart, animationResultEnd);
+            // AutoColor clears CFM_BACKCOLOR entirely so RichEdit uses its own background,
+            // rather than overpainting with a sampled color that may not match after a theme change.
+            range.CharacterFormat.BackgroundColor = Microsoft.UI.Text.TextConstants.AutoColor;
+        }
+        finally
+        {
+            isApplyingAnimationColor = false;
+        }
+    }
+
     private void OnAnimationTick(object sender, object e)
     {
         double elapsed = (DateTime.UtcNow - animationStartTime).TotalMilliseconds;
         double t = Math.Min(elapsed / AnimationDurationMs, 1.0);
-
-        ApplyAnimationColor(InterpolateColor(animationAccentColor, animationNormalColor, t));
 
         if (t >= 1.0)
         {
             animationTimer.Stop();
             animationTimer.Tick -= OnAnimationTick;
             animationTimer = null;
+            ClearAnimationColor();
             animationEditor = null;
+        }
+        else
+        {
+            ApplyAnimationColor(InterpolateColor(animationAccentColor, animationNormalColor, t));
         }
     }
 
@@ -576,17 +651,7 @@ public sealed partial class BufferPanel : UserControl
             return;
         }
 
-        if (e.Key == VirtualKey.Tab)
-        {
-            var shiftState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift);
-            bool back = (shiftState & CoreVirtualKeyStates.Down) != 0;
-            CycleBuffer(back ? -1 : 1);
-            e.Handled = true;
-            return;
-        }
-
-        var ctrlState = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control);
-        bool ctrl = (ctrlState & CoreVirtualKeyStates.Down) != 0;
+        bool ctrl = IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control));
         if (!ctrl)
         {
             return;
@@ -617,29 +682,35 @@ public sealed partial class BufferPanel : UserControl
 
     private void CycleBuffer(int direction)
     {
-        int count = BufferPivot.Items.Count;
+        int count = BufferTabView.TabItems.Count;
         if (count == 0)
         {
             return;
         }
 
-        int next = ((BufferPivot.SelectedIndex + direction) % count + count) % count;
+        int next = ((BufferTabView.SelectedIndex + direction) % count + count) % count;
         SelectBuffer(next);
     }
 
     private void SelectBuffer(int zeroBasedIndex)
     {
-        if (zeroBasedIndex < 0 || zeroBasedIndex >= BufferPivot.Items.Count)
+        if (zeroBasedIndex < 0 || zeroBasedIndex >= BufferTabView.TabItems.Count)
         {
             return;
         }
 
-        BufferPivot.SelectedIndex = zeroBasedIndex;
+        BufferTabView.SelectedIndex = zeroBasedIndex;
         int bufferIndex = zeroBasedIndex + 1;
         if (editorsByBufferIndex.TryGetValue(bufferIndex, out RichEditBox editor))
         {
-            editor.Focus(FocusState.Programmatic);
+            DispatcherQueue.TryEnqueue(() => editor.Focus(FocusState.Programmatic));
         }
+    }
+
+    private static Color GetContrastForeground(Color background)
+    {
+        double luminance = (background.R * 0.299 + background.G * 0.587 + background.B * 0.114) / 255.0;
+        return luminance >= 0.5 ? Colors.Black : Colors.White;
     }
 
     private static Color ParseColor(string hex)

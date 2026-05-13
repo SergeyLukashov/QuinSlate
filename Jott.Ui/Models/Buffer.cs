@@ -20,11 +20,19 @@ public sealed class Buffer
     /// </summary>
     public string FilePath { get; }
 
+    // volatile so reads on the thread-pool debounce timer always see the value
+    // last written on the UI thread.
+    private volatile string content;
+
     /// <summary>
     /// Current text content held in memory. Mutated by the UI; persisted by
     /// <c>BufferService</c> on its debounce timer.
     /// </summary>
-    public string Content { get; set; }
+    public string Content
+    {
+        get { return content; }
+        set { content = value; }
+    }
 
     /// <summary>The lowest valid <see cref="Index"/>.</summary>
     public const int MinIndex = 1;
@@ -55,6 +63,6 @@ public sealed class Buffer
         Index = index;
         ColorHex = colorHex;
         FilePath = filePath;
-        Content = content ?? string.Empty;
+        this.content = content ?? string.Empty;
     }
 }

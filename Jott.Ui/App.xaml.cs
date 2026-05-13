@@ -48,7 +48,7 @@ public partial class App : Application
         {
             singleInstanceMutex.ReleaseMutex();
         }
-        catch (ApplicationException ex)
+        catch (SynchronizationLockException ex)
         {
             System.Diagnostics.Debug.WriteLine($"[Jott] ReleaseSingleInstanceMutex: {ex.Message}");
         }

@@ -120,7 +120,7 @@ public sealed class TrayIcon : IDisposable
         {
             RightClicked?.Invoke(this, EventArgs.Empty);
         }
-        else if (loWord == NativeMethods.WM_MOUSEMOVE)
+        else if (loWord == NativeMethods.NIN_POPUPOPEN)
         {
             MouseHovered?.Invoke(this, EventArgs.Empty);
         }

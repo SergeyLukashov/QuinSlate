@@ -36,9 +36,14 @@ public sealed class TrayPeekWindow : IDisposable
     private const int FontHeight = -13;
     private const int FontWeightNormal = 400;
 
+    // classRegistered and wndProcDelegate are both static so the delegate is
+    // never garbage collected while the class registration is alive. A single
+    // registration shared across instances is intentional: all TrayPeekWindow
+    // instances share the same class name and the same WndProc entry point,
+    // which dispatches per-HWND via the instance pointer stored in the field.
     private static bool classRegistered;
+    private static NativeMethods.WndProcDelegate staticWndProcDelegate;
 
-    private readonly NativeMethods.WndProcDelegate wndProcDelegate;
     private IntPtr hwnd;
     private string[] lines;
     private bool[] lineIsEmpty;
@@ -54,7 +59,6 @@ public sealed class TrayPeekWindow : IDisposable
     /// </summary>
     public TrayPeekWindow()
     {
-        wndProcDelegate = WndProc;
         lines = new string[BufferCount];
         lineIsEmpty = new bool[BufferCount];
     }
@@ -123,6 +127,12 @@ public sealed class TrayPeekWindow : IDisposable
             hwnd = IntPtr.Zero;
         }
 
+        if (classRegistered)
+        {
+            NativeMethods.UnregisterClass(WindowClassName, NativeMethods.GetModuleHandle(null));
+            classRegistered = false;
+        }
+
         disposed = true;
     }
 
@@ -157,13 +167,15 @@ public sealed class TrayPeekWindow : IDisposable
             return;
         }
 
+        staticWndProcDelegate = WndProc;
+
         var wc = new NativeMethods.WNDCLASSEX();
         wc.cbSize = (uint)Marshal.SizeOf(typeof(NativeMethods.WNDCLASSEX));
         wc.style = 0;
-        wc.lpfnWndProc = wndProcDelegate;
+        wc.lpfnWndProc = staticWndProcDelegate;
         wc.cbClsExtra = 0;
         wc.cbWndExtra = 0;
-        wc.hInstance = IntPtr.Zero;
+        wc.hInstance = NativeMethods.GetModuleHandle(null);
         wc.hIcon = IntPtr.Zero;
         wc.hCursor = IntPtr.Zero;
         wc.hbrBackground = IntPtr.Zero;
@@ -335,14 +347,7 @@ public sealed class TrayPeekWindow : IDisposable
 
         try
         {
-            NativeMethods.GetWindowRect(hWnd, out NativeMethods.RECT clientRect);
-            var drawRect = new NativeMethods.RECT
-            {
-                Left = 0,
-                Top = 0,
-                Right = clientRect.Right - clientRect.Left,
-                Bottom = clientRect.Bottom - clientRect.Top
-            };
+            NativeMethods.GetClientRect(hWnd, out NativeMethods.RECT drawRect);
 
             var bgBrush = NativeMethods.CreateSolidBrush(BackgroundColor);
             NativeMethods.FillRect(hdc, ref drawRect, bgBrush);

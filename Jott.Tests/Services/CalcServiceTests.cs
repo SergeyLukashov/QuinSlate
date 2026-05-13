@@ -82,10 +82,10 @@ public sealed class CalcServiceTests
     }
 
     [Fact]
-    public void FractionalResult_SixSignificantDigits()
+    public void FractionalResult_ThreeSignificantDigits()
     {
         Assert.True(CalcService.TryEvaluate("1 / 3 =", out string result));
-        Assert.Equal("0.333333", result);
+        Assert.Equal("0.333", result);
     }
 
     [Fact]
@@ -151,5 +151,38 @@ public sealed class CalcServiceTests
         // Three chained evaluations on one line
         Assert.True(CalcService.TryEvaluate("2+3= 5+3= 8*2=", out string result));
         Assert.Equal("16", result);
+    }
+
+    [Fact]
+    public void InputNotEndingWithEquals_ReturnsFalse()
+    {
+        Assert.False(CalcService.TryEvaluate("1 + 2", out _));
+    }
+
+    [Fact]
+    public void UnaryPlus_EvaluatesCorrectly()
+    {
+        Assert.True(CalcService.TryEvaluate("+5 + 3 =", out string result));
+        Assert.Equal("8", result);
+    }
+
+    [Fact]
+    public void UnclosedParenthesis_ReturnsFalse()
+    {
+        Assert.False(CalcService.TryEvaluate("(1 + 2 =", out _));
+    }
+
+    [Fact]
+    public void TrailingGarbage_ReturnsFalse()
+    {
+        Assert.False(CalcService.TryEvaluate("1 + 2 abc =", out _));
+    }
+
+    [Fact]
+    public void LargeWholeNumber_UsesScientificNotation()
+    {
+        // 2^50 = 1125899906842624, which is >= 1e15, so FormatResult uses G3
+        Assert.True(CalcService.TryEvaluate("2^50 =", out string result));
+        Assert.Equal("1.13E+15", result);
     }
 }

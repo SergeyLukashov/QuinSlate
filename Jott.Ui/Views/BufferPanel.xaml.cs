@@ -1,4 +1,4 @@
-﻿using Jott.Ui.Services;
+using Jott.Ui.Services;
 using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Text;
@@ -47,6 +47,7 @@ public sealed partial class BufferPanel : UserControl
     private const int VKeyOemPlus = 187;
     private const int AnimationDurationMs = 1600;
     private const int AnimationTickMs = 16;
+    private const int MaxBufferLength = 1_000_000;
 
     private BufferService bufferService;
     private readonly Dictionary<int, RichEditBox> editorsByBufferIndex = new Dictionary<int, RichEditBox>();
@@ -250,6 +251,7 @@ public sealed partial class BufferPanel : UserControl
             IsSpellCheckEnabled = false,
             Tag = buffer.Index,
             SelectionFlyout = null,
+            MaxLength = MaxBufferLength,
         };
 
         // Set initial content before subscribing to TextChanged so the load
@@ -328,7 +330,19 @@ public sealed partial class BufferPanel : UserControl
         if (dataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text))
         {
             string text = await dataView.GetTextAsync();
-            editor.Document.Selection.TypeText(text);
+            editor.Document.GetText(TextGetOptions.None, out string currentText);
+
+            int selectionLength = editor.Document.Selection.Text.Length;
+            int maxAllowedPaste = MaxBufferLength - (currentText.Length - selectionLength);
+
+            if (maxAllowedPaste > 0)
+            {
+                if (text.Length > maxAllowedPaste)
+                {
+                    text = text.Substring(0, maxAllowedPaste);
+                }
+                editor.Document.Selection.TypeText(text);
+            }
         }
     }
 

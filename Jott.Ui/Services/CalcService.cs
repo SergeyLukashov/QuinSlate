@@ -250,9 +250,14 @@ internal static class CalcService
     {
         if (value == Math.Floor(value) && Math.Abs(value) < 1e15)
         {
-            return ((long)value).ToString();
+            return ((long)value).ToString(CultureInfo.InvariantCulture);
         }
 
-        return value.ToString("G3");
+        if (Math.Abs(value) >= 1e15)
+        {
+            return value.ToString("G3", CultureInfo.InvariantCulture);
+        }
+
+        return Math.Round(value, 3, MidpointRounding.AwayFromZero).ToString(CultureInfo.InvariantCulture);
     }
 }

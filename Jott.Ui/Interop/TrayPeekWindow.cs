@@ -1,78 +1,67 @@
 using Jott.Ui.Services;
+using Jott.Ui.Views;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
 using System;
 using System.Runtime.InteropServices;
+using Windows.Graphics;
+using WinRT.Interop;
 using Buffer = Jott.Ui.Models.Buffer;
 
 namespace Jott.Ui.Interop;
 
 /// <summary>
-/// A borderless, non-interactive Win32 popup window that renders a one-line
-/// preview of every buffer when the user hovers the tray icon.
+/// A borderless, non-activating WinUI 3 popup window that renders a two-column
+/// preview of every buffer when the user hovers the tray icon. Replacing the
+/// previous Win32 GDI implementation so that color emoji in tab titles render
+/// correctly via WinUI 3 TextBlock.
 /// </summary>
 public sealed class TrayPeekWindow : IDisposable
 {
-    private const string WindowClassName = "JottPeek";
-    private const string WindowTitle = "";
-
     private const int BufferCount = Buffer.MaxIndex - Buffer.MinIndex + 1;
-    private const string EmptyLabel = "(empty)";
-    private const string LinePrefixFormat = "{0} · ";
 
-    private const int PaddingX = 12;
-    private const int PaddingY = 8;
-    private const int LineHeight = 20;
+    private const int LogicalWindowWidth = 340;
+    private const int LogicalWindowHeight = (BufferCount * LogicalLineHeight) + (LogicalPaddingY * 2);
+    private const int LogicalLineHeight = 22;
+    private const int LogicalPaddingY = 8;
     private const int GapAboveTray = 8;
-    private const uint HoverTimerId = 1;
-    private const uint HoverCheckIntervalMs = 150;
-    private const int HoverHitExpansion = 12;
+    private const int HoverCheckIntervalMs = 150;
+    private const int HoverHitExpansionLogical = 12;
 
-    private const int TransparentMode = 1;
+    private Window peekWindow;
+    private TrayPeekPanel panel;
+    private AppWindow appWindow;
+    private IntPtr peekHwnd;
+    private NativeMethods.WndProcDelegate subclassDelegate;
+    private IntPtr originalWndProc;
 
-    private const uint BackgroundColor = 0x00282828;
-    private const uint TextColor = 0x00E0E0E0;
-    private const uint MutedTextColor = 0x00888888;
-
-    private const string FontFaceName = "Segoe UI";
-    private const int FontHeight = -13;
-    private const int FontWeightNormal = 400;
-
-    // classRegistered and wndProcDelegate are both static so the delegate is
-    // never garbage collected while the class registration is alive. A single
-    // registration shared across instances is intentional: all TrayPeekWindow
-    // instances share the same class name and the same WndProc entry point,
-    // which dispatches per-HWND via the instance pointer stored in the field.
-    private static bool classRegistered;
-    private static NativeMethods.WndProcDelegate staticWndProcDelegate;
-
-    private IntPtr hwnd;
-    private string[] lines;
-    private bool[] lineIsEmpty;
-    private bool disposed;
+    private DispatcherTimer hoverTimer;
     private bool isVisible;
+    private bool disposed;
     private float dpiScale = 1.0f;
     private IntPtr storedTrayHwnd;
     private uint storedTrayIconId;
 
     /// <summary>
-    /// Creates the peek window. The underlying Win32 window is created lazily on
-    /// the first call to <see cref="Show"/>.
+    /// Creates the peek window container. The underlying WinUI 3 <see cref="Window"/>
+    /// is created lazily on the first call to <see cref="Show"/>.
     /// </summary>
     public TrayPeekWindow()
     {
-        lines = new string[BufferCount];
-        lineIsEmpty = new bool[BufferCount];
     }
 
     /// <summary>
-    /// Builds the preview lines from <paramref name="bufferService"/>, positions
-    /// the window above (or below) the tray icon, and shows it.
+    /// Builds the preview rows from <paramref name="bufferService"/> and
+    /// <paramref name="settingsService"/>, positions the window above (or below)
+    /// the tray icon, and shows it without activating the calling application.
     /// </summary>
-    /// <param name="bufferService">The buffer service supplying in-memory content.</param>
+    /// <param name="bufferService">Supplies in-memory buffer content.</param>
+    /// <param name="settingsService">Supplies tab emoji and title metadata.</param>
     /// <param name="trayHwnd">The HWND that owns the tray icon.</param>
     /// <param name="trayIconId">The numeric ID passed to <c>Shell_NotifyIcon</c>.</param>
-    public void Show(BufferService bufferService, IntPtr trayHwnd, uint trayIconId)
+    public void Show(BufferService bufferService, SettingsService settingsService, IntPtr trayHwnd, uint trayIconId)
     {
-        if (bufferService == null)
+        if (bufferService == null || settingsService == null)
         {
             return;
         }
@@ -81,35 +70,40 @@ public sealed class TrayPeekWindow : IDisposable
         storedTrayIconId = trayIconId;
         dpiScale = NativeMethods.GetDpiForSystem() / 96.0f;
 
-        BuildLines(bufferService);
+        TrayPeekRow[] rows = TrayPeekRowBuilder.Build(bufferService, settingsService);
         EnsureWindowCreated();
 
-        if (hwnd == IntPtr.Zero || isVisible)
+        if (peekHwnd == IntPtr.Zero || isVisible)
         {
             return;
         }
 
-        var iconRect = QueryIconRect(trayHwnd, trayIconId);
-        var windowSize = CalculateWindowSize();
-        var position = CalculatePosition(iconRect, windowSize.Width, windowSize.Height);
+        panel.SetRows(rows);
 
-        NativeMethods.MoveWindow(hwnd, position.X, position.Y, windowSize.Width, windowSize.Height, false);
-        NativeMethods.InvalidateRect(hwnd, IntPtr.Zero, true);
-        NativeMethods.ShowWindow(hwnd, NativeMethods.SW_SHOWNOACTIVATE);
+        NativeMethods.RECT iconRect = QueryIconRect(trayHwnd, trayIconId);
+        (int windowWidth, int windowHeight) = CalculatePhysicalWindowSize();
+        (int x, int y) = CalculatePosition(iconRect, windowWidth, windowHeight);
+
+        appWindow.MoveAndResize(new RectInt32(x, y, windowWidth, windowHeight));
+
+        NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_SHOWNOACTIVATE);
         isVisible = true;
+
+        StartHoverTimer();
     }
 
     /// <summary>
-    /// Hides the peek window.
+    /// Hides the peek window and stops the hover-check timer.
     /// </summary>
     public void Hide()
     {
-        if (hwnd == IntPtr.Zero || isVisible == false)
+        if (peekHwnd == IntPtr.Zero || isVisible == false)
         {
             return;
         }
 
-        NativeMethods.ShowWindow(hwnd, NativeMethods.SW_HIDE);
+        StopHoverTimer();
+        NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_HIDE);
         isVisible = false;
     }
 
@@ -121,98 +115,172 @@ public sealed class TrayPeekWindow : IDisposable
             return;
         }
 
-        if (hwnd != IntPtr.Zero)
-        {
-            NativeMethods.DestroyWindow(hwnd);
-            hwnd = IntPtr.Zero;
-        }
-
-        if (classRegistered)
-        {
-            NativeMethods.UnregisterClass(WindowClassName, NativeMethods.GetModuleHandle(null));
-            classRegistered = false;
-        }
-
         disposed = true;
+
+        StopHoverTimer();
+
+        if (peekWindow != null)
+        {
+            if (originalWndProc != IntPtr.Zero && peekHwnd != IntPtr.Zero)
+            {
+                NativeMethods.SetWindowLongPtr(peekHwnd, NativeMethods.GWLP_WNDPROC, originalWndProc);
+                originalWndProc = IntPtr.Zero;
+            }
+
+            subclassDelegate = null;
+            peekWindow.Close();
+            peekWindow = null;
+            panel = null;
+            appWindow = null;
+            peekHwnd = IntPtr.Zero;
+        }
     }
 
     private void EnsureWindowCreated()
     {
-        if (hwnd != IntPtr.Zero)
+        if (peekWindow != null)
         {
             return;
         }
 
-        EnsureClassRegistered();
+        peekWindow = new Window();
 
-        uint exStyle = NativeMethods.WS_EX_TOPMOST | NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE;
-        uint style = NativeMethods.WS_POPUP;
+        panel = new TrayPeekPanel();
+        peekWindow.Content = panel;
 
-        hwnd = NativeMethods.CreateWindowEx(
-            exStyle,
-            WindowClassName,
-            WindowTitle,
-            style,
-            0, 0, 100, 100,
-            IntPtr.Zero,
-            IntPtr.Zero,
-            IntPtr.Zero,
-            IntPtr.Zero);
-    }
-
-    private void EnsureClassRegistered()
-    {
-        if (classRegistered)
+        peekHwnd = WindowNative.GetWindowHandle(peekWindow);
+        if (peekHwnd == IntPtr.Zero)
         {
             return;
         }
 
-        staticWndProcDelegate = WndProc;
+        ApplyNonActivatingStyles();
+        ConfigurePresenter();
+        SubclassWndProc();
 
-        var wc = new NativeMethods.WNDCLASSEX();
-        wc.cbSize = (uint)Marshal.SizeOf(typeof(NativeMethods.WNDCLASSEX));
-        wc.style = 0;
-        wc.lpfnWndProc = staticWndProcDelegate;
-        wc.cbClsExtra = 0;
-        wc.cbWndExtra = 0;
-        wc.hInstance = NativeMethods.GetModuleHandle(null);
-        wc.hIcon = IntPtr.Zero;
-        wc.hCursor = IntPtr.Zero;
-        wc.hbrBackground = IntPtr.Zero;
-        wc.lpszMenuName = null;
-        wc.lpszClassName = WindowClassName;
-        wc.hIconSm = IntPtr.Zero;
-
-        NativeMethods.RegisterClassEx(ref wc);
-        classRegistered = true;
+        var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(peekHwnd);
+        appWindow = AppWindow.GetFromWindowId(windowId);
     }
 
-    private void BuildLines(BufferService bufferService)
+    private void ApplyNonActivatingStyles()
     {
-        for (int i = Buffer.MinIndex; i <= Buffer.MaxIndex; i++)
-        {
-            int slot = i - Buffer.MinIndex;
-            var buffer = bufferService.GetBuffer(i);
-            string content = buffer != null ? buffer.Content : string.Empty;
+        IntPtr exStyle = NativeMethods.GetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE);
+        long bits = exStyle.ToInt64();
+        bits |= NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TOOLWINDOW;
+        bits &= ~(long)NativeMethods.WS_EX_APPWINDOW;
+        NativeMethods.SetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(bits));
 
-            if (string.IsNullOrEmpty(content))
+        NativeMethods.SetWindowPos(
+            peekHwnd,
+            NativeMethods.HWND_TOPMOST,
+            0, 0, 0, 0,
+            NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE);
+    }
+
+    private void ConfigurePresenter()
+    {
+        if (appWindow == null)
+        {
+            var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(peekHwnd);
+            appWindow = AppWindow.GetFromWindowId(windowId);
+        }
+
+        if (appWindow == null)
+        {
+            return;
+        }
+
+        var presenter = OverlappedPresenter.CreateForDialog();
+        presenter.IsResizable = false;
+        presenter.IsMaximizable = false;
+        presenter.IsMinimizable = false;
+        presenter.IsAlwaysOnTop = true;
+        presenter.SetBorderAndTitleBar(false, false);
+        appWindow.SetPresenter(presenter);
+    }
+
+    private void SubclassWndProc()
+    {
+        subclassDelegate = PeekWndProc;
+        IntPtr newProcPtr = Marshal.GetFunctionPointerForDelegate(subclassDelegate);
+        originalWndProc = NativeMethods.SetWindowLongPtr(peekHwnd, NativeMethods.GWLP_WNDPROC, newProcPtr);
+    }
+
+    private IntPtr PeekWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+    {
+        if (msg == NativeMethods.WM_MOUSEACTIVATE)
+        {
+            return new IntPtr(NativeMethods.MA_NOACTIVATE);
+        }
+
+        return NativeMethods.CallWindowProc(originalWndProc, hWnd, msg, wParam, lParam);
+    }
+
+    private void StartHoverTimer()
+    {
+        if (hoverTimer != null)
+        {
+            return;
+        }
+
+        hoverTimer = new DispatcherTimer();
+        hoverTimer.Interval = TimeSpan.FromMilliseconds(HoverCheckIntervalMs);
+        hoverTimer.Tick += OnHoverTimerTick;
+        hoverTimer.Start();
+    }
+
+    private void StopHoverTimer()
+    {
+        if (hoverTimer == null)
+        {
+            return;
+        }
+
+        hoverTimer.Stop();
+        hoverTimer.Tick -= OnHoverTimerTick;
+        hoverTimer = null;
+    }
+
+    private void OnHoverTimerTick(object sender, object e)
+    {
+        CheckAndHideIfCursorLeft();
+    }
+
+    private void CheckAndHideIfCursorLeft()
+    {
+        NativeMethods.POINT cursor;
+        if (NativeMethods.GetCursorPos(out cursor) == false)
+        {
+            return;
+        }
+
+        int scaledExpansion = (int)(HoverHitExpansionLogical * dpiScale);
+        NativeMethods.RECT iconRect = QueryIconRect(storedTrayHwnd, storedTrayIconId);
+        bool overIcon = cursor.X >= iconRect.Left - scaledExpansion
+                     && cursor.X <= iconRect.Right + scaledExpansion
+                     && cursor.Y >= iconRect.Top - scaledExpansion
+                     && cursor.Y <= iconRect.Bottom + scaledExpansion;
+
+        if (overIcon)
+        {
+            return;
+        }
+
+        if (peekHwnd != IntPtr.Zero)
+        {
+            NativeMethods.RECT peekRect;
+            if (NativeMethods.GetWindowRect(peekHwnd, out peekRect))
             {
-                lines[slot] = string.Format(LinePrefixFormat, i) + EmptyLabel;
-                lineIsEmpty[slot] = true;
-            }
-            else
-            {
-                string firstLine = content;
-                int newlineIndex = content.IndexOfAny(new[] { '\r', '\n' });
-                if (newlineIndex >= 0)
+                bool overPeek = cursor.X >= peekRect.Left && cursor.X <= peekRect.Right
+                             && cursor.Y >= peekRect.Top && cursor.Y <= peekRect.Bottom;
+                if (overPeek)
                 {
-                    firstLine = content.Substring(0, newlineIndex);
+                    return;
                 }
-
-                lines[slot] = string.Format(LinePrefixFormat, i) + firstLine;
-                lineIsEmpty[slot] = false;
             }
         }
+
+        Hide();
     }
 
     private NativeMethods.RECT QueryIconRect(IntPtr trayHwnd, uint trayIconId)
@@ -228,10 +296,10 @@ public sealed class TrayPeekWindow : IDisposable
         return iconRect;
     }
 
-    private (int Width, int Height) CalculateWindowSize()
+    private (int Width, int Height) CalculatePhysicalWindowSize()
     {
-        int width = (int)(260 * dpiScale);
-        int height = (int)(((BufferCount * LineHeight) + (PaddingY * 2)) * dpiScale);
+        int width = (int)(LogicalWindowWidth * dpiScale);
+        int height = (int)(LogicalWindowHeight * dpiScale);
         return (width, height);
     }
 
@@ -261,159 +329,5 @@ public sealed class TrayPeekWindow : IDisposable
         }
 
         return (x, y);
-    }
-
-    private IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
-    {
-        const uint WM_PAINT = 0x000F;
-        const uint WM_ERASEBKGND = 0x0014;
-
-        if (msg == WM_ERASEBKGND)
-        {
-            return new IntPtr(1);
-        }
-
-        if (msg == WM_PAINT)
-        {
-            Paint(hWnd);
-            return IntPtr.Zero;
-        }
-
-        if (msg == NativeMethods.WM_SHOWWINDOW)
-        {
-            bool isShowing = wParam != IntPtr.Zero;
-            if (isShowing)
-            {
-                NativeMethods.SetTimer(hWnd, HoverTimerId, HoverCheckIntervalMs, IntPtr.Zero);
-            }
-            else
-            {
-                NativeMethods.KillTimer(hWnd, HoverTimerId);
-            }
-        }
-
-        if (msg == NativeMethods.WM_TIMER && (uint)wParam.ToInt64() == HoverTimerId)
-        {
-            CheckAndHideIfCursorLeft(hWnd);
-            return IntPtr.Zero;
-        }
-
-        return NativeMethods.DefWindowProc(hWnd, msg, wParam, lParam);
-    }
-
-    private void CheckAndHideIfCursorLeft(IntPtr hWnd)
-    {
-        NativeMethods.POINT cursor;
-        if (NativeMethods.GetCursorPos(out cursor) == false)
-        {
-            return;
-        }
-
-        int scaledHitExpansion = (int)(HoverHitExpansion * dpiScale);
-        var iconRect = QueryIconRect(storedTrayHwnd, storedTrayIconId);
-        bool overIcon = cursor.X >= iconRect.Left - scaledHitExpansion
-                     && cursor.X <= iconRect.Right + scaledHitExpansion
-                     && cursor.Y >= iconRect.Top - scaledHitExpansion
-                     && cursor.Y <= iconRect.Bottom + scaledHitExpansion;
-
-        if (overIcon)
-        {
-            return;
-        }
-
-        NativeMethods.RECT peekRect;
-        if (NativeMethods.GetWindowRect(hWnd, out peekRect))
-        {
-            bool overPeek = cursor.X >= peekRect.Left && cursor.X <= peekRect.Right
-                         && cursor.Y >= peekRect.Top && cursor.Y <= peekRect.Bottom;
-            if (overPeek)
-            {
-                return;
-            }
-        }
-
-        Hide();
-    }
-
-    private void Paint(IntPtr hWnd)
-    {
-        NativeMethods.PAINTSTRUCT ps;
-        var hdc = NativeMethods.BeginPaint(hWnd, out ps);
-
-        if (hdc == IntPtr.Zero)
-        {
-            return;
-        }
-
-        try
-        {
-            NativeMethods.GetClientRect(hWnd, out NativeMethods.RECT drawRect);
-
-            var bgBrush = NativeMethods.CreateSolidBrush(BackgroundColor);
-            NativeMethods.FillRect(hdc, ref drawRect, bgBrush);
-            NativeMethods.DeleteObject(bgBrush);
-
-            int scaledPaddingX = (int)(PaddingX * dpiScale);
-            int scaledPaddingY = (int)(PaddingY * dpiScale);
-            int scaledLineHeight = (int)(LineHeight * dpiScale);
-            int scaledFontHeight = (int)(FontHeight * dpiScale);
-
-            var lf = new NativeMethods.LOGFONT();
-            lf.lfHeight = scaledFontHeight;
-            lf.lfWidth = 0;
-            lf.lfEscapement = 0;
-            lf.lfOrientation = 0;
-            lf.lfWeight = FontWeightNormal;
-            lf.lfItalic = 0;
-            lf.lfUnderline = 0;
-            lf.lfStrikeOut = 0;
-            lf.lfCharSet = 0;
-            lf.lfOutPrecision = 0;
-            lf.lfClipPrecision = 0;
-            lf.lfQuality = 0;
-            lf.lfPitchAndFamily = 0;
-            lf.lfFaceName = FontFaceName;
-
-            var hFont = NativeMethods.CreateFontIndirect(ref lf);
-            var oldFont = NativeMethods.SelectObject(hdc, hFont);
-
-            NativeMethods.SetBkMode(hdc, TransparentMode);
-            NativeMethods.SetBkColor(hdc, BackgroundColor);
-
-            const uint DT_LEFT = 0x00000000;
-            const uint DT_VCENTER = 0x00000004;
-            const uint DT_SINGLELINE = 0x00000020;
-            const uint DT_NOPREFIX = 0x00000800;
-            const uint DT_END_ELLIPSIS = 0x00008000;
-
-            for (int i = 0; i < BufferCount; i++)
-            {
-                if (lines[i] == null)
-                {
-                    continue;
-                }
-
-                uint textColor = lineIsEmpty[i] ? MutedTextColor : TextColor;
-                NativeMethods.SetTextColor(hdc, textColor);
-
-                int top = scaledPaddingY + (i * scaledLineHeight);
-                var lineRect = new NativeMethods.RECT
-                {
-                    Left = scaledPaddingX,
-                    Top = top,
-                    Right = drawRect.Right - scaledPaddingX,
-                    Bottom = top + scaledLineHeight
-                };
-
-                NativeMethods.DrawText(hdc, lines[i], -1, ref lineRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS);
-            }
-
-            NativeMethods.SelectObject(hdc, oldFont);
-            NativeMethods.DeleteObject(hFont);
-        }
-        finally
-        {
-            NativeMethods.EndPaint(hWnd, ref ps);
-        }
     }
 }

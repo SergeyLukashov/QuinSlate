@@ -9,7 +9,7 @@ using Buffer = Jott.Ui.Models.Buffer;
 namespace Jott.Ui.Services;
 
 /// <summary>
-/// Owns the seven persistent buffers: file IO, in-memory state, and the
+/// Owns the five persistent buffers: file IO, in-memory state, and the
 /// debounced autosave timer.
 /// </summary>
 /// <remarks>
@@ -45,7 +45,7 @@ public sealed class BufferService
     }
 
     /// <summary>
-    /// Loads all seven buffers from disk. Missing files become empty buffers
+    /// Loads all five buffers from disk. Missing files become empty buffers
     /// (this is not an error). Read errors are swallowed and the buffer is
     /// initialised to empty so the UI is always usable.
     /// </summary>
@@ -61,8 +61,7 @@ public sealed class BufferService
         {
             var path = GetBufferFilePath(index);
             var content = ReadFileSafe(path);
-            var color = Buffer.Colors[index - 1];
-            var buffer = new Buffer(index, color, path, content);
+            var buffer = new Buffer(index, path, content);
             buffersByIndex[index] = buffer;
             ordered.Add(buffer);
         }

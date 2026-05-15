@@ -109,7 +109,9 @@ public sealed partial class MainWindow : Window
         Title = WindowTitle;
 
         IReadOnlyList<Buffer> buffers = bufferService.LoadAll();
-        Panel.Initialise(bufferService, buffers);
+        IReadOnlyList<Jott.Ui.Models.TabDefinition> tabDefinitions = settingsService.GetTabs();
+        Panel.Initialise(bufferService, buffers, settingsService, tabDefinitions);
+        Panel.TabLabelChanged += OnTabLabelChanged;
 
         windowHandle = WindowNative.GetWindowHandle(this);
         ConfigureWindowAppearance();
@@ -127,7 +129,9 @@ public sealed partial class MainWindow : Window
         trayIcon.MouseHovered += OnTrayMouseHovered;
         trayIcon.MouseLeft += OnTrayMouseLeft;
 
-        string trayTooltip = settingsService.TrayPeekEnabled ? string.Empty : "Jott";
+        string trayTooltip = settingsService.TrayPeekEnabled
+            ? string.Empty
+            : BuildTrayTooltip(settingsService.GetTabs(), bufferService);
         trayIcon.Add(trayIconFilePath, trayTooltip);
 
         Closed += OnWindowClosed;
@@ -369,7 +373,7 @@ public sealed partial class MainWindow : Window
     {
         if (trayPeekWindow != null && settingsService != null && settingsService.TrayPeekEnabled)
         {
-            trayPeekWindow.Show(bufferService, windowHandle, TrayIconId);
+            trayPeekWindow.Show(bufferService, settingsService, windowHandle, TrayIconId);
         }
     }
 
@@ -416,7 +420,10 @@ public sealed partial class MainWindow : Window
         {
             bool newPeekEnabled = !settingsService.TrayPeekEnabled;
             settingsService.TrayPeekEnabled = newPeekEnabled;
-            trayIcon.SetTooltip(newPeekEnabled ? string.Empty : "Jott");
+            string tooltip = newPeekEnabled
+                ? string.Empty
+                : BuildTrayTooltip(settingsService.GetTabs(), bufferService);
+            trayIcon.SetTooltip(tooltip);
             _ = settingsService.SaveAsync();
         }
         else if (command == NativeMethods.IDM_ABOUT)
@@ -552,6 +559,7 @@ public sealed partial class MainWindow : Window
 
         ApplyPinState();
         NativeMethods.SetForegroundWindow(windowHandle);
+        Panel.FocusActiveEditor();
         isPanelVisible = true;
     }
 
@@ -608,6 +616,72 @@ public sealed partial class MainWindow : Window
         ApplyPinState();
         Panel.SetPinned(isPinned);
         _ = settingsService.SaveAsync();
+    }
+
+    private void OnTabLabelChanged(object sender, EventArgs e)
+    {
+        if (trayIcon == null || settingsService == null || settingsService.TrayPeekEnabled)
+        {
+            return;
+        }
+
+        trayIcon.SetTooltip(BuildTrayTooltip(settingsService.GetTabs(), bufferService));
+    }
+
+    private static string BuildTrayTooltip(
+        IReadOnlyList<Jott.Ui.Models.TabDefinition> tabs,
+        BufferService bufferService)
+    {
+        if (tabs == null || bufferService == null)
+        {
+            return "Jott";
+        }
+
+        const int TrayTooltipMaxLength = 127;
+        const int MaxLineLength = 40;
+
+        var lines = new System.Text.StringBuilder();
+
+        for (int i = 0; i < tabs.Count; i++)
+        {
+            var tab = tabs[i];
+            var buffer = bufferService.GetBuffer(tab.Id);
+
+            string firstLine = string.Empty;
+            if (buffer != null && !string.IsNullOrEmpty(buffer.Content))
+            {
+                int newline = buffer.Content.IndexOf('\n');
+                firstLine = newline >= 0
+                    ? buffer.Content.Substring(0, newline).Trim()
+                    : buffer.Content.Trim();
+            }
+
+            string lineText = $"{tab.Emoji} {tab.Title}";
+            if (!string.IsNullOrEmpty(firstLine))
+            {
+                lineText = $"{lineText} — {firstLine}";
+            }
+
+            if (lineText.Length > MaxLineLength)
+            {
+                lineText = lineText.Substring(0, MaxLineLength - 1) + "…";
+            }
+
+            if (i > 0)
+            {
+                lines.Append('\n');
+            }
+
+            lines.Append(lineText);
+        }
+
+        string result = lines.ToString();
+        if (result.Length > TrayTooltipMaxLength)
+        {
+            result = result.Substring(0, TrayTooltipMaxLength);
+        }
+
+        return result;
     }
 
     private void OnWindowClosed(object sender, WindowEventArgs args)

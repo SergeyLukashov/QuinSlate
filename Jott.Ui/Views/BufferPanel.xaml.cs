@@ -1,11 +1,10 @@
+using Jott.Ui.Models;
 using Jott.Ui.Services;
-using Microsoft.UI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using Windows.System;
@@ -15,61 +14,52 @@ using Buffer = Jott.Ui.Models.Buffer;
 namespace Jott.Ui.Views;
 
 /// <summary>
-/// The 7-tab buffer UI surface. Each tab is a coloured header containing a
-/// monospace multiline rich-edit box bound to a single <see cref="Buffer"/>.
+/// The 5-tab buffer UI surface. Each tab has a user-editable emoji + title header
+/// and contains a monospace multiline rich-edit box bound to a single <see cref="Buffer"/>.
 /// </summary>
 public sealed partial class BufferPanel : UserControl
 {
     private const string MonospaceFont = "Cascadia Code";
     private const double EditorFontSize = 15;
-    private const string PinGlyph = "";
-    private const string PinnedGlyph = "";
-    private const double TabHeaderWidth = 28;
-    private const double TabHeaderHeight = 28;
-    private const double TabHeaderCornerRadius = 4;
-    private const double TabHeaderMargin = 2;
-    private const double ClearButtonWidth = 20;
-    private const double ClearButtonHeight = 20;
-    private const double ClearButtonMarginLeft = 4;
-    private const double ConfirmBorderCornerRadius = 4;
-    private const double ConfirmBorderPaddingH = 6;
-    private const double ConfirmBorderPaddingV = 2;
-    private const double ConfirmBorderMarginLeft = 4;
-    private const double ConfirmTextFontSize = 11;
-    private const double ConfirmButtonWidth = 22;
-    private const double ConfirmButtonHeight = 22;
-    private const double ConfirmButtonMarginLeft = 4;
-    private const int ConfirmAutoCancelMilliseconds = 4000;
-    private const byte ConfirmBackgroundR = 180;
-    private const byte ConfirmBackgroundG = 60;
-    private const byte ConfirmBackgroundB = 60;
-    private const byte ConfirmBackgroundA = 220;
-    private const int VKeyOemPlus = 187;
-    private const int AnimationDurationMs = 1600;
-    private const int AnimationTickMs = 16;
+    private const string PinGlyph = "\uE718";
+    private const string PinnedGlyph = "\uE840";
     private const int MaxBufferLength = 1_000_000;
 
+    private const double EditorClearButtonSize = 28;
+    private const double EditorClearGlyphSize = 13;
+    private const string EditorClearGlyph = "\uE74D";
+    private const double EditorOverlayMargin = 8;
+    private const double EditorConfirmBorderCornerRadius = 4;
+    private const double EditorConfirmPaddingH = 6;
+    private const double EditorConfirmPaddingV = 2;
+    private const double EditorConfirmTextFontSize = 11;
+    private const double EditorConfirmButtonSize = 22;
+    private const double EditorConfirmButtonMarginLeft = 4;
+    private const byte EditorConfirmBgR = 180;
+    private const byte EditorConfirmBgG = 60;
+    private const byte EditorConfirmBgB = 60;
+    private const byte EditorConfirmBgA = 220;
+
     private BufferService bufferService;
+    private SettingsService settingsService;
+    private IReadOnlyList<TabDefinition> tabDefinitions;
+
     private readonly Dictionary<int, RichEditBox> editorsByBufferIndex = new Dictionary<int, RichEditBox>();
     private readonly Dictionary<int, Grid> headerContainersByIndex = new Dictionary<int, Grid>();
-    private readonly Dictionary<int, StackPanel> normalPanelsByIndex = new Dictionary<int, StackPanel>();
+    private readonly Dictionary<int, FrameworkElement> normalPanelsByIndex = new Dictionary<int, FrameworkElement>();
     private readonly Dictionary<int, Border> confirmPanelsByIndex = new Dictionary<int, Border>();
     private readonly Dictionary<int, Button> clearButtonsByIndex = new Dictionary<int, Button>();
+    private readonly Dictionary<int, TabViewItem> tabItemsByIndex = new Dictionary<int, TabViewItem>();
+    private readonly Dictionary<int, TextBlock> tabEmojiBlocksByIndex = new Dictionary<int, TextBlock>();
+    private readonly Dictionary<int, TextBlock> tabTitleBlocksByIndex = new Dictionary<int, TextBlock>();
 
-    private int confirmingBufferIndex = -1;
-    private DispatcherTimer confirmCancelTimer;
-    private bool isCalcReplacing = false;
-    private bool wasEqualsTyped = false;
+    private RichEditBox pendingFocusEditor;
+    private RoutedEventHandler pendingFocusHandler;
 
-    private DispatcherTimer animationTimer;
-    private RichEditBox animationEditor;
-    private int animationResultStart;
-    private int animationResultEnd;
-    private Color animationAccentColor;
-    private Color animationNormalColor;
-    private DateTime animationStartTime;
-    private bool isApplyingAnimationColor = false;
-    private int animationExpectedTextLength;
+    private readonly EmojiPickerService emojiPickerService = new EmojiPickerService();
+    private TabEditFlyoutService tabEditFlyoutService;
+    private ClearConfirmService clearConfirmService;
+    private readonly CalcAnimationService calcAnimationService = new CalcAnimationService();
 
     /// <summary>
     /// Raised when the user clicks the pin button. The caller should toggle
@@ -78,9 +68,15 @@ public sealed partial class BufferPanel : UserControl
     public event EventHandler PinToggleRequested;
 
     /// <summary>
+    /// Raised when a tab label (emoji or title) is saved by the user. The caller
+    /// should refresh the tray tooltip when this event fires.
+    /// </summary>
+    public event EventHandler TabLabelChanged;
+
+    /// <summary>
     /// The element to pass to <c>Window.SetTitleBar</c> as the drag region.
     /// </summary>
-    public FrameworkElement TitleBarDragArea => TitleBarDragGrid;
+    public FrameworkElement TitleBarDragArea => TitleBarIconDragArea;
 
     /// <summary>
     /// Creates the panel. <see cref="Initialise"/> must be called before the
@@ -89,6 +85,18 @@ public sealed partial class BufferPanel : UserControl
     public BufferPanel()
     {
         InitializeComponent();
+        Loaded += OnBufferPanelLoaded;
+    }
+
+    private void OnBufferPanelLoaded(object sender, RoutedEventArgs e)
+    {
+        Loaded -= OnBufferPanelLoaded;
+
+        // Build and warm-render the emoji picker during the startup idle
+        // window so the user's first click pays no realization cost.
+        DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            () => emojiPickerService.Prewarm(EmojiPickerWarmAnchor));
     }
 
     /// <summary>
@@ -110,10 +118,68 @@ public sealed partial class BufferPanel : UserControl
     }
 
     /// <summary>
-    /// Wires the panel to the given <paramref name="bufferService"/> and
-    /// populates the seven tabs from <paramref name="buffers"/>.
+    /// Places keyboard focus into the rich-edit box of the currently selected
+    /// tab so the user can type immediately after the panel is shown. When the
+    /// editor's visual tree is not yet realized (for example on app startup),
+    /// focus is deferred until the editor raises its <c>Loaded</c> event.
     /// </summary>
-    public void Initialise(BufferService bufferService, IReadOnlyList<Buffer> buffers)
+    public void FocusActiveEditor()
+    {
+        int bufferIndex = BufferTabView.SelectedIndex + 1;
+        if (editorsByBufferIndex.TryGetValue(bufferIndex, out RichEditBox editor) == false)
+        {
+            return;
+        }
+
+        FocusEditorWhenReady(editor);
+    }
+
+    private void FocusEditorWhenReady(RichEditBox editor)
+    {
+        ClearPendingFocusHandler();
+
+        if (editor.IsLoaded)
+        {
+            DispatcherQueue.TryEnqueue(() => editor.Focus(FocusState.Programmatic));
+            return;
+        }
+
+        pendingFocusEditor = editor;
+        pendingFocusHandler = OnPendingFocusEditorLoaded;
+        editor.Loaded += pendingFocusHandler;
+    }
+
+    private void OnPendingFocusEditorLoaded(object sender, RoutedEventArgs e)
+    {
+        var editor = sender as RichEditBox;
+        ClearPendingFocusHandler();
+        if (editor == null)
+        {
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(() => editor.Focus(FocusState.Programmatic));
+    }
+
+    private void ClearPendingFocusHandler()
+    {
+        if (pendingFocusEditor != null && pendingFocusHandler != null)
+        {
+            pendingFocusEditor.Loaded -= pendingFocusHandler;
+        }
+
+        pendingFocusEditor = null;
+        pendingFocusHandler = null;
+    }
+
+    /// <summary>
+    /// Wires the panel to the given services and populates the five tabs.
+    /// </summary>
+    public void Initialise(
+        BufferService bufferService,
+        IReadOnlyList<Buffer> buffers,
+        SettingsService settingsService,
+        IReadOnlyList<TabDefinition> tabDefinitions)
     {
         if (bufferService == null)
         {
@@ -125,18 +191,41 @@ public sealed partial class BufferPanel : UserControl
             throw new ArgumentNullException(nameof(buffers));
         }
 
-        this.bufferService = bufferService;
-        BufferTabView.TabItems.Clear();
-        editorsByBufferIndex.Clear();
-        headerContainersByIndex.Clear();
-        normalPanelsByIndex.Clear();
-        confirmPanelsByIndex.Clear();
-        clearButtonsByIndex.Clear();
-
-        foreach (var buffer in buffers)
+        if (settingsService == null)
         {
-            var item = BuildTabViewItem(buffer);
+            throw new ArgumentNullException(nameof(settingsService));
+        }
+
+        if (tabDefinitions == null)
+        {
+            throw new ArgumentNullException(nameof(tabDefinitions));
+        }
+
+        this.bufferService = bufferService;
+        this.settingsService = settingsService;
+        this.tabDefinitions = tabDefinitions;
+
+        tabEditFlyoutService = new TabEditFlyoutService(emojiPickerService, settingsService);
+        tabEditFlyoutService.Saved += OnTabEditSaved;
+
+        clearConfirmService = new ClearConfirmService(normalPanelsByIndex, confirmPanelsByIndex);
+        clearConfirmService.Cleared += OnClearConfirmed;
+
+        ClearAllDictionaries();
+
+        for (int i = 0; i < buffers.Count; i++)
+        {
+            var buffer = buffers[i];
+            TabDefinition tab = FindTabDefinition(buffer.Index) ?? new TabDefinition
+            {
+                Id = buffer.Index,
+                Emoji = "📋",
+                Title = buffer.Index.ToString(),
+            };
+
+            var item = BuildTabViewItem(buffer, tab);
             BufferTabView.TabItems.Add(item);
+            tabItemsByIndex[buffer.Index] = item;
         }
 
         if (BufferTabView.TabItems.Count > 0)
@@ -144,107 +233,46 @@ public sealed partial class BufferPanel : UserControl
             BufferTabView.SelectedIndex = 0;
         }
 
+        BufferTabView.TabDragCompleted += OnTabDragCompleted;
+        BufferTabView.SelectionChanged += OnBufferTabSelectionChanged;
         RootGrid.PreviewKeyDown += OnPanelPreviewKeyDown;
     }
 
-    private TabViewItem BuildTabViewItem(Buffer buffer)
+    private void OnBufferTabSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        var headerColor = ParseColor(buffer.ColorHex);
+        FocusActiveEditor();
+    }
 
-        var numberBadge = new Border
-        {
-            Width = TabHeaderWidth,
-            Height = TabHeaderHeight,
-            Margin = new Thickness(TabHeaderMargin),
-            CornerRadius = new CornerRadius(TabHeaderCornerRadius),
-            Background = new SolidColorBrush(headerColor),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = new TextBlock
-            {
-                Text = buffer.Index.ToString(),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(GetContrastForeground(headerColor)),
-            },
-        };
+    private void ClearAllDictionaries()
+    {
+        BufferTabView.TabItems.Clear();
+        editorsByBufferIndex.Clear();
+        headerContainersByIndex.Clear();
+        normalPanelsByIndex.Clear();
+        confirmPanelsByIndex.Clear();
+        clearButtonsByIndex.Clear();
+        tabItemsByIndex.Clear();
+        tabEmojiBlocksByIndex.Clear();
+        tabTitleBlocksByIndex.Clear();
+    }
 
-        var clearButton = new Button
-        {
-            Content = "✕",
-            Width = ClearButtonWidth,
-            Height = ClearButtonHeight,
-            Padding = new Thickness(0),
-            Margin = new Thickness(ClearButtonMarginLeft, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Tag = buffer.Index,
-            IsEnabled = !string.IsNullOrEmpty(buffer.Content),
-        };
-        clearButton.Click += OnClearButtonClick;
-        clearButtonsByIndex[buffer.Index] = clearButton;
+    private TabViewItem BuildTabViewItem(Buffer buffer, TabDefinition tab)
+    {
+        var header = TabHeaderBuilder.Build(
+            buffer,
+            tab,
+            onEditClicked: (s, e) => OpenEditFlyout(buffer.Index),
+            onDoubleTapped: (s, e) => OpenEditFlyout(buffer.Index));
 
-        var normalPanel = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        normalPanel.Children.Add(numberBadge);
-        normalPanel.Children.Add(clearButton);
-        normalPanelsByIndex[buffer.Index] = normalPanel;
-
-        var confirmCheckButton = new Button
-        {
-            Content = "✓",
-            Width = ConfirmButtonWidth,
-            Height = ConfirmButtonHeight,
-            Padding = new Thickness(0),
-            Margin = new Thickness(ConfirmButtonMarginLeft, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Tag = buffer.Index,
-        };
-        confirmCheckButton.Click += OnConfirmCheckButtonClick;
-
-        var confirmContent = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        var confirmBgColor = Color.FromArgb(ConfirmBackgroundA, ConfirmBackgroundR, ConfirmBackgroundG, ConfirmBackgroundB);
-        confirmContent.Children.Add(new TextBlock
-        {
-            Text = "Clear?",
-            FontSize = ConfirmTextFontSize,
-            VerticalAlignment = VerticalAlignment.Center,
-            Foreground = new SolidColorBrush(GetContrastForeground(confirmBgColor)),
-        });
-        confirmContent.Children.Add(confirmCheckButton);
-
-        var confirmPanel = new Border
-        {
-            CornerRadius = new CornerRadius(ConfirmBorderCornerRadius),
-            Padding = new Thickness(ConfirmBorderPaddingH, ConfirmBorderPaddingV, ConfirmBorderPaddingH, ConfirmBorderPaddingV),
-            Margin = new Thickness(ConfirmBorderMarginLeft, 0, 0, 0),
-            Background = new SolidColorBrush(Color.FromArgb(ConfirmBackgroundA, ConfirmBackgroundR, ConfirmBackgroundG, ConfirmBackgroundB)),
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = confirmContent,
-            Visibility = Visibility.Collapsed,
-        };
-        confirmPanelsByIndex[buffer.Index] = confirmPanel;
-
-        var headerContainer = new Grid
-        {
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        headerContainer.Children.Add(normalPanel);
-        headerContainer.Children.Add(confirmPanel);
-        headerContainersByIndex[buffer.Index] = headerContainer;
+        headerContainersByIndex[buffer.Index] = header.HeaderContainer;
+        tabEmojiBlocksByIndex[buffer.Index] = header.EmojiBlock;
+        tabTitleBlocksByIndex[buffer.Index] = header.TitleBlock;
 
         var editor = new RichEditBox
         {
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap,
-            FontFamily = new FontFamily(MonospaceFont),
+            FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(MonospaceFont),
             FontSize = EditorFontSize,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
@@ -254,8 +282,6 @@ public sealed partial class BufferPanel : UserControl
             MaxLength = MaxBufferLength,
         };
 
-        // Set initial content before subscribing to TextChanged so the load
-        // does not trigger a redundant UpdateContent call.
         editor.Document.SetText(TextSetOptions.None, buffer.Content ?? string.Empty);
 
         editor.TextChanged += OnEditorTextChanged;
@@ -264,16 +290,241 @@ public sealed partial class BufferPanel : UserControl
         editor.Paste += OnEditorPaste;
         editorsByBufferIndex[buffer.Index] = editor;
 
-        var item = new TabViewItem
+        var (editorContainer, clearButton, confirmPanel) = BuildEditorContainer(buffer, editor);
+        normalPanelsByIndex[buffer.Index] = clearButton;
+        confirmPanelsByIndex[buffer.Index] = confirmPanel;
+        clearButtonsByIndex[buffer.Index] = clearButton;
+
+        var tabItem = new TabViewItem
         {
-            Header = headerContainer,
-            Content = editor,
+            Header = header.HeaderContainer,
+            Content = editorContainer,
             IsClosable = false,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             VerticalContentAlignment = VerticalAlignment.Stretch,
         };
+        bool isPointerOverTab = false;
+        tabItem.PointerEntered += (s, e) =>
+        {
+            isPointerOverTab = true;
+            header.EditButton.Visibility = Visibility.Visible;
+        };
+        tabItem.PointerExited += (s, e) =>
+        {
+            isPointerOverTab = false;
+            if (!tabEditFlyoutService.IsOpen)
+            {
+                header.EditButton.Visibility = Visibility.Collapsed;
+            }
+        };
+        tabEditFlyoutService.FlyoutClosed += (s, e) =>
+        {
+            if (!isPointerOverTab)
+            {
+                header.EditButton.Visibility = Visibility.Collapsed;
+            }
+        };
+        tabItem.GettingFocus += OnTabItemGettingFocus;
+        return tabItem;
+    }
 
-        return item;
+    private (Grid container, Button clearButton, Border confirmPanel) BuildEditorContainer(Buffer buffer, RichEditBox editor)
+    {
+        var clearButton = new Button
+        {
+            Width = EditorClearButtonSize,
+            Height = EditorClearButtonSize,
+            Padding = new Thickness(0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = Visibility.Collapsed,
+            IsEnabled = !string.IsNullOrEmpty(buffer.Content),
+            Tag = buffer.Index,
+            Content = new FontIcon { Glyph = EditorClearGlyph, FontSize = EditorClearGlyphSize },
+        };
+        clearButton.Click += OnClearButtonClick;
+        ToolTipService.SetToolTip(clearButton, "Clear buffer");
+
+        var confirmPanel = BuildEditorConfirmPanel(buffer.Index);
+
+        var overlayContainer = new Grid
+        {
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, EditorOverlayMargin, EditorOverlayMargin),
+            IsHitTestVisible = true,
+        };
+        overlayContainer.Children.Add(clearButton);
+        overlayContainer.Children.Add(confirmPanel);
+
+        var editorContainer = new Grid();
+        editorContainer.Children.Add(editor);
+        editorContainer.Children.Add(overlayContainer);
+
+        editorContainer.PointerEntered += (s, e) =>
+        {
+            if (!clearConfirmService.IsConfirming)
+            {
+                clearButton.Visibility = Visibility.Visible;
+            }
+        };
+        editorContainer.PointerExited += (s, e) =>
+        {
+            if (!clearConfirmService.IsConfirming)
+            {
+                clearButton.Visibility = Visibility.Collapsed;
+            }
+        };
+
+        return (editorContainer, clearButton, confirmPanel);
+    }
+
+    private Border BuildEditorConfirmPanel(int bufferIndex)
+    {
+        var bgColor = Color.FromArgb(EditorConfirmBgA, EditorConfirmBgR, EditorConfirmBgG, EditorConfirmBgB);
+
+        var confirmButton = new Button
+        {
+            Content = "✓",
+            Width = EditorConfirmButtonSize,
+            Height = EditorConfirmButtonSize,
+            Padding = new Thickness(0),
+            Margin = new Thickness(EditorConfirmButtonMarginLeft, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Tag = bufferIndex,
+        };
+        confirmButton.Click += OnConfirmCheckButtonClick;
+
+        double luminance = (bgColor.R * 0.299 + bgColor.G * 0.587 + bgColor.B * 0.114) / 255.0;
+        var fg = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+            luminance >= 0.5 ? Microsoft.UI.Colors.Black : Microsoft.UI.Colors.White);
+
+        var content = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        content.Children.Add(new TextBlock
+        {
+            Text = "Clear?",
+            FontSize = EditorConfirmTextFontSize,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = fg,
+        });
+        content.Children.Add(confirmButton);
+
+        return new Border
+        {
+            CornerRadius = new CornerRadius(EditorConfirmBorderCornerRadius),
+            Padding = new Thickness(EditorConfirmPaddingH, EditorConfirmPaddingV, EditorConfirmPaddingH, EditorConfirmPaddingV),
+            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(bgColor),
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = content,
+            Visibility = Visibility.Collapsed,
+        };
+    }
+
+    private void OnTabItemGettingFocus(UIElement sender, GettingFocusEventArgs e)
+    {
+        if (ReferenceEquals(e.NewFocusedElement, sender))
+        {
+            e.TryCancel();
+        }
+    }
+
+    private void OpenEditFlyout(int bufferIndex)
+    {
+        if (tabEditFlyoutService == null)
+        {
+            return;
+        }
+
+        TabDefinition currentTab = FindTabDefinition(bufferIndex);
+        if (currentTab == null)
+        {
+            return;
+        }
+
+        if (headerContainersByIndex.TryGetValue(bufferIndex, out Grid headerContainer))
+        {
+            tabEditFlyoutService.Open(bufferIndex, currentTab, headerContainer);
+        }
+    }
+
+    private void OnTabEditSaved(object sender, TabEditSavedEventArgs e)
+    {
+        UpdateTabLabel(e.BufferIndex, e.Emoji, e.Title);
+        TabLabelChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnTabDragCompleted(TabView sender, TabViewTabDragCompletedEventArgs args)
+    {
+        var reordered = new List<TabDefinition>();
+        foreach (var obj in BufferTabView.TabItems)
+        {
+            var tabItem = obj as TabViewItem;
+            if (tabItem == null)
+            {
+                continue;
+            }
+
+            foreach (var kv in tabItemsByIndex)
+            {
+                if (kv.Value == tabItem)
+                {
+                    TabDefinition found = FindTabDefinition(kv.Key);
+                    if (found != null)
+                    {
+                        reordered.Add(found);
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        if (reordered.Count > 0 && settingsService != null)
+        {
+            tabDefinitions = reordered;
+            settingsService.SetTabs(reordered);
+        }
+    }
+
+    private void UpdateTabLabel(int bufferIndex, string emoji, string title)
+    {
+        if (tabEmojiBlocksByIndex.TryGetValue(bufferIndex, out TextBlock emojiBlock))
+        {
+            emojiBlock.Text = emoji;
+        }
+
+        if (tabTitleBlocksByIndex.TryGetValue(bufferIndex, out TextBlock titleBlock))
+        {
+            titleBlock.Text = title;
+        }
+
+        if (tabDefinitions == null)
+        {
+            return;
+        }
+
+        var updated = new List<TabDefinition>();
+        foreach (var td in tabDefinitions)
+        {
+            if (td.Id == bufferIndex)
+            {
+                updated.Add(new TabDefinition { Id = td.Id, Emoji = emoji, Title = title });
+            }
+            else
+            {
+                updated.Add(new TabDefinition { Id = td.Id, Emoji = td.Emoji, Title = td.Title });
+            }
+        }
+
+        tabDefinitions = updated;
+
+        if (settingsService != null)
+        {
+            settingsService.SetTabs(updated);
+        }
     }
 
     private void OnPinButtonClicked(object sender, RoutedEventArgs e)
@@ -291,7 +542,11 @@ public sealed partial class BufferPanel : UserControl
 
         if (button.Tag is int index)
         {
-            EnterConfirmState(index);
+            clearConfirmService.Enter(index);
+            if (clearButtonsByIndex.TryGetValue(index, out Button clearBtn))
+            {
+                clearBtn.Visibility = Visibility.Collapsed;
+            }
         }
     }
 
@@ -305,15 +560,30 @@ public sealed partial class BufferPanel : UserControl
 
         if (button.Tag is int index)
         {
-            ConfirmClear(index);
+            clearConfirmService.Confirm(index);
         }
+    }
+
+    private void OnClearConfirmed(object sender, int bufferIndex)
+    {
+        if (editorsByBufferIndex.TryGetValue(bufferIndex, out RichEditBox editor))
+        {
+            editor.Document.SetText(TextSetOptions.None, string.Empty);
+        }
+
+        if (bufferService != null)
+        {
+            bufferService.UpdateContent(bufferIndex, string.Empty);
+        }
+
+        UpdateClearButtonState(bufferIndex, isEmpty: true);
     }
 
     private void OnEditorPointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (confirmingBufferIndex != -1)
+        if (clearConfirmService.IsConfirming)
         {
-            ExitConfirmState();
+            clearConfirmService.Exit();
         }
     }
 
@@ -341,103 +611,10 @@ public sealed partial class BufferPanel : UserControl
                 {
                     text = text.Substring(0, maxAllowedPaste);
                 }
+
                 editor.Document.Selection.TypeText(text);
             }
         }
-    }
-
-    private void EnterConfirmState(int bufferIndex)
-    {
-        if (confirmingBufferIndex != -1 && confirmingBufferIndex != bufferIndex)
-        {
-            ExitConfirmState();
-        }
-
-        confirmingBufferIndex = bufferIndex;
-
-        if (normalPanelsByIndex.TryGetValue(bufferIndex, out StackPanel normalPanel))
-        {
-            normalPanel.Visibility = Visibility.Collapsed;
-        }
-
-        if (confirmPanelsByIndex.TryGetValue(bufferIndex, out Border confirmPanel))
-        {
-            confirmPanel.Visibility = Visibility.Visible;
-        }
-
-        if (confirmCancelTimer != null)
-        {
-            confirmCancelTimer.Stop();
-            confirmCancelTimer = null;
-        }
-
-        confirmCancelTimer = new DispatcherTimer();
-        confirmCancelTimer.Interval = TimeSpan.FromMilliseconds(ConfirmAutoCancelMilliseconds);
-        confirmCancelTimer.Tick += OnConfirmTimerTick;
-        confirmCancelTimer.Start();
-    }
-
-    private void ExitConfirmState()
-    {
-        if (confirmCancelTimer != null)
-        {
-            confirmCancelTimer.Stop();
-            confirmCancelTimer.Tick -= OnConfirmTimerTick;
-            confirmCancelTimer = null;
-        }
-
-        int index = confirmingBufferIndex;
-        confirmingBufferIndex = -1;
-
-        if (index == -1)
-        {
-            return;
-        }
-
-        if (normalPanelsByIndex.TryGetValue(index, out StackPanel normalPanel))
-        {
-            normalPanel.Visibility = Visibility.Visible;
-        }
-
-        if (confirmPanelsByIndex.TryGetValue(index, out Border confirmPanel))
-        {
-            confirmPanel.Visibility = Visibility.Collapsed;
-        }
-    }
-
-    private void ConfirmClear(int bufferIndex)
-    {
-        ExitConfirmState();
-
-        if (editorsByBufferIndex.TryGetValue(bufferIndex, out RichEditBox editor))
-        {
-            editor.Document.SetText(TextSetOptions.None, string.Empty);
-        }
-
-        if (bufferService != null)
-        {
-            bufferService.UpdateContent(bufferIndex, string.Empty);
-        }
-
-        UpdateClearButtonState(bufferIndex, isEmpty: true);
-    }
-
-    private void UpdateClearButtonState(int bufferIndex, bool isEmpty)
-    {
-        if (clearButtonsByIndex.TryGetValue(bufferIndex, out Button clearButton))
-        {
-            clearButton.IsEnabled = !isEmpty;
-        }
-    }
-
-    private void OnConfirmTimerTick(object sender, object e)
-    {
-        ExitConfirmState();
-    }
-
-    private static bool IsKeyDown(Windows.UI.Core.CoreVirtualKeyStates state)
-    {
-        return (state & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0;
     }
 
     private void OnEditorKeyDown(object sender, KeyRoutedEventArgs e)
@@ -450,15 +627,9 @@ public sealed partial class BufferPanel : UserControl
             return;
         }
 
-        if (e.Key != (VirtualKey)VKeyOemPlus)
-        {
-            return;
-        }
-
-        if (!IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)))
-        {
-            wasEqualsTyped = true;
-        }
+        calcAnimationService.TrackKeyDown(
+            (int)e.Key,
+            IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)));
     }
 
     private void OnEditorTextChanged(object sender, RoutedEventArgs e)
@@ -476,24 +647,7 @@ public sealed partial class BufferPanel : UserControl
 
         if (editor.Tag is int index)
         {
-            if (!isCalcReplacing && !isApplyingAnimationColor && animationTimer != null && animationEditor == editor)
-            {
-                editor.Document.GetText(TextGetOptions.UseCrlf, out string currentText);
-                if (currentText.Length != animationExpectedTextLength)
-                {
-                    CancelAnimation();
-                }
-            }
-
-            if (!isCalcReplacing && wasEqualsTyped)
-            {
-                wasEqualsTyped = false;
-                TryCalcReplace(editor);
-            }
-            else
-            {
-                wasEqualsTyped = false;
-            }
+            calcAnimationService.HandleTextChanged(editor);
 
             editor.Document.GetText(TextGetOptions.UseCrlf, out string text);
             text = text.TrimEnd('\r', '\n');
@@ -502,172 +656,37 @@ public sealed partial class BufferPanel : UserControl
         }
     }
 
-    private void TryCalcReplace(RichEditBox editor)
-    {
-        var sel = editor.Document.Selection;
-
-        var lineRange = sel.GetClone();
-        lineRange.Expand(TextRangeUnit.Line);
-        int lineStart = lineRange.StartPosition;
-
-        lineRange.GetText(TextGetOptions.None, out string fullLineText);
-
-        bool lineHasBreak = fullLineText.Length > 0 && fullLineText[fullLineText.Length - 1] == '\r';
-        string lineContent = lineHasBreak
-            ? fullLineText.Substring(0, fullLineText.Length - 1)
-            : fullLineText;
-
-        int contentEnd = lineStart + lineContent.Length;
-
-        if (!CalcService.TryEvaluate(lineContent, out string result))
-        {
-            return;
-        }
-
-        bool hasSpaceBefore = lineContent.EndsWith(" =");
-        string separator = hasSpaceBefore ? " " : "";
-        string newLineContent = lineContent + separator + result;
-
-        isCalcReplacing = true;
-        try
-        {
-            var contentRange = editor.Document.GetRange(lineStart, contentEnd);
-            contentRange.SetText(TextSetOptions.None, newLineContent);
-            int newCaretPos = lineStart + newLineContent.Length;
-            editor.Document.Selection.SetRange(newCaretPos, newCaretPos);
-        }
-        finally
-        {
-            isCalcReplacing = false;
-        }
-
-        // Highlight only the result value (skip the appended separator).
-        int highlightStart = lineStart + lineContent.Length + separator.Length;
-        int highlightEnd = lineStart + newLineContent.Length;
-        StartResultAnimation(editor, highlightStart, highlightEnd);
-    }
-
-    private void StartResultAnimation(RichEditBox editor, int resultStart, int resultEnd)
-    {
-        CancelAnimation();
-
-        animationAccentColor = (Color)Application.Current.Resources["SystemAccentColor"];
-        // Win32 COLORREF has no alpha channel, so semi-transparent theme brushes (e.g.
-        // WinUI 3 Mica dark TextControlBackground = #0EFFFFFF) map to white regardless of theme.
-        // Use an opaque approximation derived from the app theme for the fade target.
-        bool isDark = Application.Current.RequestedTheme == ApplicationTheme.Dark;
-        animationNormalColor = isDark ? Color.FromArgb(255, 32, 32, 32) : Color.FromArgb(255, 242, 242, 242);
-        animationEditor = editor;
-        animationResultStart = resultStart;
-        animationResultEnd = resultEnd;
-        animationStartTime = DateTime.UtcNow;
-
-        ApplyAnimationColor(animationAccentColor);
-
-        editor.Document.GetText(TextGetOptions.UseCrlf, out string textAfterRewrite);
-        animationExpectedTextLength = textAfterRewrite.Length;
-
-        animationTimer = new DispatcherTimer();
-        animationTimer.Interval = TimeSpan.FromMilliseconds(AnimationTickMs);
-        animationTimer.Tick += OnAnimationTick;
-        animationTimer.Start();
-    }
-
-    private void CancelAnimation()
-    {
-        if (animationTimer == null)
-        {
-            return;
-        }
-
-        animationTimer.Stop();
-        animationTimer.Tick -= OnAnimationTick;
-        animationTimer = null;
-
-        ClearAnimationColor();
-        animationEditor = null;
-    }
-
-    private void ApplyAnimationColor(Color color)
-    {
-        if (animationEditor == null)
-        {
-            return;
-        }
-
-        isApplyingAnimationColor = true;
-        try
-        {
-            var range = animationEditor.Document.GetRange(animationResultStart, animationResultEnd);
-            range.CharacterFormat.BackgroundColor = color;
-        }
-        finally
-        {
-            isApplyingAnimationColor = false;
-        }
-    }
-
-    private void ClearAnimationColor()
-    {
-        if (animationEditor == null)
-        {
-            return;
-        }
-
-        isApplyingAnimationColor = true;
-        try
-        {
-            var range = animationEditor.Document.GetRange(animationResultStart, animationResultEnd);
-            // AutoColor clears CFM_BACKCOLOR entirely so RichEdit uses its own background,
-            // rather than overpainting with a sampled color that may not match after a theme change.
-            range.CharacterFormat.BackgroundColor = Microsoft.UI.Text.TextConstants.AutoColor;
-        }
-        finally
-        {
-            isApplyingAnimationColor = false;
-        }
-    }
-
-    private void OnAnimationTick(object sender, object e)
-    {
-        double elapsed = (DateTime.UtcNow - animationStartTime).TotalMilliseconds;
-        double t = Math.Min(elapsed / AnimationDurationMs, 1.0);
-
-        if (t >= 1.0)
-        {
-            animationTimer.Stop();
-            animationTimer.Tick -= OnAnimationTick;
-            animationTimer = null;
-            ClearAnimationColor();
-            animationEditor = null;
-        }
-        else
-        {
-            ApplyAnimationColor(InterpolateColor(animationAccentColor, animationNormalColor, t));
-        }
-    }
-
-    private static Color InterpolateColor(Color from, Color to, double t)
-    {
-        return Color.FromArgb(
-            (byte)(from.A + (to.A - from.A) * t),
-            (byte)(from.R + (to.R - from.R) * t),
-            (byte)(from.G + (to.G - from.G) * t),
-            (byte)(from.B + (to.B - from.B) * t));
-    }
-
     private void OnPanelPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Escape && confirmingBufferIndex != -1)
+        if (e.Key == VirtualKey.Escape && clearConfirmService.IsConfirming)
         {
-            ExitConfirmState();
+            clearConfirmService.Exit();
             e.Handled = true;
             return;
+        }
+
+        if (e.Key == VirtualKey.F2)
+        {
+            int selectedIndex = BufferTabView.SelectedIndex;
+            if (selectedIndex >= 0)
+            {
+                OpenEditFlyout(selectedIndex + 1);
+                e.Handled = true;
+                return;
+            }
         }
 
         bool ctrl = IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control));
         if (!ctrl)
         {
+            return;
+        }
+
+        if (e.Key == VirtualKey.Tab)
+        {
+            bool back = IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift));
+            CycleBuffer(back ? -1 : 1);
+            e.Handled = true;
             return;
         }
 
@@ -677,20 +696,28 @@ public sealed partial class BufferPanel : UserControl
             return;
         }
 
-        int bufferIndex = -1;
-        if (e.Key >= VirtualKey.Number1 && e.Key <= VirtualKey.Number7)
+        int bufferIndexFromKey = -1;
+        if (e.Key >= VirtualKey.Number1 && e.Key <= VirtualKey.Number5)
         {
-            bufferIndex = (int)e.Key - (int)VirtualKey.Number1;
+            bufferIndexFromKey = (int)e.Key - (int)VirtualKey.Number1;
         }
-        else if (e.Key >= VirtualKey.NumberPad1 && e.Key <= VirtualKey.NumberPad7)
+        else if (e.Key >= VirtualKey.NumberPad1 && e.Key <= VirtualKey.NumberPad5)
         {
-            bufferIndex = (int)e.Key - (int)VirtualKey.NumberPad1;
+            bufferIndexFromKey = (int)e.Key - (int)VirtualKey.NumberPad1;
         }
 
-        if (bufferIndex >= 0)
+        if (bufferIndexFromKey >= 0)
         {
-            SelectBuffer(bufferIndex);
+            SelectBuffer(bufferIndexFromKey);
             e.Handled = true;
+        }
+    }
+
+    private void UpdateClearButtonState(int bufferIndex, bool isEmpty)
+    {
+        if (clearButtonsByIndex.TryGetValue(bufferIndex, out Button clearButton))
+        {
+            clearButton.IsEnabled = !isEmpty;
         }
     }
 
@@ -721,29 +748,26 @@ public sealed partial class BufferPanel : UserControl
         }
     }
 
-    private static Color GetContrastForeground(Color background)
+    private TabDefinition FindTabDefinition(int bufferIndex)
     {
-        double luminance = (background.R * 0.299 + background.G * 0.587 + background.B * 0.114) / 255.0;
-        return luminance >= 0.5 ? Colors.Black : Colors.White;
+        if (tabDefinitions == null)
+        {
+            return null;
+        }
+
+        foreach (var td in tabDefinitions)
+        {
+            if (td.Id == bufferIndex)
+            {
+                return td;
+            }
+        }
+
+        return null;
     }
 
-    private static Color ParseColor(string hex)
+    private static bool IsKeyDown(Windows.UI.Core.CoreVirtualKeyStates state)
     {
-        if (string.IsNullOrEmpty(hex) || hex.Length != 7 || hex[0] != '#')
-        {
-            return Colors.Gray;
-        }
-
-        try
-        {
-            var r = Convert.ToByte(hex.Substring(1, 2), 16);
-            var g = Convert.ToByte(hex.Substring(3, 2), 16);
-            var b = Convert.ToByte(hex.Substring(5, 2), 16);
-            return Color.FromArgb(0xFF, r, g, b);
-        }
-        catch (FormatException)
-        {
-            return Colors.Gray;
-        }
+        return (state & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0;
     }
 }

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Jott.Ui.Views.TrayPeekPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Jott.Ui.Views"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid
+        x:Name="RootGrid"
+        Background="#282828"
+        Padding="12,8,12,8">
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="22" />
+            <RowDefinition Height="22" />
+            <RowDefinition Height="22" />
+            <RowDefinition Height="22" />
+            <RowDefinition Height="22" />
+        </Grid.RowDefinitions>
+
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="105" />
+            <ColumnDefinition Width="12" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Row 0 -->
+        <TextBlock
+            x:Name="Label0"
+            Grid.Row="0"
+            Grid.Column="0"
+            VerticalAlignment="Center"
+            TextTrimming="CharacterEllipsis"
+            Foreground="#C8C8C8"
+            FontSize="13"
+            FontFamily="Segoe UI Variable Text" />
+        <TextBlock
+            x:Name="Preview0"
+            Grid.Row="0"
+            Grid.Column="2"
+            VerticalAlignment="Center"
+            TextTrimming="CharacterEllipsis"
+            Foreground="#E0E0E0"
+            FontSize="13"
+            FontFamily="Segoe UI Variable Text" />
+
+        <!-- Row 1 -->
+        <TextBlock
+            x:Name="Label1"
+            Grid.Row="1"
+            Grid.Column="0"
+            VerticalAlignment="Center"
+            TextTrimming="CharacterEllipsis"
+            Foreground="#C8C8C8"
+            FontSize="13"
+            FontFamily="Segoe UI Variable Text" />
+        <TextBlock
+            x:Name="Preview1"
+            Grid.Row="1"
+            Grid.Column="2"
+            VerticalAlignment="Center"
+            TextTrimming="CharacterEllipsis"
+            Foreground="#E0E0E0"
+            FontSize="13"
+            FontFamily="Segoe UI Variable Text" />
+
+        <!-- Row 2 -->
+        <TextBlock
+            x:Name="Label2"
+            Grid.Row="2"
+            Grid.Column="0"
+            VerticalAlignment="Center"
+            TextTrimming="CharacterEllipsis"
+            Foreground="#C8C8C8"
+            FontSize="13"
+            FontFamily="Segoe UI Variable Text" />
+        <TextBlock
+            x:Name="Preview2"
+            Grid.Row="2"
+            Grid.Column="2"
+            VerticalAlignment="Center"
+            TextTrimming="CharacterEllipsis"
+            Foreground="#E0E0E0"
+            FontSize="13"
+            FontFamily="Segoe UI Variable Text" />
+
+        <!-- Row 3 -->
+        <TextBlock
+            x:Name="Label3"
+            Grid.Row="3"
+            Grid.Column="0"
+            VerticalAlignment="Center"
+            TextTrimming="CharacterEllipsis"
+            Foreground="#C8C8C8"
+            FontSize="13"
+            FontFamily="Segoe UI Variable Text" />
+        <TextBlock
+            x:Name="Preview3"
+            Grid.Row="3"
+            Grid.Column="2"
+            VerticalAlignment="Center"
+            TextTrimming="CharacterEllipsis"
+            Foreground="#E0E0E0"
+            FontSize="13"
+            FontFamily="Segoe UI Variable Text" />
+
+        <!-- Row 4 -->
+        <TextBlock
+            x:Name="Label4"
+            Grid.Row="4"
+            Grid.Column="0"
+            VerticalAlignment="Center"
+            TextTrimming="CharacterEllipsis"
+            Foreground="#C8C8C8"
+            FontSize="13"
+            FontFamily="Segoe UI Variable Text" />
+        <TextBlock
+            x:Name="Preview4"
+            Grid.Row="4"
+            Grid.Column="2"
+            VerticalAlignment="Center"
+            TextTrimming="CharacterEllipsis"
+            Foreground="#E0E0E0"
+            FontSize="13"
+            FontFamily="Segoe UI Variable Text" />
+
+    </Grid>
+</UserControl>

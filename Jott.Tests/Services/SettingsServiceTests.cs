@@ -170,4 +170,68 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(100, settingsService.WindowLeft);
         Assert.Equal(200, settingsService.WindowTop);
     }
+
+    [Fact]
+    public void GetTabs_NoTabsInSettings_ReturnsDefaults()
+    {
+        var tabs = settingsService.GetTabs();
+
+        Assert.Equal(5, tabs.Count);
+        Assert.Equal(1, tabs[0].Id);
+        Assert.Equal("📋", tabs[0].Emoji);
+        Assert.Equal("Scratch", tabs[0].Title);
+        Assert.Equal(2, tabs[1].Id);
+        Assert.Equal("✅", tabs[1].Emoji);
+        Assert.Equal("Tasks", tabs[1].Title);
+    }
+
+    [Fact]
+    public async Task SetTabs_SavesAndRestores()
+    {
+        var tabs = settingsService.GetTabs();
+        var modified = new List<Jott.Ui.Models.TabDefinition>(tabs)
+        {
+            [0] = new Jott.Ui.Models.TabDefinition { Id = 1, Emoji = "🔥", Title = "Hot" }
+        };
+
+        settingsService.SetTabs(modified);
+
+        await Task.Delay(50);
+
+        var fresh = new SettingsService(tempDirectory);
+        await fresh.LoadAsync();
+        var restored = fresh.GetTabs();
+
+        Assert.Equal("🔥", restored[0].Emoji);
+        Assert.Equal("Hot", restored[0].Title);
+        Assert.Equal("✅", restored[1].Emoji);
+        Assert.Equal("Tasks", restored[1].Title);
+    }
+
+    [Fact]
+    public void AddRecentEmoji_KeepsMax8()
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            settingsService.AddRecentEmoji($"E{i}");
+        }
+
+        var recent = settingsService.GetRecentEmoji();
+        Assert.Equal(8, recent.Count);
+        Assert.Equal("E9", recent[0]);
+        Assert.Equal("E2", recent[7]);
+    }
+
+    [Fact]
+    public void AddRecentEmoji_Deduplicates()
+    {
+        settingsService.AddRecentEmoji("⭐");
+        settingsService.AddRecentEmoji("🔥");
+        settingsService.AddRecentEmoji("⭐");
+
+        var recent = settingsService.GetRecentEmoji();
+        Assert.Equal(2, recent.Count);
+        Assert.Equal("⭐", recent[0]);
+        Assert.Equal("🔥", recent[1]);
+    }
 }

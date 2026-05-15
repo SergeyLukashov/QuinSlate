@@ -45,12 +45,12 @@ public sealed class BufferServiceTests : IDisposable
     }
 
     [Fact]
-    public void LoadAll_InitialisesSevenEmptyBuffers()
+    public void LoadAll_InitialisesFiveEmptyBuffers()
     {
         var buffers = bufferService.LoadAll();
 
-        Assert.Equal(7, buffers.Count);
-        for (var i = 0; i < 7; i++)
+        Assert.Equal(5, buffers.Count);
+        for (var i = 0; i < 5; i++)
         {
             Assert.Equal(i + 1, buffers[i].Index);
             Assert.Equal(string.Empty, buffers[i].Content);
@@ -127,17 +127,17 @@ public sealed class BufferServiceTests : IDisposable
         bufferService.LoadAll();
 
         bufferService.UpdateContent(1, "content 1");
-        bufferService.UpdateContent(7, "content 7");
+        bufferService.UpdateContent(5, "content 5");
 
         // Flush immediately, before debounce timer fires
         bufferService.FlushPendingWritesSync();
 
         var content1 = File.ReadAllText(Path.Combine(tempDirectory, "buffer-1.txt"));
-        var content7 = File.ReadAllText(Path.Combine(tempDirectory, "buffer-7.txt"));
+        var content5 = File.ReadAllText(Path.Combine(tempDirectory, "buffer-5.txt"));
 
         // Content contains UTF8 BOM according to Utf8WithBom encoding in service, but File.ReadAllText handles it
         Assert.Equal("content 1", content1);
-        Assert.Equal("content 7", content7);
+        Assert.Equal("content 5", content5);
     }
 
     [Fact]

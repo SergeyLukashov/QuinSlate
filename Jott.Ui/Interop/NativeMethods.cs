@@ -41,6 +41,9 @@ internal static class NativeMethods
     public const int VK_Q = 0x51;
 
     public const int GWLP_WNDPROC = -4;
+    public const int GWL_EXSTYLE = -20;
+
+    public const uint WS_EX_APPWINDOW = 0x00040000;
 
     public const uint NIM_ADD = 0x00000000;
     public const uint NIM_MODIFY = 0x00000001;
@@ -82,10 +85,13 @@ internal static class NativeMethods
     public const int SW_HIDE = 0;
 
     public const uint WM_MOUSEMOVE = 0x0200;
+    public const uint WM_MOUSEACTIVATE = 0x0021;
     public const uint WM_SHOWWINDOW = 0x0018;
     public const uint WM_TIMER = 0x0113;
     public const uint WM_QUERYENDSESSION = 0x0011;
     public const uint WM_ENDSESSION = 0x0016;
+
+    public const int MA_NOACTIVATE = 3;
 
     public static readonly IntPtr IDI_APPLICATION = new IntPtr(32512);
 
@@ -174,6 +180,27 @@ internal static class NativeMethods
         }
 
         return SetWindowLong32(hWnd, nIndex, dwNewLong);
+    }
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongW", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr GetWindowLong32(IntPtr hWnd, int nIndex);
+
+    /// <summary>
+    /// Retrieves information about a window. On 64-bit processes uses
+    /// <c>GetWindowLongPtrW</c>; on 32-bit processes falls back to
+    /// <c>GetWindowLongW</c>.
+    /// </summary>
+    public static IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex)
+    {
+        if (IntPtr.Size == 8)
+        {
+            return GetWindowLongPtr64(hWnd, nIndex);
+        }
+
+        return GetWindowLong32(hWnd, nIndex);
     }
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]

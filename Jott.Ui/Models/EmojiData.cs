@@ -1,6 +1,6 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
-namespace Jott.Ui.Views;
+namespace Jott.Ui.Models;
 
 /// <summary>
 /// Provides grouped emoji data for the in-app emoji picker.

@@ -17,38 +17,10 @@ WinUI 3 has no native tray API. All tray behaviour is Win32 via P/Invoke.
 ## Sample project structure
 
 ```
-Jott.Ui/
-├── App.xaml
-├── App.xaml.cs            # Startup, mutex check, tray icon init
-├── MainWindow.xaml
-├── MainWindow.xaml.cs     # Panel show/hide, pin toggle, keyboard nav
-├── Interop/
-│   ├── HotkeyManager.cs   # RegisterHotKey / UnregisterHotKey
-│   ├── NativeMethods.cs   # All P/Invoke signatures
-│   ├── TrayIcon.cs        # Shell_NotifyIcon wrapper
-│   └── TrayMenu.cs
-├── Models/
-│   └── Buffer.cs          # Buffer index (1–7), color, file path, content
-├── Services/
-│   ├── BufferService.cs   # Read/write files, debounce timer, in-memory state
-│   ├── SettingsService.cs # Window position, pin state, startup toggle (JSON)
-│   └── StartupService.cs
-├── Views/
-│   ├── BufferPanel.xaml   # The 7-tab panel UI
-│   └── BufferPanel.xaml.cs
-└── Assets/                # App logos and icons
-
-Jott.Tests/
-├── Models/
-│   └── BufferTests.cs
-└── Services/
-    ├── BufferServiceTests.cs
-    └── SettingsServiceTests.cs
-
-Specs/
-├── 01-SPEC-CORE.md
-├── ...
-└── FEATURE-QUEUE.md
+Jott/
+├── Jott.Ui/       # WinUI 3 desktop application source code and assets
+├── Jott.Tests/    # Unit tests for models and services
+├── Specs/         # Product specifications and feature queue
 ```
 
 ---

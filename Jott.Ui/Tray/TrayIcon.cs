@@ -1,7 +1,8 @@
+using Jott.Ui.Interop;
 using System;
 using System.Diagnostics;
 
-namespace Jott.Ui.Interop;
+namespace Jott.Ui.Tray;
 
 /// <summary>
 /// Win32 <c>Shell_NotifyIcon</c> wrapper. WinUI 3 has no native tray API so all

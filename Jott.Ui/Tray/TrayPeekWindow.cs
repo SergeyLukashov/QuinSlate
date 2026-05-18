@@ -1,5 +1,5 @@
+using Jott.Ui.Interop;
 using Jott.Ui.Services;
-using Jott.Ui.Views;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using System;
@@ -8,7 +8,7 @@ using Windows.Graphics;
 using WinRT.Interop;
 using Buffer = Jott.Ui.Models.Buffer;
 
-namespace Jott.Ui.Interop;
+namespace Jott.Ui.Tray;
 
 /// <summary>
 /// A borderless, non-activating WinUI 3 popup window that renders a two-column

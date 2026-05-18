@@ -1,4 +1,4 @@
-using Jott.Ui.Views;
+using Jott.Ui.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -9,13 +9,13 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
-namespace Jott.Ui.Services;
+namespace Jott.Ui.Components;
 
 /// <summary>
 /// Builds and caches the emoji-picker flyout and raises
 /// <see cref="EmojiSelected"/> when the user picks an emoji.
 /// </summary>
-public sealed class EmojiPickerService
+public sealed class EmojiPicker
 {
     private const double ItemSize = 36;
     private const double SearchHeight = 32;

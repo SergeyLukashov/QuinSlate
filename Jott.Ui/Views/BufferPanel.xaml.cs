@@ -1,3 +1,4 @@
+using Jott.Ui.Components;
 using Jott.Ui.Models;
 using Jott.Ui.Services;
 using Microsoft.UI.Input;
@@ -56,10 +57,10 @@ public sealed partial class BufferPanel : UserControl
     private RichEditBox pendingFocusEditor;
     private RoutedEventHandler pendingFocusHandler;
 
-    private readonly EmojiPickerService emojiPickerService = new EmojiPickerService();
-    private TabEditFlyoutService tabEditFlyoutService;
-    private ClearConfirmService clearConfirmService;
-    private readonly CalcAnimationService calcAnimationService = new CalcAnimationService();
+    private readonly EmojiPicker emojiPicker = new EmojiPicker();
+    private TabEditFlyout tabEditFlyout;
+    private ClearConfirmOverlay clearConfirmOverlay;
+    private readonly CalcResultAnimator calcResultAnimator = new CalcResultAnimator();
 
     /// <summary>
     /// Raised when the user clicks the pin button. The caller should toggle
@@ -96,7 +97,7 @@ public sealed partial class BufferPanel : UserControl
         // window so the user's first click pays no realization cost.
         DispatcherQueue.TryEnqueue(
             Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-            () => emojiPickerService.Prewarm(EmojiPickerWarmAnchor));
+            () => emojiPicker.Prewarm(EmojiPickerWarmAnchor));
     }
 
     /// <summary>
@@ -205,11 +206,11 @@ public sealed partial class BufferPanel : UserControl
         this.settingsService = settingsService;
         this.tabDefinitions = tabDefinitions;
 
-        tabEditFlyoutService = new TabEditFlyoutService(emojiPickerService, settingsService);
-        tabEditFlyoutService.Saved += OnTabEditSaved;
+        tabEditFlyout = new TabEditFlyout(emojiPicker, settingsService);
+        tabEditFlyout.Saved += OnTabEditSaved;
 
-        clearConfirmService = new ClearConfirmService(normalPanelsByIndex, confirmPanelsByIndex);
-        clearConfirmService.Cleared += OnClearConfirmed;
+        clearConfirmOverlay = new ClearConfirmOverlay(normalPanelsByIndex, confirmPanelsByIndex);
+        clearConfirmOverlay.Cleared += OnClearConfirmed;
 
         ClearAllDictionaries();
 
@@ -312,12 +313,12 @@ public sealed partial class BufferPanel : UserControl
         tabItem.PointerExited += (s, e) =>
         {
             isPointerOverTab = false;
-            if (!tabEditFlyoutService.IsOpen)
+            if (!tabEditFlyout.IsOpen)
             {
                 header.EditButton.Visibility = Visibility.Collapsed;
             }
         };
-        tabEditFlyoutService.FlyoutClosed += (s, e) =>
+        tabEditFlyout.FlyoutClosed += (s, e) =>
         {
             if (!isPointerOverTab)
             {
@@ -362,14 +363,14 @@ public sealed partial class BufferPanel : UserControl
 
         editorContainer.PointerEntered += (s, e) =>
         {
-            if (!clearConfirmService.IsConfirming)
+            if (!clearConfirmOverlay.IsConfirming)
             {
                 clearButton.Visibility = Visibility.Visible;
             }
         };
         editorContainer.PointerExited += (s, e) =>
         {
-            if (!clearConfirmService.IsConfirming)
+            if (!clearConfirmOverlay.IsConfirming)
             {
                 clearButton.Visibility = Visibility.Collapsed;
             }
@@ -433,7 +434,7 @@ public sealed partial class BufferPanel : UserControl
 
     private void OpenEditFlyout(int bufferIndex)
     {
-        if (tabEditFlyoutService == null)
+        if (tabEditFlyout == null)
         {
             return;
         }
@@ -446,7 +447,7 @@ public sealed partial class BufferPanel : UserControl
 
         if (headerContainersByIndex.TryGetValue(bufferIndex, out Grid headerContainer))
         {
-            tabEditFlyoutService.Open(bufferIndex, currentTab, headerContainer);
+            tabEditFlyout.Open(bufferIndex, currentTab, headerContainer);
         }
     }
 
@@ -542,7 +543,7 @@ public sealed partial class BufferPanel : UserControl
 
         if (button.Tag is int index)
         {
-            clearConfirmService.Enter(index);
+            clearConfirmOverlay.Enter(index);
             if (clearButtonsByIndex.TryGetValue(index, out Button clearBtn))
             {
                 clearBtn.Visibility = Visibility.Collapsed;
@@ -560,7 +561,7 @@ public sealed partial class BufferPanel : UserControl
 
         if (button.Tag is int index)
         {
-            clearConfirmService.Confirm(index);
+            clearConfirmOverlay.Confirm(index);
         }
     }
 
@@ -581,9 +582,9 @@ public sealed partial class BufferPanel : UserControl
 
     private void OnEditorPointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (clearConfirmService.IsConfirming)
+        if (clearConfirmOverlay.IsConfirming)
         {
-            clearConfirmService.Exit();
+            clearConfirmOverlay.Exit();
         }
     }
 
@@ -627,7 +628,7 @@ public sealed partial class BufferPanel : UserControl
             return;
         }
 
-        calcAnimationService.TrackKeyDown(
+        calcResultAnimator.TrackKeyDown(
             (int)e.Key,
             IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)));
     }
@@ -647,7 +648,7 @@ public sealed partial class BufferPanel : UserControl
 
         if (editor.Tag is int index)
         {
-            calcAnimationService.HandleTextChanged(editor);
+            calcResultAnimator.HandleTextChanged(editor);
 
             editor.Document.GetText(TextGetOptions.UseCrlf, out string text);
             text = text.TrimEnd('\r', '\n');
@@ -658,9 +659,9 @@ public sealed partial class BufferPanel : UserControl
 
     private void OnPanelPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Escape && clearConfirmService.IsConfirming)
+        if (e.Key == VirtualKey.Escape && clearConfirmOverlay.IsConfirming)
         {
-            clearConfirmService.Exit();
+            clearConfirmOverlay.Exit();
             e.Handled = true;
             return;
         }

@@ -2,7 +2,7 @@ using Jott.Ui.Services;
 using System.Collections.Generic;
 using Buffer = Jott.Ui.Models.Buffer;
 
-namespace Jott.Ui.Interop;
+namespace Jott.Ui.Tray;
 
 /// <summary>
 /// Builds the display rows for the tray peek window from live buffer and tab state.

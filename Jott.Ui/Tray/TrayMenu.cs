@@ -1,6 +1,7 @@
+using Jott.Ui.Interop;
 using System;
 
-namespace Jott.Ui.Interop;
+namespace Jott.Ui.Tray;
 
 /// <summary>
 /// Builds and shows the Win32 tray context menu using <c>CreatePopupMenu</c>

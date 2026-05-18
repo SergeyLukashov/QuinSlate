@@ -1,4 +1,4 @@
-namespace Jott.Ui.Interop;
+namespace Jott.Ui.Tray;
 
 /// <summary>
 /// Display data for a single row in the tray peek window.

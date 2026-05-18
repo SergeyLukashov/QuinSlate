@@ -1,4 +1,5 @@
 using Jott.Ui.Models;
+using Jott.Ui.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -7,7 +8,7 @@ using Microsoft.UI.Xaml.Media;
 using System;
 using Windows.System;
 
-namespace Jott.Ui.Services;
+namespace Jott.Ui.Components;
 
 /// <summary>
 /// Builds, shows, and manages the lifecycle of the flyout that lets the user
@@ -15,14 +16,14 @@ namespace Jott.Ui.Services;
 /// commits a change and <see cref="Cancelled"/> when the flyout is dismissed
 /// without saving.
 /// </summary>
-public sealed class TabEditFlyoutService
+public sealed class TabEditFlyout
 {
     private const double EmojiButtonWidth = 32;
     private const double TitleFieldWidth = 160;
     private const int MaxTitleLength = 16;
     private const string DefaultEmoji = "📋";
 
-    private readonly EmojiPickerService emojiPickerService;
+    private readonly EmojiPicker emojiPicker;
     private readonly SettingsService settingsService;
 
     private Flyout activeFlyout;
@@ -51,13 +52,13 @@ public sealed class TabEditFlyoutService
     public event EventHandler FlyoutClosed;
 
     /// <summary>
-    /// Initialises the service with the shared emoji picker and settings services.
+    /// Initialises the component with the shared emoji picker and settings services.
     /// </summary>
-    public TabEditFlyoutService(EmojiPickerService emojiPickerService, SettingsService settingsService)
+    public TabEditFlyout(EmojiPicker emojiPicker, SettingsService settingsService)
     {
-        if (emojiPickerService == null)
+        if (emojiPicker == null)
         {
-            throw new ArgumentNullException(nameof(emojiPickerService));
+            throw new ArgumentNullException(nameof(emojiPicker));
         }
 
         if (settingsService == null)
@@ -65,7 +66,7 @@ public sealed class TabEditFlyoutService
             throw new ArgumentNullException(nameof(settingsService));
         }
 
-        this.emojiPickerService = emojiPickerService;
+        this.emojiPicker = emojiPicker;
         this.settingsService = settingsService;
     }
 
@@ -99,8 +100,8 @@ public sealed class TabEditFlyoutService
             VerticalContentAlignment = VerticalAlignment.Center,
         };
         emojiButton = emojiBtn;
-        emojiPickerService.EmojiSelected -= OnEmojiSelected;
-        emojiPickerService.EmojiSelected += OnEmojiSelected;
+        emojiPicker.EmojiSelected -= OnEmojiSelected;
+        emojiPicker.EmojiSelected += OnEmojiSelected;
         emojiBtn.Click += OnEmojiButtonClick;
 
         var titleTextBox = new TextBox
@@ -175,7 +176,7 @@ public sealed class TabEditFlyoutService
     private void OnEmojiButtonClick(object sender, RoutedEventArgs e)
     {
         var recentEmoji = settingsService.GetRecentEmoji();
-        emojiPickerService.Open(emojiButton, recentEmoji);
+        emojiPicker.Open(emojiButton, recentEmoji);
     }
 
     private void OnEmojiSelected(object sender, string emoji)
@@ -230,7 +231,7 @@ public sealed class TabEditFlyoutService
 
     private void OnFlyoutClosed(object sender, object e)
     {
-        emojiPickerService.EmojiSelected -= OnEmojiSelected;
+        emojiPicker.EmojiSelected -= OnEmojiSelected;
 
         if (flyoutContent != null)
         {

@@ -1,6 +1,6 @@
 using System;
 
-namespace Jott.Ui.Models;
+namespace Jott.Ui.Components;
 
 /// <summary>
 /// Carries the result of a confirmed tab-label edit.

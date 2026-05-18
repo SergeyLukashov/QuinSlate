@@ -1,10 +1,11 @@
+using Jott.Ui.Services;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
 using Windows.UI;
 
-namespace Jott.Ui.Services;
+namespace Jott.Ui.Components;
 
 /// <summary>
 /// Handles the inline calculator replace triggered by typing <c>=</c> at the
@@ -16,7 +17,7 @@ namespace Jott.Ui.Services;
 /// and <see cref="HandleTextChanged"/> from the editor's <c>TextChanged</c>
 /// handler. Both calls are no-ops when no calculation is in progress.
 /// </remarks>
-public sealed class CalcAnimationService
+public sealed class CalcResultAnimator
 {
     private const int AnimationDurationMs = 1600;
     private const int AnimationTickMs = 16;

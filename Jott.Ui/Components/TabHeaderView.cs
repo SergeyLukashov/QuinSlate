@@ -1,11 +1,11 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
-namespace Jott.Ui.Views;
+namespace Jott.Ui.Components;
 
 /// <summary>
 /// Holds references to all named UI sub-elements that make up a single tab header.
-/// Produced by <see cref="TabHeaderBuilder"/> and consumed by <see cref="BufferPanel"/>.
+/// Produced by <see cref="TabHeaderBuilder"/> and consumed by the buffer panel.
 /// </summary>
 internal sealed class TabHeaderView
 {

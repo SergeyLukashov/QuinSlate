@@ -3,22 +3,22 @@ using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Collections.Generic;
 
-namespace Jott.Ui.Services;
+namespace Jott.Ui.Components;
 
 /// <summary>
 /// Manages the two-step clear-confirm flow for buffer tabs.
-/// When the user clicks the clear button, the service enters a confirming
+/// When the user clicks the clear button, the component enters a confirming
 /// state that swaps the normal header panel for a dismiss-or-confirm prompt.
 /// The prompt auto-cancels after a fixed timeout.
 /// </summary>
 /// <remarks>
-/// The service updates the visibility of UI elements directly via the
+/// The component updates the visibility of UI elements directly via the
 /// dictionary references passed at construction time. It does not own
 /// those elements and never removes them.
 /// Raises <see cref="Cleared"/> so the caller can clear the editor content
 /// and update any dependent UI (e.g. the clear-button enabled state).
 /// </remarks>
-public sealed class ClearConfirmService
+public sealed class ClearConfirmOverlay
 {
     private const int ConfirmAutoCancelMilliseconds = 4000;
 
@@ -35,12 +35,12 @@ public sealed class ClearConfirmService
     public event EventHandler<int> Cleared;
 
     /// <summary>
-    /// Initialises the service with the live panel-visibility dictionaries
+    /// Initialises the component with the live panel-visibility dictionaries
     /// maintained by the owning view.
     /// </summary>
     /// <param name="normalPanels">Maps buffer index → the panel shown in normal state.</param>
     /// <param name="confirmPanels">Maps buffer index → the confirm-overlay panel.</param>
-    public ClearConfirmService(
+    public ClearConfirmOverlay(
         Dictionary<int, FrameworkElement> normalPanels,
         Dictionary<int, Border> confirmPanels)
     {

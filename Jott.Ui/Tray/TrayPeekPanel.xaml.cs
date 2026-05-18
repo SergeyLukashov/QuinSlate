@@ -1,9 +1,8 @@
-using Jott.Ui.Interop;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
 
-namespace Jott.Ui.Views;
+namespace Jott.Ui.Tray;
 
 /// <summary>
 /// A two-column panel that displays a compact preview of every buffer. Used

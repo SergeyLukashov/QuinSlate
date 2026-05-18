@@ -1,15 +1,15 @@
-using Jott.Ui.Models;
+﻿using Jott.Ui.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Buffer = Jott.Ui.Models.Buffer;
 
-namespace Jott.Ui.Views;
+namespace Jott.Ui.Components;
 
 /// <summary>
 /// Builds the header UI for a single <see cref="TabViewItem"/>.
 /// Returns a <see cref="TabHeaderView"/> that carries all named sub-elements
-/// so that <see cref="BufferPanel"/> can index them without depending on the
+/// so that the owning panel can index them without depending on the
 /// internal layout of the header.
 /// </summary>
 internal static class TabHeaderBuilder

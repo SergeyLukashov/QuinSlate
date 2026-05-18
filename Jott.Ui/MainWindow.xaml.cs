@@ -1,5 +1,6 @@
 using Jott.Ui.Interop;
 using Jott.Ui.Services;
+using Jott.Ui.Tray;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;

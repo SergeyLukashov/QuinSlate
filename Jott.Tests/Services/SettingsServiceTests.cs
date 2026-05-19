@@ -209,7 +209,7 @@ public sealed class SettingsServiceTests : IDisposable
     }
 
     [Fact]
-    public void AddRecentEmoji_KeepsMax8()
+    public void AddRecentEmoji_KeepsMax7()
     {
         for (int i = 0; i < 10; i++)
         {
@@ -217,9 +217,9 @@ public sealed class SettingsServiceTests : IDisposable
         }
 
         var recent = settingsService.GetRecentEmoji();
-        Assert.Equal(8, recent.Count);
+        Assert.Equal(7, recent.Count);
         Assert.Equal("E9", recent[0]);
-        Assert.Equal("E2", recent[7]);
+        Assert.Equal("E3", recent[6]);
     }
 
     [Fact]

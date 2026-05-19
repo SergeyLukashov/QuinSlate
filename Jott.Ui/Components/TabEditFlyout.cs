@@ -94,7 +94,7 @@ public sealed class TabEditFlyout
             Content = tab.Emoji,
             Width = EmojiButtonWidth,
             VerticalAlignment = VerticalAlignment.Stretch,
-            Padding = new Thickness(0),
+            Padding = new Thickness(0, 0, 0, 2),
             FontSize = 20,
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,

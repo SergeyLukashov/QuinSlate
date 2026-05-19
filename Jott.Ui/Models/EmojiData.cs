@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace Jott.Ui.Models;
 
@@ -13,6 +13,16 @@ public static class EmojiData
     public static IReadOnlyList<EmojiGroup> GetGroups()
     {
         return groups;
+    }
+
+    /// <summary>
+    /// Returns every emoji entry across all groups as a single flat list,
+    /// in display order. Used by the picker's search to avoid walking the
+    /// grouped structure on every keystroke.
+    /// </summary>
+    public static IReadOnlyList<EmojiEntry> GetAllEntries()
+    {
+        return allEntries;
     }
 
     private static readonly IReadOnlyList<EmojiGroup> groups = new[]
@@ -666,6 +676,19 @@ public static class EmojiData
             new EmojiEntry("🎗","reminder ribbon"),
         }),
     };
+
+    private static readonly IReadOnlyList<EmojiEntry> allEntries = BuildAllEntries();
+
+    private static IReadOnlyList<EmojiEntry> BuildAllEntries()
+    {
+        var flat = new List<EmojiEntry>();
+        foreach (var group in groups)
+        {
+            flat.AddRange(group.Entries);
+        }
+
+        return flat;
+    }
 }
 
 /// <summary>

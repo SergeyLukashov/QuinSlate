@@ -16,7 +16,7 @@ namespace Jott.Ui.Services;
 public sealed class SettingsService
 {
     private const string SettingsFileName = "settings.json";
-    private const int MaxRecentEmoji = 8;
+    private const int MaxRecentEmoji = 7;
 
     private static readonly TabEntry[] DefaultTabEntries = new[]
     {
@@ -183,7 +183,7 @@ public sealed class SettingsService
     }
 
     /// <summary>
-    /// Returns the recently used emoji list (up to 8 entries) from settings.
+    /// Returns the recently used emoji list (up to 7 entries) from settings.
     /// Returns an empty list when no recent emoji have been recorded.
     /// </summary>
     public IReadOnlyList<string> GetRecentEmoji()

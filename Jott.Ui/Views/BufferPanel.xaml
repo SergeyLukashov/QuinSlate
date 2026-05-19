@@ -9,13 +9,6 @@
     mc:Ignorable="d">
 
     <Grid x:Name="RootGrid" Background="Transparent">
-        <Border
-            x:Name="EmojiPickerWarmAnchor"
-            Width="0"
-            Height="0"
-            HorizontalAlignment="Left"
-            VerticalAlignment="Top"
-            IsHitTestVisible="False" />
         <TabView
             x:Name="BufferTabView"
             IsAddTabButtonVisible="False"

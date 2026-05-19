@@ -26,7 +26,7 @@ public sealed partial class BufferPanel : UserControl
     private const string PinnedGlyph = "\uE840";
     private const int MaxBufferLength = 1_000_000;
 
-    private const double EditorClearButtonSize = 28;
+    private const double EditorClearButtonSize = 32;
     private const double EditorClearGlyphSize = 13;
     private const string EditorClearGlyph = "\uE74D";
     private const double EditorOverlayMargin = 8;
@@ -34,7 +34,7 @@ public sealed partial class BufferPanel : UserControl
     private const double EditorConfirmPaddingH = 6;
     private const double EditorConfirmPaddingV = 2;
     private const double EditorConfirmTextFontSize = 11;
-    private const double EditorConfirmButtonSize = 22;
+    private const double EditorConfirmButtonSize = 32;
     private const double EditorConfirmButtonMarginLeft = 4;
     private const byte EditorConfirmBgR = 180;
     private const byte EditorConfirmBgG = 60;
@@ -86,18 +86,6 @@ public sealed partial class BufferPanel : UserControl
     public BufferPanel()
     {
         InitializeComponent();
-        Loaded += OnBufferPanelLoaded;
-    }
-
-    private void OnBufferPanelLoaded(object sender, RoutedEventArgs e)
-    {
-        Loaded -= OnBufferPanelLoaded;
-
-        // Build and warm-render the emoji picker during the startup idle
-        // window so the user's first click pays no realization cost.
-        DispatcherQueue.TryEnqueue(
-            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-            () => emojiPicker.Prewarm(EmojiPickerWarmAnchor));
     }
 
     /// <summary>
@@ -343,7 +331,7 @@ public sealed partial class BufferPanel : UserControl
             Content = new FontIcon { Glyph = EditorClearGlyph, FontSize = EditorClearGlyphSize },
         };
         clearButton.Click += OnClearButtonClick;
-        ToolTipService.SetToolTip(clearButton, "Clear buffer");
+        ToolTipService.SetToolTip(clearButton, "Clear this tab");
 
         var confirmPanel = BuildEditorConfirmPanel(buffer.Index);
 

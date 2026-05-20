@@ -226,6 +226,7 @@ public sealed class TabEditFlyout
         if (titleBox != null && !ReferenceEquals(e.OriginalSource, titleBox))
         {
             titleBox.Focus(FocusState.Programmatic);
+            titleBox.SelectAll();
         }
     }
 

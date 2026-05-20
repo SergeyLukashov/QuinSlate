@@ -1,7 +1,8 @@
-﻿using Jott.Ui.Models;
+using Jott.Ui.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Buffer = Jott.Ui.Models.Buffer;
 
 namespace Jott.Ui.Components;
@@ -64,8 +65,6 @@ internal static class TabHeaderBuilder
             Content = new FontIcon { Glyph = EditGlyph, FontSize = EditGlyphSize },
         };
         editButton.Click += onEditClicked;
-        ToolTipService.SetToolTip(editButton, "Edit tab label");
-
         var leftPanel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -90,6 +89,7 @@ internal static class TabHeaderBuilder
         {
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Stretch,
+            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
         };
         headerContainer.Children.Add(normalPanel);
         headerContainer.DoubleTapped += onDoubleTapped;

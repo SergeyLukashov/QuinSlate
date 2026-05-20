@@ -53,6 +53,7 @@ public sealed partial class BufferPanel : UserControl
     private readonly Dictionary<int, TabViewItem> tabItemsByIndex = new Dictionary<int, TabViewItem>();
     private readonly Dictionary<int, TextBlock> tabEmojiBlocksByIndex = new Dictionary<int, TextBlock>();
     private readonly Dictionary<int, TextBlock> tabTitleBlocksByIndex = new Dictionary<int, TextBlock>();
+    private readonly Dictionary<int, Button> editButtonsByIndex = new Dictionary<int, Button>();
 
     private RichEditBox pendingFocusEditor;
     private RoutedEventHandler pendingFocusHandler;
@@ -243,6 +244,7 @@ public sealed partial class BufferPanel : UserControl
         tabItemsByIndex.Clear();
         tabEmojiBlocksByIndex.Clear();
         tabTitleBlocksByIndex.Clear();
+        editButtonsByIndex.Clear();
     }
 
     private TabViewItem BuildTabViewItem(Buffer buffer, TabDefinition tab)
@@ -256,6 +258,7 @@ public sealed partial class BufferPanel : UserControl
         headerContainersByIndex[buffer.Index] = header.HeaderContainer;
         tabEmojiBlocksByIndex[buffer.Index] = header.EmojiBlock;
         tabTitleBlocksByIndex[buffer.Index] = header.TitleBlock;
+        editButtonsByIndex[buffer.Index] = header.EditButton;
 
         var editor = new RichEditBox
         {
@@ -269,6 +272,7 @@ public sealed partial class BufferPanel : UserControl
             Tag = buffer.Index,
             SelectionFlyout = null,
             MaxLength = MaxBufferLength,
+            BorderThickness = new Thickness(0),
         };
 
         editor.Document.SetText(TextSetOptions.None, buffer.Content ?? string.Empty);
@@ -435,6 +439,11 @@ public sealed partial class BufferPanel : UserControl
 
         if (headerContainersByIndex.TryGetValue(bufferIndex, out Grid headerContainer))
         {
+            if (editButtonsByIndex.TryGetValue(bufferIndex, out Button editButton))
+            {
+                editButton.Visibility = Visibility.Visible;
+            }
+
             tabEditFlyout.Open(bufferIndex, currentTab, headerContainer);
         }
     }

@@ -10,6 +10,15 @@
 
     <UserControl.Resources>
         <ResourceDictionary>
+            <!--
+                Standard Windows title bar height is 32 px. We align the TabView's
+                tab strip and all custom title-bar controls (icon, pin button) to
+                this height so they share the same vertical center as the
+                OS-drawn system caption buttons (min / max / close).
+            -->
+            <x:Double x:Key="TitleBarRowHeight">32</x:Double>
+            <x:Double x:Key="TabViewItemHeaderMinHeight">32</x:Double>
+
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
                     <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
@@ -70,7 +79,8 @@
                 <Border
                     x:Name="TitleBarIconDragArea"
                     Padding="10,0,10,0"
-                    VerticalAlignment="Stretch"
+                    Height="{StaticResource TitleBarRowHeight}"
+                    VerticalAlignment="Top"
                     Background="Transparent">
                     <Image
                         Source="ms-appx:///Assets/Square44x44Logo.scale-200.png"
@@ -83,8 +93,9 @@
 
             <TabView.TabStripFooter>
                 <Grid
+                    Height="{StaticResource TitleBarRowHeight}"
                     HorizontalAlignment="Stretch"
-                    VerticalAlignment="Stretch">
+                    VerticalAlignment="Top">
                     <Grid
                         x:Name="TitleBarDragGrid"
                         Background="Transparent"
@@ -94,18 +105,21 @@
                         Orientation="Horizontal"
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center">
-                        <ToggleButton
+                        <Button
                             x:Name="PinButton"
-                            Width="40"
-                            Height="32"
+                            Width="{StaticResource TitleBarRowHeight}"
+                            Height="{StaticResource TitleBarRowHeight}"
                             Padding="0"
+                            VerticalAlignment="Center"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
                             ToolTipService.ToolTip="Pin window"
                             Click="OnPinButtonClicked">
                             <FontIcon
                                 x:Name="PinIcon"
                                 Glyph="&#xE718;"
-                                FontSize="14" />
-                        </ToggleButton>
+                                FontSize="12" />
+                        </Button>
                         <Border
                             x:Name="SystemCloseButtonSpacer"
                             Width="0"

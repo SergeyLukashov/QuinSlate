@@ -61,6 +61,7 @@ public sealed partial class MainWindow : Window
     private HotkeyManager hotkeyManager;
     private TrayIcon trayIcon;
     private TrayPeekWindow trayPeekWindow;
+    private TrayMenuOwnerWindow trayMenuOwnerWindow;
 
     private bool isPanelVisible;
     private bool isWindowActive;
@@ -126,6 +127,7 @@ public sealed partial class MainWindow : Window
         hotkeyManager.RegisterDefaultHotkey();
 
         trayPeekWindow = new TrayPeekWindow();
+        trayMenuOwnerWindow = new TrayMenuOwnerWindow();
 
         trayIcon = new TrayIcon(windowHandle);
         trayIcon.LeftClicked += OnTrayLeftClicked;
@@ -203,7 +205,7 @@ public sealed partial class MainWindow : Window
         {
             presenter.IsResizable = true;
             presenter.IsMaximizable = false;
-            presenter.IsMinimizable = true;
+            presenter.IsMinimizable = false;
         }
 
         appWindow.Changed += OnAppWindowChanged;
@@ -416,7 +418,7 @@ public sealed partial class MainWindow : Window
 
     private void ShowContextMenu()
     {
-        if (startupService == null)
+        if (startupService == null || trayMenuOwnerWindow == null)
         {
             return;
         }
@@ -424,7 +426,7 @@ public sealed partial class MainWindow : Window
         bool startupEnabled = startupService.IsEnabled();
         bool peekEnabled = settingsService != null && settingsService.TrayPeekEnabled;
         var menu = new TrayMenu();
-        uint command = menu.Show(windowHandle, startupEnabled, peekEnabled);
+        uint command = menu.Show(trayMenuOwnerWindow.Handle, startupEnabled, peekEnabled);
         HandleMenuCommand(command, startupEnabled);
     }
 
@@ -520,6 +522,12 @@ public sealed partial class MainWindow : Window
         {
             trayIcon.Dispose();
             trayIcon = null;
+        }
+
+        if (trayMenuOwnerWindow != null)
+        {
+            trayMenuOwnerWindow.Dispose();
+            trayMenuOwnerWindow = null;
         }
 
         if (hotkeyManager != null)

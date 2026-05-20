@@ -23,7 +23,9 @@ public sealed partial class BufferPanel : UserControl
     private const string MonospaceFont = "Cascadia Code";
     private const double EditorFontSize = 15;
     private const string PinGlyph = "\uE718";
-    private const string PinnedGlyph = "\uE840";
+    private const string PinnedGlyph = "\uE77A";
+    private const string PinTooltip = "Pin window";
+    private const string UnpinTooltip = "Unpin window";
     private const int MaxBufferLength = 1_000_000;
 
     private const double EditorClearButtonSize = 32;
@@ -94,8 +96,8 @@ public sealed partial class BufferPanel : UserControl
     /// </summary>
     public void SetPinned(bool isPinned)
     {
-        PinButton.IsChecked = isPinned;
         PinIcon.Glyph = isPinned ? PinnedGlyph : PinGlyph;
+        ToolTipService.SetToolTip(PinButton, isPinned ? UnpinTooltip : PinTooltip);
     }
 
     /// <summary>

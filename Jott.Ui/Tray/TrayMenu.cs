@@ -20,18 +20,21 @@ public sealed class TrayMenu
     /// Displays the tray context menu near the current cursor position and
     /// blocks until the user selects an item or dismisses the menu.
     /// </summary>
-    /// <param name="windowHandle">The HWND that owns the menu. Used as the
-    /// foreground window so the menu dismisses correctly when focus is lost.</param>
+    /// <param name="ownerHandle">The HWND that owns the menu. Used as the
+    /// foreground window so the menu dismisses correctly when focus is lost.
+    /// Pass a dedicated invisible window (see
+    /// <see cref="TrayMenuOwnerWindow"/>) to avoid activating the visible
+    /// application window as a side effect.</param>
     /// <param name="startupEnabled">Whether the "Launch on startup" item is
     /// rendered with a check mark.</param>
     /// <param name="peekEnabled">Whether the "Peek preview" item is rendered with
     /// a check mark.</param>
     /// <returns>The selected command identifier, or zero if no item was chosen.</returns>
-    public uint Show(IntPtr windowHandle, bool startupEnabled, bool peekEnabled)
+    public uint Show(IntPtr ownerHandle, bool startupEnabled, bool peekEnabled)
     {
-        if (windowHandle == IntPtr.Zero)
+        if (ownerHandle == IntPtr.Zero)
         {
-            throw new ArgumentException("Window handle must not be zero.", nameof(windowHandle));
+            throw new ArgumentException("Owner handle must not be zero.", nameof(ownerHandle));
         }
 
         NativeMethods.POINT cursor;
@@ -43,7 +46,7 @@ public sealed class TrayMenu
         // The standard Win32 fix for the tray-menu-dismiss-on-click bug: the
         // owning window must be the foreground window before TrackPopupMenu,
         // and a final WM_NULL post is required after it returns.
-        NativeMethods.SetForegroundWindow(windowHandle);
+        NativeMethods.SetForegroundWindow(ownerHandle);
 
         var menu = NativeMethods.CreatePopupMenu();
         if (menu == IntPtr.Zero)
@@ -67,9 +70,9 @@ public sealed class TrayMenu
             NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, NativeMethods.IDM_EXIT, ExitLabel);
 
             var flags = NativeMethods.TPM_RETURNCMD | NativeMethods.TPM_BOTTOMALIGN | NativeMethods.TPM_RIGHTALIGN;
-            var command = NativeMethods.TrackPopupMenu(menu, flags, cursor.X, cursor.Y, 0, windowHandle, IntPtr.Zero);
+            var command = NativeMethods.TrackPopupMenu(menu, flags, cursor.X, cursor.Y, 0, ownerHandle, IntPtr.Zero);
 
-            NativeMethods.PostMessage(windowHandle, (uint)NativeMethods.WM_NULL, IntPtr.Zero, IntPtr.Zero);
+            NativeMethods.PostMessage(ownerHandle, (uint)NativeMethods.WM_NULL, IntPtr.Zero, IntPtr.Zero);
 
             return (uint)command;
         }

@@ -67,6 +67,7 @@ internal static class NativeMethods
 
     public const uint SPI_GETWORKAREA = 0x0030;
 
+    public const uint NIN_SELECT = 0x0400;
     public const uint NIN_POPUPOPEN = 0x0406;
     public const uint NIN_POPUPCLOSE = 0x0407;
 
@@ -92,6 +93,15 @@ internal static class NativeMethods
     public const uint WM_ENDSESSION = 0x0016;
 
     public const int MA_NOACTIVATE = 3;
+
+    public const uint WM_ACTIVATE = 0x0006;
+    public const int WA_INACTIVE = 0;
+
+    public const uint WM_SIZE = 0x0005;
+    public const int SIZE_MINIMIZED = 1;
+
+    public const uint WM_SYSCOMMAND = 0x0112;
+    public const uint SC_MINIMIZE = 0xF020;
 
     public static readonly IntPtr IDI_APPLICATION = new IntPtr(32512);
 

@@ -63,6 +63,9 @@ public sealed partial class MainWindow : Window
     private TrayPeekWindow trayPeekWindow;
 
     private bool isPanelVisible;
+    private bool isWindowActive;
+    private long lastDeactivatedTick;
+    private const long RecentDeactivationThresholdMs = 800;
     private bool isAboutDialogOpen;
     private bool isPinned;
     private bool isInitialised;
@@ -200,7 +203,7 @@ public sealed partial class MainWindow : Window
         {
             presenter.IsResizable = true;
             presenter.IsMaximizable = false;
-            presenter.IsMinimizable = false;
+            presenter.IsMinimizable = true;
         }
 
         appWindow.Changed += OnAppWindowChanged;
@@ -320,6 +323,19 @@ public sealed partial class MainWindow : Window
             return IntPtr.Zero;
         }
 
+        if (msg == NativeMethods.WM_ACTIVATE)
+        {
+            if ((wParam.ToInt32() & 0xFFFF) == NativeMethods.WA_INACTIVE)
+            {
+                isWindowActive = false;
+                lastDeactivatedTick = Environment.TickCount64;
+            }
+            else
+            {
+                isWindowActive = true;
+            }
+        }
+
         if (msg == NativeMethods.WM_HOTKEY)
         {
             if (hotkeyManager != null && wParam.ToInt32() == hotkeyManager.HotkeyIdentifier)
@@ -327,6 +343,18 @@ public sealed partial class MainWindow : Window
                 TogglePanelVisibility();
                 return IntPtr.Zero;
             }
+        }
+
+        if (msg == NativeMethods.WM_SYSCOMMAND && (wParam.ToInt64() & 0xFFF0) == NativeMethods.SC_MINIMIZE)
+        {
+            HidePanel();
+            return IntPtr.Zero;
+        }
+
+        if (msg == NativeMethods.WM_SIZE && wParam.ToInt32() == NativeMethods.SIZE_MINIMIZED && isPanelVisible)
+        {
+            HidePanel();
+            return IntPtr.Zero;
         }
 
         if (msg == NativeMethods.WM_JOTT_ACTIVATE)
@@ -535,8 +563,9 @@ public sealed partial class MainWindow : Window
     {
         if (isPanelVisible)
         {
-            IntPtr foregroundWindow = NativeMethods.GetForegroundWindow();
-            if (foregroundWindow == windowHandle)
+            bool wasActive = isWindowActive ||
+                             (Environment.TickCount64 - lastDeactivatedTick) < RecentDeactivationThresholdMs;
+            if (wasActive)
             {
                 HidePanel();
             }
@@ -562,6 +591,7 @@ public sealed partial class MainWindow : Window
         NativeMethods.SetForegroundWindow(windowHandle);
         Panel.FocusActiveEditor();
         isPanelVisible = true;
+        isWindowActive = true;
     }
 
     private void HidePanel()
@@ -572,6 +602,7 @@ public sealed partial class MainWindow : Window
         }
 
         isPanelVisible = false;
+        isWindowActive = false;
     }
 
     private void ApplyPinState()

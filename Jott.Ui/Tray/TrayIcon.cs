@@ -113,7 +113,7 @@ public sealed class TrayIcon : IDisposable
         }
 
         var loWord = (uint)(lParam.ToInt64() & 0xFFFF);
-        if (loWord == NativeMethods.WM_LBUTTONUP)
+        if (loWord == NativeMethods.NIN_SELECT)
         {
             LeftClicked?.Invoke(this, EventArgs.Empty);
         }

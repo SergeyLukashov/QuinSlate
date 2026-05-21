@@ -123,6 +123,9 @@ public sealed partial class MainWindow : Window
         ConfigureTitleBar();
         SubclassWindowProc();
 
+        this.Activated += (s, e) => UpdateTitleBarInsets();
+        this.SizeChanged += (s, e) => UpdateTitleBarInsets();
+
         hotkeyManager = new HotkeyManager(windowHandle);
         hotkeyManager.RegisterDefaultHotkey();
 
@@ -251,6 +254,11 @@ public sealed partial class MainWindow : Window
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
+        if (args.DidSizeChange)
+        {
+            UpdateTitleBarInsets();
+        }
+
         if (args.DidSizeChange == false && args.DidPositionChange == false)
         {
             return;
@@ -600,6 +608,8 @@ public sealed partial class MainWindow : Window
         Panel.FocusActiveEditor();
         isPanelVisible = true;
         isWindowActive = true;
+
+        UpdateTitleBarInsets();
     }
 
     private void HidePanel()
@@ -645,8 +655,16 @@ public sealed partial class MainWindow : Window
         appWindow.TitleBar.ButtonInactiveForegroundColor = Color.FromArgb(fgInactive, fgFull, fgFull, fgFull);
         appWindow.TitleBar.ButtonPressedForegroundColor = Color.FromArgb(255, fgFull, fgFull, fgFull);
 
-        float scale = NativeMethods.GetDpiForWindow(windowHandle) / 96.0f;
-        Panel.SetCaptionRightInset(appWindow.TitleBar.RightInset / scale);
+        UpdateTitleBarInsets();
+    }
+
+    private void UpdateTitleBarInsets()
+    {
+        if (appWindow != null && AppWindowTitleBar.IsCustomizationSupported())
+        {
+            float scale = NativeMethods.GetDpiForWindow(windowHandle) / 96.0f;
+            Panel.SetCaptionRightInset(appWindow.TitleBar.RightInset / scale);
+        }
     }
 
     private void OnPanelPinToggleRequested(object sender, EventArgs e)

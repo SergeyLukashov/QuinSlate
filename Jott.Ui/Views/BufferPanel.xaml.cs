@@ -27,6 +27,7 @@ public sealed partial class BufferPanel : UserControl
     private const string PinTooltip = "Pin window";
     private const string UnpinTooltip = "Unpin window";
     private const int MaxBufferLength = 1_000_000;
+    private const double MinCaptionRightInset = 70;
 
     private const double EditorClearButtonSize = 32;
     private const double EditorClearGlyphSize = 13;
@@ -104,9 +105,16 @@ public sealed partial class BufferPanel : UserControl
     /// Reserves space on the right of the title bar footer for the system
     /// caption close button so our controls do not overlap it.
     /// </summary>
+    /// <param name="logicalWidth">
+    /// The width, in logical (DIP) units, of the system-reserved caption region.
+    /// Callers must convert <c>AppWindowTitleBar.RightInset</c> from physical
+    /// pixels to logical units (divide by the display scale) before calling this.
+    /// </param>
     public void SetCaptionRightInset(double logicalWidth)
     {
-        SystemCloseButtonSpacer.Width = logicalWidth;
+        double adjustedWidth = logicalWidth > 0 ? (logicalWidth + 6) : 0;
+        double captionWidth = Math.Max(MinCaptionRightInset, adjustedWidth);
+        SystemCloseButtonSpacer.Width = captionWidth;
     }
 
     /// <summary>

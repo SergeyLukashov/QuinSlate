@@ -62,6 +62,8 @@ internal static class TabHeaderBuilder
             HorizontalAlignment = HorizontalAlignment.Right,
             Tag = buffer.Index,
             Visibility = Visibility.Collapsed,
+            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
             Content = new FontIcon { Glyph = EditGlyph, FontSize = EditGlyphSize },
         };
         editButton.Click += onEditClicked;

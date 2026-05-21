@@ -10,9 +10,6 @@ namespace Jott.Ui.Tray;
 /// </summary>
 public sealed partial class TrayPeekPanel : UserControl
 {
-    private const string MutedPreviewColor = "#888888";
-    private const string NormalPreviewColor = "#E0E0E0";
-
     private readonly TextBlock[] labels;
     private readonly TextBlock[] previews;
 
@@ -52,17 +49,19 @@ public sealed partial class TrayPeekPanel : UserControl
             labels[i].Text = row.Label;
             previews[i].Text = row.Preview;
             previews[i].Foreground = row.IsEmpty
-                ? new SolidColorBrush(ParseColor(MutedPreviewColor))
-                : new SolidColorBrush(ParseColor(NormalPreviewColor));
+                ? GetThemeBrush("TextFillColorTertiaryBrush", Color.FromArgb(255, 136, 136, 136))
+                : GetThemeBrush("TextFillColorPrimaryBrush", Color.FromArgb(255, 224, 224, 224));
         }
     }
 
-    private static Color ParseColor(string hex)
+    private static Brush GetThemeBrush(string resourceKey, Color fallbackColor)
     {
-        hex = hex.TrimStart('#');
-        byte r = System.Convert.ToByte(hex.Substring(0, 2), 16);
-        byte g = System.Convert.ToByte(hex.Substring(2, 2), 16);
-        byte b = System.Convert.ToByte(hex.Substring(4, 2), 16);
-        return Color.FromArgb(255, r, g, b);
+        if (Microsoft.UI.Xaml.Application.Current != null &&
+            Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue(resourceKey, out object obj) &&
+            obj is Brush brush)
+        {
+            return brush;
+        }
+        return new SolidColorBrush(fallbackColor);
     }
 }

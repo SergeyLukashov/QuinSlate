@@ -62,10 +62,36 @@ internal static class TabHeaderBuilder
             HorizontalAlignment = HorizontalAlignment.Right,
             Tag = buffer.Index,
             Visibility = Visibility.Collapsed,
-            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
-            BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            CornerRadius = new CornerRadius(EditButtonSize / 2),
             Content = new FontIcon { Glyph = EditGlyph, FontSize = EditGlyphSize },
         };
+
+        var transparentBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        editButton.Resources["ButtonBackground"] = transparentBrush;
+        editButton.Resources["ButtonBorderBrush"] = transparentBrush;
+        editButton.Resources["ButtonBorderBrushPointerOver"] = transparentBrush;
+        editButton.Resources["ButtonBorderBrushPressed"] = transparentBrush;
+
+        if (Application.Current != null)
+        {
+            if (Application.Current.Resources.TryGetValue("SubtleFillColorSecondaryBrush", out var hoverBrush) && hoverBrush is Brush hb)
+            {
+                editButton.Resources["ButtonBackgroundPointerOver"] = hb;
+            }
+            if (Application.Current.Resources.TryGetValue("SubtleFillColorTertiaryBrush", out var pressedBrush) && pressedBrush is Brush pb)
+            {
+                editButton.Resources["ButtonBackgroundPressed"] = pb;
+            }
+            if (Application.Current.Resources.TryGetValue("TextFillColorSecondaryBrush", out var normalFore) && normalFore is Brush nf)
+            {
+                editButton.Foreground = nf;
+            }
+            if (Application.Current.Resources.TryGetValue("TextFillColorPrimaryBrush", out var hoverFore) && hoverFore is Brush hf)
+            {
+                editButton.Resources["ButtonForegroundPointerOver"] = hf;
+                editButton.Resources["ButtonForegroundPressed"] = hf;
+            }
+        }
         editButton.Click += onEditClicked;
         var leftPanel = new StackPanel
         {

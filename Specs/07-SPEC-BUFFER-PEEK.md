@@ -14,11 +14,10 @@ so the user can find content without opening the panel.
     6 · (empty)
     7 · ssh -i ~/.ssh/id_rsa user@ho…
 
-Rules:
-- One line per buffer, always all 7, in order.
-- Prefix each line with the buffer number and a middle dot ( · ).
+- One line per buffer (matching the active tabs, currently 5 in total).
+- Formatted as `[emoji] [title]` for the label and the first line of buffer content for the preview.
 - Show only the first line of the buffer content (up to the first `\n`).
-- Truncate at 48 characters and append `…` if the first line is longer.
+- Visual truncation is handled by the UI TextBlock (`TextTrimming="CharacterEllipsis"`), so no hardcoded text-level character limit is enforced in code.
 - If the buffer is empty, show `(empty)` in a muted style if possible,
   plain text otherwise.
 

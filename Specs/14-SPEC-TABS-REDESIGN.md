@@ -95,8 +95,7 @@ tab label in place with no flicker.
 
 ### Validation Rules
 
-- Title must contain at least 1 non-whitespace character; saving an empty title silently
-  reverts to the previous value.
+- Empty titles are allowed (saving an empty title is permitted and does not revert to the previous value).
 - If the user closes the popover without touching the emoji field, the existing emoji is
   retained unchanged.
 
@@ -113,7 +112,7 @@ Requirements for the picker component:
 - Search / filter field at the top
 - Single-click on a glyph selects it, updates the emoji button preview, and closes the
   picker grid
-- Recently used row (last 8 selections, persisted in `settings.json`)
+- Recently used row (last 7 selections, persisted in `settings.json`)
 
 ---
 
@@ -131,7 +130,7 @@ The panel **always opens on Tab 1** on relaunch. Active tab state is not persist
 {
   "hotkey": "Ctrl+Shift+Space",
   "pinned": false,
-  "recentEmoji": ["🔥", "⭐", "📌", "✏️", "🧠", "🗂️", "📎", "🚀"],
+  "recentEmoji": ["🔥", "⭐", "📌", "✏️", "🧠", "🗂️", "📎"],
   "tabs": [
     { "id": 1, "emoji": "📋", "title": "Scratch" },
     { "id": 2, "emoji": "✅", "title": "Tasks"   },

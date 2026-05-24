@@ -10,7 +10,6 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using Windows.UI;
 using WinRT.Interop;
 using Buffer = Jott.Ui.Models.Buffer;
 
@@ -123,9 +122,6 @@ public sealed partial class MainWindow : Window
         ConfigureTitleBar();
         SubclassWindowProc();
 
-        this.Activated += (s, e) => UpdateTitleBarInsets();
-        this.SizeChanged += (s, e) => UpdateTitleBarInsets();
-
         hotkeyManager = new HotkeyManager(windowHandle);
         hotkeyManager.RegisterDefaultHotkey();
 
@@ -145,6 +141,7 @@ public sealed partial class MainWindow : Window
 
         Closed += OnWindowClosed;
         Panel.PinToggleRequested += OnPanelPinToggleRequested;
+        Panel.CloseRequested += OnPanelCloseRequested;
 
         isPinned = settingsService.IsPinned;
         ApplyPinState();
@@ -209,6 +206,10 @@ public sealed partial class MainWindow : Window
             presenter.IsResizable = true;
             presenter.IsMaximizable = false;
             presenter.IsMinimizable = false;
+
+            // Keep the resize border but remove the system title bar and its
+            // caption buttons; the panel draws its own pin and close buttons.
+            presenter.SetBorderAndTitleBar(hasBorder: true, hasTitleBar: false);
         }
 
         appWindow.Changed += OnAppWindowChanged;
@@ -254,11 +255,6 @@ public sealed partial class MainWindow : Window
 
     private void OnAppWindowChanged(AppWindow sender, AppWindowChangedEventArgs args)
     {
-        if (args.DidSizeChange)
-        {
-            UpdateTitleBarInsets();
-        }
-
         if (args.DidSizeChange == false && args.DidPositionChange == false)
         {
             return;
@@ -608,8 +604,6 @@ public sealed partial class MainWindow : Window
         Panel.FocusActiveEditor();
         isPanelVisible = true;
         isWindowActive = true;
-
-        UpdateTitleBarInsets();
     }
 
     private void HidePanel()
@@ -633,38 +627,6 @@ public sealed partial class MainWindow : Window
     {
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(Panel.TitleBarDragArea);
-
-        if (appWindow == null || !AppWindowTitleBar.IsCustomizationSupported())
-        {
-            return;
-        }
-
-        bool isDark = Application.Current.RequestedTheme == ApplicationTheme.Dark;
-        byte fgFull = isDark ? (byte)255 : (byte)0;
-        byte fgInactive = isDark ? (byte)128 : (byte)96;
-        byte hoverBg = isDark ? (byte)255 : (byte)0;
-        byte hoverBgAlpha = isDark ? (byte)24 : (byte)16;
-        byte pressedBgAlpha = isDark ? (byte)48 : (byte)32;
-
-        appWindow.TitleBar.ButtonBackgroundColor = Color.FromArgb(0, 0, 0, 0);
-        appWindow.TitleBar.ButtonInactiveBackgroundColor = Color.FromArgb(0, 0, 0, 0);
-        appWindow.TitleBar.ButtonHoverBackgroundColor = Color.FromArgb(hoverBgAlpha, hoverBg, hoverBg, hoverBg);
-        appWindow.TitleBar.ButtonPressedBackgroundColor = Color.FromArgb(pressedBgAlpha, hoverBg, hoverBg, hoverBg);
-        appWindow.TitleBar.ButtonForegroundColor = Color.FromArgb(255, fgFull, fgFull, fgFull);
-        appWindow.TitleBar.ButtonHoverForegroundColor = Color.FromArgb(255, fgFull, fgFull, fgFull);
-        appWindow.TitleBar.ButtonInactiveForegroundColor = Color.FromArgb(fgInactive, fgFull, fgFull, fgFull);
-        appWindow.TitleBar.ButtonPressedForegroundColor = Color.FromArgb(255, fgFull, fgFull, fgFull);
-
-        UpdateTitleBarInsets();
-    }
-
-    private void UpdateTitleBarInsets()
-    {
-        if (appWindow != null && AppWindowTitleBar.IsCustomizationSupported())
-        {
-            float scale = NativeMethods.GetDpiForWindow(windowHandle) / 96.0f;
-            Panel.SetCaptionRightInset(appWindow.TitleBar.RightInset / scale);
-        }
     }
 
     private void OnPanelPinToggleRequested(object sender, EventArgs e)
@@ -674,6 +636,11 @@ public sealed partial class MainWindow : Window
         ApplyPinState();
         Panel.SetPinned(isPinned);
         _ = settingsService.SaveAsync();
+    }
+
+    private void OnPanelCloseRequested(object sender, EventArgs e)
+    {
+        HidePanel();
     }
 
     private void OnTabLabelChanged(object sender, EventArgs e)

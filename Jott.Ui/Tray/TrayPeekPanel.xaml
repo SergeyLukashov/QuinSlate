@@ -10,8 +10,8 @@
 
     <Border
         x:Name="RootBorder"
-        Background="{ThemeResource FlyoutBackgroundThemeBrush}"
-        BorderBrush="{ThemeResource FlyoutBorderThemeBrush}"
+        Background="Transparent"
+        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
         BorderThickness="1"
         CornerRadius="8">
 
@@ -41,7 +41,7 @@
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                FontSize="13"
+                FontSize="12"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview0"
@@ -51,7 +51,7 @@
                 TextTrimming="CharacterEllipsis"
                 Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                 FontSize="13"
-                FontFamily="Segoe UI Variable Text" />
+                FontFamily="Cascadia Code" />
 
             <!-- Row 1 -->
             <TextBlock
@@ -61,7 +61,7 @@
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                FontSize="13"
+                FontSize="12"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview1"
@@ -71,7 +71,7 @@
                 TextTrimming="CharacterEllipsis"
                 Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                 FontSize="13"
-                FontFamily="Segoe UI Variable Text" />
+                FontFamily="Cascadia Code" />
 
             <!-- Row 2 -->
             <TextBlock
@@ -81,7 +81,7 @@
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                FontSize="13"
+                FontSize="12"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview2"
@@ -91,7 +91,7 @@
                 TextTrimming="CharacterEllipsis"
                 Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                 FontSize="13"
-                FontFamily="Segoe UI Variable Text" />
+                FontFamily="Cascadia Code" />
 
             <!-- Row 3 -->
             <TextBlock
@@ -101,7 +101,7 @@
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                FontSize="13"
+                FontSize="12"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview3"
@@ -111,7 +111,7 @@
                 TextTrimming="CharacterEllipsis"
                 Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                 FontSize="13"
-                FontFamily="Segoe UI Variable Text" />
+                FontFamily="Cascadia Code" />
 
             <!-- Row 4 -->
             <TextBlock
@@ -121,7 +121,7 @@
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                FontSize="13"
+                FontSize="12"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview4"
@@ -131,7 +131,7 @@
                 TextTrimming="CharacterEllipsis"
                 Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                 FontSize="13"
-                FontFamily="Segoe UI Variable Text" />
+                FontFamily="Cascadia Code" />
 
         </Grid>
     </Border>

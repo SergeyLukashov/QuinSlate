@@ -20,8 +20,24 @@ the tab labels themselves are not draggable.
   the tab strip and the text editor.
 - Title bar height follows the **Windows system default** for the current DPI/scale
   setting and is not overridden in code.
-- The pin toggle and system caption buttons (minimise, close) remain at the far right of
-  the title bar chrome in their standard positions.
+- The system title bar is removed via `OverlappedPresenter.SetBorderAndTitleBar(true, false)`
+  (the resize border is kept). The pin toggle and a custom WinUI close button are drawn by
+  the panel itself, sitting flush together at the far right of the title bar. They share one
+  modern WinUI tooltip style; the close button uses the standard red hover treatment. There
+  is no minimise button.
+- The pin and close buttons are an **overlay in the panel root grid**, outside the
+  `TabView`, so they are never subject to the `TabView` tab-strip layout and are always
+  pinned flush to the top-right corner as a **tight pair** and fully visible at every window
+  width. A fixed-width **transparent spacer** occupies the `TabView.TabStripFooter`; because
+  `TabView` sets its right content column's `MinWidth` to the footer's desired width, this
+  reservation forces the equal-width tabs (and the tab scroll buttons that appear only when
+  tabs overflow at narrow widths) to stop short of the button cluster. The spacer width is
+  deliberately wider than the button cluster by a fixed **gap** so a small visible gap always
+  remains between the last tab and the pin button. A small right inset keeps the close button
+  clear of the rounded top-right window corner. The reservation is computed from named
+  constants: `footer = rightInset + 2 × buttonWidth + gap` (`8 + 2×40 + 12 = 100`), the
+  cluster occupies the rightmost `rightInset + 2 × buttonWidth` (`88`), and the difference is
+  the gap (`12`).
 
 ---
 
@@ -41,8 +57,14 @@ Each tab renders as:
 [emoji]  [title]
 ```
 
-- Tab widths are **equal and fixed**, dividing the available title bar width evenly
-  across all five tabs with no scrolling or overflow.
+- Tab widths are **equal**, dividing the available title-bar width (the strip width minus
+  the logo on the left and the reserved footer spacer on the right) evenly across all five
+  tabs. `TabViewItemMaxWidth` is raised well above any realistic per-tab share, so on wide
+  windows the five tabs **stretch to fill** the strip up to the footer reservation rather
+  than capping early and leaving a large empty void; the only empty region on the right is
+  the reserved footer (button cluster + gap). On narrow windows the tabs shrink to
+  `TabViewItemMinWidth` and then the strip scrolls. The tabs never overlap or render under
+  the button cluster.
 - Long titles are **truncated with an ellipsis** (`…`) at the tab's inner boundary.
 - **Active tab** — uses the WinUI 3 `TabView` selected-state treatment; background
   matches the content area so tab and editor read as one continuous surface.

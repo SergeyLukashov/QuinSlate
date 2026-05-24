@@ -18,8 +18,9 @@ namespace Jott.Ui.Components;
 /// </summary>
 public sealed class TabEditFlyout
 {
-    private const double EmojiButtonWidth = 32;
-    private const double TitleFieldWidth = 160;
+    private const double EmojiButtonWidth = 28;
+    private const double TitleFieldWidth = 150;
+    private const double ControlHeight = 28;
     private const int MaxTitleLength = 16;
     private const string DefaultEmoji = "📋";
 
@@ -89,16 +90,48 @@ public sealed class TabEditFlyout
         editingTabIndex = bufferIndex;
         pendingEmoji = tab.Emoji;
 
+        var transparentBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
+
         var emojiBtn = new Button
         {
             Content = tab.Emoji,
             Width = EmojiButtonWidth,
-            VerticalAlignment = VerticalAlignment.Stretch,
-            Padding = new Thickness(0, 0, 0, 2),
-            FontSize = 20,
+            Height = ControlHeight,
+            Padding = new Thickness(0, 0, 0, 1),
+            FontSize = 16,
+            CornerRadius = new CornerRadius(4),
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,
         };
+
+        emojiBtn.Resources["ButtonBackground"] = transparentBrush;
+        emojiBtn.Resources["ButtonBorderBrush"] = transparentBrush;
+        emojiBtn.Resources["ButtonBorderBrushPointerOver"] = transparentBrush;
+        emojiBtn.Resources["ButtonBorderBrushPressed"] = transparentBrush;
+        emojiBtn.Resources["ButtonBackgroundDisabled"] = transparentBrush;
+        emojiBtn.Resources["ButtonBorderBrushDisabled"] = transparentBrush;
+
+        if (Application.Current != null)
+        {
+            if (Application.Current.Resources.TryGetValue("SubtleFillColorSecondaryBrush", out var hoverBrush) && hoverBrush is Brush hb)
+            {
+                emojiBtn.Resources["ButtonBackgroundPointerOver"] = hb;
+            }
+            if (Application.Current.Resources.TryGetValue("SubtleFillColorTertiaryBrush", out var pressedBrush) && pressedBrush is Brush pb)
+            {
+                emojiBtn.Resources["ButtonBackgroundPressed"] = pb;
+            }
+            if (Application.Current.Resources.TryGetValue("TextFillColorSecondaryBrush", out var normalFore) && normalFore is Brush nf)
+            {
+                emojiBtn.Foreground = nf;
+            }
+            if (Application.Current.Resources.TryGetValue("TextFillColorPrimaryBrush", out var hoverFore) && hoverFore is Brush hf)
+            {
+                emojiBtn.Resources["ButtonForegroundPointerOver"] = hf;
+                emojiBtn.Resources["ButtonForegroundPressed"] = hf;
+            }
+        }
+
         emojiButton = emojiBtn;
         emojiPicker.EmojiSelected -= OnEmojiSelected;
         emojiPicker.EmojiSelected += OnEmojiSelected;
@@ -109,8 +142,13 @@ public sealed class TabEditFlyout
             Text = tab.Title,
             MaxLength = MaxTitleLength,
             Width = TitleFieldWidth,
+            Height = ControlHeight,
+            MinHeight = 0,
+            Padding = new Thickness(8, 4, 8, 0),
             PlaceholderText = "Tab title",
             VerticalAlignment = VerticalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            FontSize = 13,
         };
         titleBox = titleTextBox;
         titleTextBox.KeyDown += OnTitleBoxKeyDown;
@@ -127,16 +165,45 @@ public sealed class TabEditFlyout
 
         var saveBtn = new Button
         {
+            Width = EmojiButtonWidth,
+            Height = ControlHeight,
+            Padding = new Thickness(0),
+            CornerRadius = new CornerRadius(4),
             Content = new FontIcon
             {
                 Glyph = "",
                 FontFamily = new FontFamily("Segoe Fluent Icons"),
-                FontSize = 16,
+                FontSize = 14,
             },
-            Style = (Style)Application.Current.Resources["AccentButtonStyle"],
-            VerticalAlignment = VerticalAlignment.Stretch,
-            Padding = new Thickness(8, 0, 8, 0),
         };
+
+        saveBtn.Resources["ButtonBackground"] = transparentBrush;
+        saveBtn.Resources["ButtonBorderBrush"] = transparentBrush;
+        saveBtn.Resources["ButtonBorderBrushPointerOver"] = transparentBrush;
+        saveBtn.Resources["ButtonBorderBrushPressed"] = transparentBrush;
+        saveBtn.Resources["ButtonBackgroundDisabled"] = transparentBrush;
+        saveBtn.Resources["ButtonBorderBrushDisabled"] = transparentBrush;
+
+        if (Application.Current != null)
+        {
+            if (Application.Current.Resources.TryGetValue("SubtleFillColorSecondaryBrush", out var hoverBrush) && hoverBrush is Brush hb)
+            {
+                saveBtn.Resources["ButtonBackgroundPointerOver"] = hb;
+            }
+            if (Application.Current.Resources.TryGetValue("SubtleFillColorTertiaryBrush", out var pressedBrush) && pressedBrush is Brush pb)
+            {
+                saveBtn.Resources["ButtonBackgroundPressed"] = pb;
+            }
+            if (Application.Current.Resources.TryGetValue("TextFillColorSecondaryBrush", out var normalFore) && normalFore is Brush nf)
+            {
+                saveBtn.Foreground = nf;
+            }
+            if (Application.Current.Resources.TryGetValue("TextFillColorPrimaryBrush", out var hoverFore) && hoverFore is Brush hf)
+            {
+                saveBtn.Resources["ButtonForegroundPointerOver"] = hf;
+                saveBtn.Resources["ButtonForegroundPressed"] = hf;
+            }
+        }
         saveBtn.Click += OnSaveClick;
 
         var titleRow = new StackPanel

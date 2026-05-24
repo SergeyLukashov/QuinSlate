@@ -24,10 +24,9 @@ public sealed partial class BufferPanel : UserControl
     private const double EditorFontSize = 15;
     private const string PinGlyph = "\uE718";
     private const string PinnedGlyph = "\uE77A";
-    private const string PinTooltip = "Pin window";
-    private const string UnpinTooltip = "Unpin window";
+    private const string PinTooltip = "Pin";
+    private const string UnpinTooltip = "Unpin";
     private const int MaxBufferLength = 1_000_000;
-    private const double MinCaptionRightInset = 70;
 
     private const double EditorClearButtonSize = 32;
     private const double EditorClearGlyphSize = 13;
@@ -73,6 +72,12 @@ public sealed partial class BufferPanel : UserControl
     public event EventHandler PinToggleRequested;
 
     /// <summary>
+    /// Raised when the user clicks the close button. The caller should hide the
+    /// window (Jott hides to the tray rather than terminating).
+    /// </summary>
+    public event EventHandler CloseRequested;
+
+    /// <summary>
     /// Raised when a tab label (emoji or title) is saved by the user. The caller
     /// should refresh the tray tooltip when this event fires.
     /// </summary>
@@ -99,22 +104,6 @@ public sealed partial class BufferPanel : UserControl
     {
         PinIcon.Glyph = isPinned ? PinnedGlyph : PinGlyph;
         ToolTipService.SetToolTip(PinButton, isPinned ? UnpinTooltip : PinTooltip);
-    }
-
-    /// <summary>
-    /// Reserves space on the right of the title bar footer for the system
-    /// caption close button so our controls do not overlap it.
-    /// </summary>
-    /// <param name="logicalWidth">
-    /// The width, in logical (DIP) units, of the system-reserved caption region.
-    /// Callers must convert <c>AppWindowTitleBar.RightInset</c> from physical
-    /// pixels to logical units (divide by the display scale) before calling this.
-    /// </param>
-    public void SetCaptionRightInset(double logicalWidth)
-    {
-        double adjustedWidth = logicalWidth > 0 ? (logicalWidth + 6) : 0;
-        double captionWidth = Math.Max(MinCaptionRightInset, adjustedWidth);
-        SystemCloseButtonSpacer.Width = captionWidth;
     }
 
     /// <summary>
@@ -342,8 +331,39 @@ public sealed partial class BufferPanel : UserControl
             Visibility = Visibility.Collapsed,
             IsEnabled = !string.IsNullOrEmpty(buffer.Content),
             Tag = buffer.Index,
+            CornerRadius = new CornerRadius(4),
             Content = new FontIcon { Glyph = EditorClearGlyph, FontSize = EditorClearGlyphSize },
         };
+
+        var transparentBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        clearButton.Resources["ButtonBackground"] = transparentBrush;
+        clearButton.Resources["ButtonBorderBrush"] = transparentBrush;
+        clearButton.Resources["ButtonBorderBrushPointerOver"] = transparentBrush;
+        clearButton.Resources["ButtonBorderBrushPressed"] = transparentBrush;
+        clearButton.Resources["ButtonBackgroundDisabled"] = transparentBrush;
+        clearButton.Resources["ButtonBorderBrushDisabled"] = transparentBrush;
+
+        if (Application.Current != null)
+        {
+            if (Application.Current.Resources.TryGetValue("SubtleFillColorSecondaryBrush", out var hoverBrush) && hoverBrush is Microsoft.UI.Xaml.Media.Brush hb)
+            {
+                clearButton.Resources["ButtonBackgroundPointerOver"] = hb;
+            }
+            if (Application.Current.Resources.TryGetValue("SubtleFillColorTertiaryBrush", out var pressedBrush) && pressedBrush is Microsoft.UI.Xaml.Media.Brush pb)
+            {
+                clearButton.Resources["ButtonBackgroundPressed"] = pb;
+            }
+            if (Application.Current.Resources.TryGetValue("TextFillColorSecondaryBrush", out var normalFore) && normalFore is Microsoft.UI.Xaml.Media.Brush nf)
+            {
+                clearButton.Foreground = nf;
+            }
+            if (Application.Current.Resources.TryGetValue("TextFillColorPrimaryBrush", out var hoverFore) && hoverFore is Microsoft.UI.Xaml.Media.Brush hf)
+            {
+                clearButton.Resources["ButtonForegroundPointerOver"] = hf;
+                clearButton.Resources["ButtonForegroundPressed"] = hf;
+            }
+        }
+
         clearButton.Click += OnClearButtonClick;
         ToolTipService.SetToolTip(clearButton, "Clear this tab");
 
@@ -383,7 +403,59 @@ public sealed partial class BufferPanel : UserControl
 
     private Border BuildEditorConfirmPanel(int bufferIndex)
     {
-        var bgColor = Color.FromArgb(EditorConfirmBgA, EditorConfirmBgR, EditorConfirmBgG, EditorConfirmBgB);
+        // Premium default fallbacks in case system resources are missing
+        Microsoft.UI.Xaml.Media.Brush cardBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(220, 32, 32, 32)); // Dark fallback
+        Microsoft.UI.Xaml.Media.Brush cardBorder = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
+        Microsoft.UI.Xaml.Media.Brush textFg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(255, 255, 99, 71)); // Soft red fallback
+        Microsoft.UI.Xaml.Media.Brush accentBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.DodgerBlue);
+        Microsoft.UI.Xaml.Media.Brush hoverBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(20, 255, 255, 255));
+        Microsoft.UI.Xaml.Media.Brush pressedBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
+        Microsoft.UI.Xaml.Media.Brush normalText = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
+
+        if (Application.Current != null)
+        {
+            // Detect theme to choose proper fallback colors
+            bool isDark = Application.Current.RequestedTheme == ApplicationTheme.Dark;
+            if (!isDark)
+            {
+                cardBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(220, 243, 243, 243)); // Light fallback
+                cardBorder = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(40, 0, 0, 0));
+                textFg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(255, 196, 43, 28)); // Darker red fallback
+                accentBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(255, 0, 90, 158));
+                hoverBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(10, 0, 0, 0));
+                pressedBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(20, 0, 0, 0));
+                normalText = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black);
+            }
+
+            if (Application.Current.Resources.TryGetValue("SystemControlBackgroundChromeMediumLowBrush", out var cb) && cb is Microsoft.UI.Xaml.Media.Brush cbb)
+            {
+                cardBg = cbb;
+            }
+            if (Application.Current.Resources.TryGetValue("SystemControlTransientBorderBrush", out var sbb) && sbb is Microsoft.UI.Xaml.Media.Brush sbbb)
+            {
+                cardBorder = sbbb;
+            }
+            if (Application.Current.Resources.TryGetValue("SystemFillColorAttentionBrush", out var ab) && ab is Microsoft.UI.Xaml.Media.Brush abb)
+            {
+                textFg = abb;
+            }
+            if (Application.Current.Resources.TryGetValue("SystemAccentColorBrush", out var sacb) && sacb is Microsoft.UI.Xaml.Media.Brush sacbb)
+            {
+                accentBrush = sacbb;
+            }
+            if (Application.Current.Resources.TryGetValue("SubtleFillColorSecondaryBrush", out var sfcb) && sfcb is Microsoft.UI.Xaml.Media.Brush sfcbb)
+            {
+                hoverBg = sfcbb;
+            }
+            if (Application.Current.Resources.TryGetValue("SubtleFillColorTertiaryBrush", out var sfctb) && sfctb is Microsoft.UI.Xaml.Media.Brush sfctbb)
+            {
+                pressedBg = sfctbb;
+            }
+            if (Application.Current.Resources.TryGetValue("TextFillColorPrimaryBrush", out var tfcpb) && tfcpb is Microsoft.UI.Xaml.Media.Brush tfcpbb)
+            {
+                normalText = tfcpbb;
+            }
+        }
 
         var confirmButton = new Button
         {
@@ -393,13 +465,24 @@ public sealed partial class BufferPanel : UserControl
             Padding = new Thickness(0),
             Margin = new Thickness(EditorConfirmButtonMarginLeft, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
+            CornerRadius = new CornerRadius(4),
             Tag = bufferIndex,
         };
         confirmButton.Click += OnConfirmCheckButtonClick;
 
-        double luminance = (bgColor.R * 0.299 + bgColor.G * 0.587 + bgColor.B * 0.114) / 255.0;
-        var fg = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-            luminance >= 0.5 ? Microsoft.UI.Colors.Black : Microsoft.UI.Colors.White);
+        var transparentBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        confirmButton.Resources["ButtonBackground"] = transparentBrush;
+        confirmButton.Resources["ButtonBorderBrush"] = transparentBrush;
+        confirmButton.Resources["ButtonBorderBrushPointerOver"] = transparentBrush;
+        confirmButton.Resources["ButtonBorderBrushPressed"] = transparentBrush;
+        confirmButton.Resources["ButtonBackgroundDisabled"] = transparentBrush;
+        confirmButton.Resources["ButtonBorderBrushDisabled"] = transparentBrush;
+
+        confirmButton.Foreground = accentBrush;
+        confirmButton.Resources["ButtonBackgroundPointerOver"] = hoverBg;
+        confirmButton.Resources["ButtonBackgroundPressed"] = pressedBg;
+        confirmButton.Resources["ButtonForegroundPointerOver"] = normalText;
+        confirmButton.Resources["ButtonForegroundPressed"] = normalText;
 
         var content = new StackPanel
         {
@@ -411,15 +494,18 @@ public sealed partial class BufferPanel : UserControl
             Text = "Clear?",
             FontSize = EditorConfirmTextFontSize,
             VerticalAlignment = VerticalAlignment.Center,
-            Foreground = fg,
+            Foreground = textFg,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
         });
         content.Children.Add(confirmButton);
 
         return new Border
         {
-            CornerRadius = new CornerRadius(EditorConfirmBorderCornerRadius),
-            Padding = new Thickness(EditorConfirmPaddingH, EditorConfirmPaddingV, EditorConfirmPaddingH, EditorConfirmPaddingV),
-            Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(bgColor),
+            CornerRadius = new CornerRadius(6),
+            BorderThickness = new Thickness(1),
+            BorderBrush = cardBorder,
+            Padding = new Thickness(8, 2, 4, 2),
+            Background = cardBg,
             VerticalAlignment = VerticalAlignment.Center,
             Child = content,
             Visibility = Visibility.Collapsed,
@@ -538,6 +624,11 @@ public sealed partial class BufferPanel : UserControl
     private void OnPinButtonClicked(object sender, RoutedEventArgs e)
     {
         PinToggleRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnCloseButtonClicked(object sender, RoutedEventArgs e)
+    {
+        CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnClearButtonClick(object sender, RoutedEventArgs e)

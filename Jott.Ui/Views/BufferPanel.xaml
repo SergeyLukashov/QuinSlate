@@ -11,15 +11,39 @@
     <UserControl.Resources>
         <ResourceDictionary>
             <x:Double x:Key="TitleBarRowHeight">32</x:Double>
+            <x:Double x:Key="TitleBarButtonWidth">40</x:Double>
+            <!-- Horizontal right inset (8px) on the button overlay so the close
+                 button stops short of the rounded top-right window corner instead
+                 of being clipped by it. Authored as a Thickness for the overlay
+                 Margin; the numeric component is mirrored by TitleBarButtonsRightInsetWidth
+                 below so the footer reservation can be computed from named constants. -->
+            <Thickness x:Key="TitleBarButtonsRightInset">0,0,8,0</Thickness>
+            <x:Double x:Key="TitleBarButtonsRightInsetWidth">8</x:Double>
+            <!-- Visible gap reserved between the last tab (including its hover
+                 edit-pencil affordance) and the pin button's left edge, so the
+                 tab strip never touches or overlaps the button cluster. -->
+            <x:Double x:Key="TitleBarButtonsGapWidth">12</x:Double>
+            <!-- Width reserved by the TabStripFooter transparent spacer.
+                 = TitleBarButtonsRightInsetWidth + 2 * TitleBarButtonWidth + TitleBarButtonsGapWidth
+                 = 8 + 2*40 + 12 = 100.
+                 The TabView's UpdateTabWidths sets the right (star) content column's
+                 MinWidth to this footer's DesiredSize, so reserving exactly this width
+                 forces the equal-width tabs and the tab scroll buttons to stop this far
+                 short of the window's right edge. The overlay cluster occupies only the
+                 rightmost (TitleBarButtonsRightInsetWidth + 2 * TitleBarButtonWidth = 88)
+                 of that region, leaving the gap (12) clear between the last tab and the
+                 pin button. The buttons themselves are an overlay in RootGrid, outside
+                 the TabView, so TabView column overflow can never push them off-screen. -->
+            <x:Double x:Key="TitleBarButtonsClusterWidth">100</x:Double>
             <SolidColorBrush x:Key="SystemAccentColorBrush" Color="{ThemeResource SystemAccentColor}" />
 
             <Style TargetType="TabViewItem">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderBrush" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="CornerRadius" Value="6" />
-                <Setter Property="Margin" Value="2,0,2,0" />
-                <Setter Property="Padding" Value="12,0,12,0" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Margin" Value="0,0,0,0" />
+                <Setter Property="Padding" Value="0,0,0,0" />
                 <Setter Property="MinHeight" Value="32" />
                 <Setter Property="Height" Value="32" />
                 <Setter Property="VerticalAlignment" Value="Center" />
@@ -31,7 +55,7 @@
                             <Grid x:Name="LayoutRoot" Background="Transparent" Height="32">
                                 <!-- Rounded floating tab background pill -->
                                 <Border x:Name="TabBackground"
-                                        Height="24"
+                                        Height="26"
                                         Background="{TemplateBinding Background}"
                                         BorderBrush="{TemplateBinding BorderBrush}"
                                         BorderThickness="{TemplateBinding BorderThickness}"
@@ -131,7 +155,7 @@
                 <Setter Property="BorderBrush" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="Padding" Value="0" />
-                <Setter Property="Width" Value="46" />
+                <Setter Property="Width" Value="{StaticResource TitleBarButtonWidth}" />
                 <Setter Property="MinHeight" Value="32" />
                 <Setter Property="HorizontalAlignment" Value="Center" />
                 <Setter Property="VerticalAlignment" Value="Stretch" />
@@ -173,6 +197,44 @@
                 </Setter>
             </Style>
 
+            <Style x:Key="CloseTitleBarButtonStyle" TargetType="Button" BasedOn="{StaticResource TitleBarButtonStyle}">
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Grid x:Name="RootGrid" Background="Transparent" CornerRadius="0">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource CloseButtonBackgroundPointerOver}" />
+                                                <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource CloseButtonForegroundPointerOver}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="{ThemeResource CloseButtonBackgroundPressed}" />
+                                                <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource CloseButtonForegroundPressed}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Disabled">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Opacity" Value="0.5" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <ContentPresenter x:Name="ContentPresenter"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center" />
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
                     <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
@@ -187,6 +249,10 @@
                     <SolidColorBrush x:Key="TitleBarButtonBackgroundPressed" Color="#30FFFFFF" />
                     <SolidColorBrush x:Key="TitleBarButtonForegroundPointerOver" Color="White" />
                     <SolidColorBrush x:Key="TitleBarButtonForegroundPressed" Color="White" />
+                    <SolidColorBrush x:Key="CloseButtonBackgroundPointerOver" Color="#C42B1C" />
+                    <SolidColorBrush x:Key="CloseButtonBackgroundPressed" Color="#B0271A" />
+                    <SolidColorBrush x:Key="CloseButtonForegroundPointerOver" Color="White" />
+                    <SolidColorBrush x:Key="CloseButtonForegroundPressed" Color="White" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
@@ -201,6 +267,10 @@
                     <SolidColorBrush x:Key="TitleBarButtonBackgroundPressed" Color="#20000000" />
                     <SolidColorBrush x:Key="TitleBarButtonForegroundPointerOver" Color="Black" />
                     <SolidColorBrush x:Key="TitleBarButtonForegroundPressed" Color="Black" />
+                    <SolidColorBrush x:Key="CloseButtonBackgroundPointerOver" Color="#C42B1C" />
+                    <SolidColorBrush x:Key="CloseButtonBackgroundPressed" Color="#B0271A" />
+                    <SolidColorBrush x:Key="CloseButtonForegroundPointerOver" Color="White" />
+                    <SolidColorBrush x:Key="CloseButtonForegroundPressed" Color="White" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
@@ -215,6 +285,10 @@
                     <SolidColorBrush x:Key="TitleBarButtonBackgroundPressed" Color="#30FFFFFF" />
                     <SolidColorBrush x:Key="TitleBarButtonForegroundPointerOver" Color="White" />
                     <SolidColorBrush x:Key="TitleBarButtonForegroundPressed" Color="White" />
+                    <SolidColorBrush x:Key="CloseButtonBackgroundPointerOver" Color="#C42B1C" />
+                    <SolidColorBrush x:Key="CloseButtonBackgroundPressed" Color="#B0271A" />
+                    <SolidColorBrush x:Key="CloseButtonForegroundPointerOver" Color="White" />
+                    <SolidColorBrush x:Key="CloseButtonForegroundPressed" Color="White" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
@@ -229,6 +303,10 @@
                     <SolidColorBrush x:Key="TitleBarButtonBackgroundPressed" Color="{ThemeResource SystemColorHighlightColor}" />
                     <SolidColorBrush x:Key="TitleBarButtonForegroundPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
                     <SolidColorBrush x:Key="TitleBarButtonForegroundPressed" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                    <SolidColorBrush x:Key="CloseButtonBackgroundPointerOver" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="CloseButtonBackgroundPressed" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="CloseButtonForegroundPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                    <SolidColorBrush x:Key="CloseButtonForegroundPressed" Color="{ThemeResource SystemColorHighlightTextColor}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
@@ -252,12 +330,40 @@
                 <Thickness x:Key="TabViewBorderThickness">0</Thickness>
                 <SolidColorBrush x:Key="TabViewBorderBrush" Color="Transparent" />
                 <SolidColorBrush x:Key="TabViewItemSeparatorBrush" Color="Transparent" />
+
+                <!-- Equal-mode tab sizing. The SDK default max (240) caps each tab
+                     and leaves a large empty void on wide windows. Raising the max
+                     well above any realistic per-tab share lets the five equal tabs
+                     stretch to fill the strip up to (strip width - footer reservation).
+                     The min (100) preserves narrow behaviour: tabs shrink to it, then
+                     the strip scrolls. In Equal mode each tab = clamp(available / 5,
+                     min, max); with a large max the clamp is a no-op so the tabs fill. -->
+                <x:Double x:Key="TabViewItemMinWidth">100</x:Double>
+                <x:Double x:Key="TabViewItemMaxWidth">700</x:Double>
+
+                <!-- Compact scroll buttons styling -->
+                <x:Double x:Key="TabViewItemScrollButtonWidth">20</x:Double>
+                <x:Double x:Key="TabViewItemScrollButonFontSize">8</x:Double>
+                <Thickness x:Key="TabViewItemLeftScrollButtonContainerPadding">0,0,2,3</Thickness>
+                <Thickness x:Key="TabViewItemRightScrollButtonContainerPadding">2,0,0,3</Thickness>
+
+                <!-- Modern WinUI tooltip shared by the pin and close buttons -->
+                <Style TargetType="ToolTip">
+                    <Setter Property="Background" Value="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}" />
+                    <Setter Property="BorderBrush" Value="{ThemeResource SystemControlTransientBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="1" />
+                    <Setter Property="CornerRadius" Value="4" />
+                    <Setter Property="Padding" Value="8,5,8,5" />
+                    <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+                    <Setter Property="FontSize" Value="12" />
+                    <Setter Property="FontFamily" Value="Segoe UI Variable Text" />
+                </Style>
             </TabView.Resources>
 
             <TabView.TabStripHeader>
                 <Border
                     x:Name="TitleBarIconDragArea"
-                    Padding="10,0,10,0"
+                    Padding="10,0,6,0"
                     MinHeight="{StaticResource TitleBarRowHeight}"
                     VerticalAlignment="Stretch"
                     Background="Transparent">
@@ -270,40 +376,50 @@
                 </Border>
             </TabView.TabStripHeader>
 
+            <!-- Fixed-width transparent spacer in the TabView's right (star-width)
+                 column. The TabView's UpdateTabWidths sets RightContentColumn.MinWidth
+                 to this footer's DesiredSize, so reserving a fixed width forces the
+                 equal-width tabs and the tab scroll buttons to stop exactly this far
+                 short of the window's right edge. The spacer sits in the title-bar
+                 zone so it stays draggable. The pin and close buttons are NOT here;
+                 they are an overlay in RootGrid (below) sitting over this reserved
+                 region, so TabView column overflow can never push them off-screen. -->
             <TabView.TabStripFooter>
-                <Grid
-                    MinHeight="{StaticResource TitleBarRowHeight}"
-                    HorizontalAlignment="Stretch"
-                    VerticalAlignment="Stretch">
-                    <Grid
-                        x:Name="TitleBarDragGrid"
-                        Background="Transparent"
-                        HorizontalAlignment="Stretch"
-                        VerticalAlignment="Stretch" />
-                    <StackPanel
-                        Orientation="Horizontal"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Stretch">
-                        <Button
-                            x:Name="PinButton"
-                            Style="{StaticResource TitleBarButtonStyle}"
-                            Margin="0"
-                            ToolTipService.ToolTip="Pin window"
-                            Click="OnPinButtonClicked">
-                            <FontIcon
-                                x:Name="PinIcon"
-                                Glyph="&#xE718;"
-                                FontSize="12" />
-                        </Button>
-                        <Border
-                            x:Name="SystemCloseButtonSpacer"
-                            Width="70"
-                            IsHitTestVisible="False"
-                            VerticalAlignment="Stretch" />
-                    </StackPanel>
-                </Grid>
+                <Border
+                    Width="86"
+                    Height="{StaticResource TitleBarRowHeight}"
+                    Background="Transparent"
+                    IsHitTestVisible="False" />
             </TabView.TabStripFooter>
-
         </TabView>
+
+        <StackPanel
+            Orientation="Horizontal"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Height="{StaticResource TitleBarRowHeight}"
+            Margin="0,0,0,0">
+            <Button
+                x:Name="PinButton"
+                Style="{StaticResource TitleBarButtonStyle}"
+                Margin="0"
+                ToolTipService.ToolTip="Pin window"
+                Click="OnPinButtonClicked">
+                <FontIcon
+                    x:Name="PinIcon"
+                    Glyph="&#xE718;"
+                    FontSize="12" />
+            </Button>
+            <Button
+                x:Name="CloseButton"
+                Style="{StaticResource CloseTitleBarButtonStyle}"
+                Margin="0"
+                ToolTipService.ToolTip="Close"
+                Click="OnCloseButtonClicked">
+                <FontIcon
+                    Glyph="&#xE8BB;"
+                    FontSize="9" />
+            </Button>
+        </StackPanel>
     </Grid>
 </UserControl>

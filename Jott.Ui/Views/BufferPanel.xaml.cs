@@ -55,7 +55,6 @@ public sealed partial class BufferPanel : UserControl
     private readonly Dictionary<int, TabViewItem> tabItemsByIndex = new Dictionary<int, TabViewItem>();
     private readonly Dictionary<int, TextBlock> tabEmojiBlocksByIndex = new Dictionary<int, TextBlock>();
     private readonly Dictionary<int, TextBlock> tabTitleBlocksByIndex = new Dictionary<int, TextBlock>();
-    private readonly Dictionary<int, Button> editButtonsByIndex = new Dictionary<int, Button>();
 
     private RichEditBox pendingFocusEditor;
     private RoutedEventHandler pendingFocusHandler;
@@ -243,7 +242,6 @@ public sealed partial class BufferPanel : UserControl
         tabItemsByIndex.Clear();
         tabEmojiBlocksByIndex.Clear();
         tabTitleBlocksByIndex.Clear();
-        editButtonsByIndex.Clear();
     }
 
     private TabViewItem BuildTabViewItem(Buffer buffer, TabDefinition tab)
@@ -251,13 +249,11 @@ public sealed partial class BufferPanel : UserControl
         var header = TabHeaderBuilder.Build(
             buffer,
             tab,
-            onEditClicked: (s, e) => OpenEditFlyout(buffer.Index),
             onDoubleTapped: (s, e) => OpenEditFlyout(buffer.Index));
 
         headerContainersByIndex[buffer.Index] = header.HeaderContainer;
         tabEmojiBlocksByIndex[buffer.Index] = header.EmojiBlock;
         tabTitleBlocksByIndex[buffer.Index] = header.TitleBlock;
-        editButtonsByIndex[buffer.Index] = header.EditButton;
 
         var editor = new RichEditBox
         {
@@ -287,6 +283,19 @@ public sealed partial class BufferPanel : UserControl
         confirmPanelsByIndex[buffer.Index] = confirmPanel;
         clearButtonsByIndex[buffer.Index] = clearButton;
 
+        var menuFlyout = new MenuFlyout();
+        var renameItem = new MenuFlyoutItem
+        {
+            Text = "Rename tab",
+            Icon = new FontIcon
+            {
+                Glyph = "\uE8AC",
+                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe Fluent Icons"),
+            }
+        };
+        renameItem.Click += (s, e) => OpenEditFlyout(buffer.Index);
+        menuFlyout.Items.Add(renameItem);
+
         var tabItem = new TabViewItem
         {
             Header = header.HeaderContainer,
@@ -294,27 +303,7 @@ public sealed partial class BufferPanel : UserControl
             IsClosable = false,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             VerticalContentAlignment = VerticalAlignment.Stretch,
-        };
-        bool isPointerOverTab = false;
-        tabItem.PointerEntered += (s, e) =>
-        {
-            isPointerOverTab = true;
-            header.EditButton.Visibility = Visibility.Visible;
-        };
-        tabItem.PointerExited += (s, e) =>
-        {
-            isPointerOverTab = false;
-            if (!tabEditFlyout.IsOpen)
-            {
-                header.EditButton.Visibility = Visibility.Collapsed;
-            }
-        };
-        tabEditFlyout.FlyoutClosed += (s, e) =>
-        {
-            if (!isPointerOverTab)
-            {
-                header.EditButton.Visibility = Visibility.Collapsed;
-            }
+            ContextFlyout = menuFlyout,
         };
         tabItem.GettingFocus += OnTabItemGettingFocus;
         return tabItem;
@@ -506,11 +495,6 @@ public sealed partial class BufferPanel : UserControl
 
         if (headerContainersByIndex.TryGetValue(bufferIndex, out Grid headerContainer))
         {
-            if (editButtonsByIndex.TryGetValue(bufferIndex, out Button editButton))
-            {
-                editButton.Visibility = Visibility.Visible;
-            }
-
             tabEditFlyout.Open(bufferIndex, currentTab, headerContainer);
         }
     }

@@ -42,12 +42,12 @@
                 <Setter Property="BorderBrush" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="CornerRadius" Value="4" />
-                <Setter Property="Margin" Value="0,0,0,0" />
-                <Setter Property="Padding" Value="0,0,0,0" />
+                <Setter Property="Margin" Value="0,1,6,0" />
+                <Setter Property="Padding" Value="3,3,3,5" />
                 <Setter Property="MinHeight" Value="32" />
                 <Setter Property="Height" Value="32" />
                 <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="VerticalContentAlignment" Value="Center" />
                 <Setter Property="Template">
                     <Setter.Value>
@@ -95,7 +95,7 @@
                                     <VisualStateGroup x:Name="CommonStates">
                                         <VisualState x:Name="Normal">
                                             <VisualState.Setters>
-                                                <Setter Target="TabBackground.Background" Value="Transparent" />
+                                                <Setter Target="TabBackground.Background" Value="{ThemeResource TabViewItemHeaderBackgroundInactive}" />
                                                 <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TabViewItemHeaderForeground}" />
                                                 <Setter Target="ContentPresenter.FontWeight" Value="Normal" />
                                                 <Setter Target="ActiveIndicator.Visibility" Value="Collapsed" />
@@ -103,7 +103,7 @@
                                         </VisualState>
                                         <VisualState x:Name="PointerOver">
                                             <VisualState.Setters>
-                                                <Setter Target="TabBackground.Background" Value="{ThemeResource TabViewItemHeaderBackgroundPointerOver}" />
+                                                <Setter Target="TabBackground.Background" Value="{ThemeResource TabViewItemHeaderBackgroundInactivePointerOver}" />
                                                 <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TabViewItemHeaderForegroundPointerOver}" />
                                             </VisualState.Setters>
                                         </VisualState>
@@ -235,7 +235,7 @@
                 </Setter>
             </Style>
 
-            <ResourceDictionary.ThemeDictionaries>
+              <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
                     <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
                     <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
@@ -253,6 +253,14 @@
                     <SolidColorBrush x:Key="CloseButtonBackgroundPressed" Color="#B0271A" />
                     <SolidColorBrush x:Key="CloseButtonForegroundPointerOver" Color="White" />
                     <SolidColorBrush x:Key="CloseButtonForegroundPressed" Color="White" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactive" Color="#0FFFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactivePointerOver" Color="#22FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#33FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#22FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForeground" Color="#99FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForegroundPointerOver" Color="#E6FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForegroundPressed" Color="#E6FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForegroundSelected" Color="White" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
                     <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
@@ -271,6 +279,14 @@
                     <SolidColorBrush x:Key="CloseButtonBackgroundPressed" Color="#B0271A" />
                     <SolidColorBrush x:Key="CloseButtonForegroundPointerOver" Color="White" />
                     <SolidColorBrush x:Key="CloseButtonForegroundPressed" Color="White" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactive" Color="#0F000000" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactivePointerOver" Color="#22000000" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#33000000" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#22000000" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForeground" Color="#66000000" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForegroundPointerOver" Color="#E6000000" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForegroundPressed" Color="#E6000000" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForegroundSelected" Color="Black" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
@@ -289,6 +305,14 @@
                     <SolidColorBrush x:Key="CloseButtonBackgroundPressed" Color="#B0271A" />
                     <SolidColorBrush x:Key="CloseButtonForegroundPointerOver" Color="White" />
                     <SolidColorBrush x:Key="CloseButtonForegroundPressed" Color="White" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactive" Color="#0FFFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactivePointerOver" Color="#22FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#33FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#22FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForeground" Color="#99FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForegroundPointerOver" Color="#E6FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForegroundPressed" Color="#E6FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForegroundSelected" Color="White" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
@@ -307,8 +331,16 @@
                     <SolidColorBrush x:Key="CloseButtonBackgroundPressed" Color="{ThemeResource SystemColorHighlightColor}" />
                     <SolidColorBrush x:Key="CloseButtonForegroundPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
                     <SolidColorBrush x:Key="CloseButtonForegroundPressed" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactive" Color="Transparent" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactivePointerOver" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForeground" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForegroundPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForegroundPressed" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderForegroundSelected" Color="{ThemeResource SystemColorHighlightTextColor}" />
                 </ResourceDictionary>
-            </ResourceDictionary.ThemeDictionaries>
+              </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -316,7 +348,7 @@
         <TabView
             x:Name="BufferTabView"
             IsAddTabButtonVisible="False"
-            CanReorderTabs="True"
+            CanReorderTabs="False"
             TabWidthMode="Equal"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"
@@ -332,14 +364,11 @@
                 <SolidColorBrush x:Key="TabViewItemSeparatorBrush" Color="Transparent" />
 
                 <!-- Equal-mode tab sizing. The SDK default max (240) caps each tab
-                     and leaves a large empty void on wide windows. Raising the max
-                     well above any realistic per-tab share lets the five equal tabs
-                     stretch to fill the strip up to (strip width - footer reservation).
-                     The min (100) preserves narrow behaviour: tabs shrink to it, then
-                     the strip scrolls. In Equal mode each tab = clamp(available / 5,
-                     min, max); with a large max the clamp is a no-op so the tabs fill. -->
+                     and leaves a large empty void on wide windows. We clamp each tab
+                     to a maximum width of 140 to fit 12 characters (+ emoji + paddings)
+                     and a minimum width of 100 to fit "Scratch" (+ emoji + paddings). -->
                 <x:Double x:Key="TabViewItemMinWidth">100</x:Double>
-                <x:Double x:Key="TabViewItemMaxWidth">700</x:Double>
+                <x:Double x:Key="TabViewItemMaxWidth">140</x:Double>
 
                 <!-- Compact scroll buttons styling -->
                 <x:Double x:Key="TabViewItemScrollButtonWidth">20</x:Double>
@@ -386,7 +415,7 @@
                  region, so TabView column overflow can never push them off-screen. -->
             <TabView.TabStripFooter>
                 <Border
-                    Width="86"
+                    Width="106"
                     Height="{StaticResource TitleBarRowHeight}"
                     Background="Transparent"
                     IsHitTestVisible="False" />

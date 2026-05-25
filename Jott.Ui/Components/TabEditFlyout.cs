@@ -90,8 +90,6 @@ public sealed class TabEditFlyout
         editingTabIndex = bufferIndex;
         pendingEmoji = tab.Emoji;
 
-        var transparentBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
-
         var emojiBtn = new Button
         {
             Content = tab.Emoji,
@@ -103,34 +101,6 @@ public sealed class TabEditFlyout
             HorizontalContentAlignment = HorizontalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,
         };
-
-        emojiBtn.Resources["ButtonBackground"] = transparentBrush;
-        emojiBtn.Resources["ButtonBorderBrush"] = transparentBrush;
-        emojiBtn.Resources["ButtonBorderBrushPointerOver"] = transparentBrush;
-        emojiBtn.Resources["ButtonBorderBrushPressed"] = transparentBrush;
-        emojiBtn.Resources["ButtonBackgroundDisabled"] = transparentBrush;
-        emojiBtn.Resources["ButtonBorderBrushDisabled"] = transparentBrush;
-
-        if (Application.Current != null)
-        {
-            if (Application.Current.Resources.TryGetValue("SubtleFillColorSecondaryBrush", out var hoverBrush) && hoverBrush is Brush hb)
-            {
-                emojiBtn.Resources["ButtonBackgroundPointerOver"] = hb;
-            }
-            if (Application.Current.Resources.TryGetValue("SubtleFillColorTertiaryBrush", out var pressedBrush) && pressedBrush is Brush pb)
-            {
-                emojiBtn.Resources["ButtonBackgroundPressed"] = pb;
-            }
-            if (Application.Current.Resources.TryGetValue("TextFillColorSecondaryBrush", out var normalFore) && normalFore is Brush nf)
-            {
-                emojiBtn.Foreground = nf;
-            }
-            if (Application.Current.Resources.TryGetValue("TextFillColorPrimaryBrush", out var hoverFore) && hoverFore is Brush hf)
-            {
-                emojiBtn.Resources["ButtonForegroundPointerOver"] = hf;
-                emojiBtn.Resources["ButtonForegroundPressed"] = hf;
-            }
-        }
 
         emojiButton = emojiBtn;
         emojiPicker.EmojiSelected -= OnEmojiSelected;
@@ -144,12 +114,25 @@ public sealed class TabEditFlyout
             Width = TitleFieldWidth,
             Height = ControlHeight,
             MinHeight = 0,
-            Padding = new Thickness(8, 4, 8, 0),
+            Padding = new Thickness(4, 4, 4, 0),
             PlaceholderText = "Tab title",
             VerticalAlignment = VerticalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,
             FontSize = 13,
         };
+
+        titleTextBox.Loaded += (s, e) =>
+        {
+            if (FindVisualChildByName(titleTextBox, "DeleteButton") is Button deleteBtn)
+            {
+                deleteBtn.Width = 22.0;
+                deleteBtn.Height = 22.0;
+                deleteBtn.MinWidth = 0.0;
+                deleteBtn.MinHeight = 0.0;
+                deleteBtn.CornerRadius = new CornerRadius(4);
+            }
+        };
+
         titleBox = titleTextBox;
         titleTextBox.KeyDown += OnTitleBoxKeyDown;
         titleTextBox.TextChanged += OnTitleBoxTextChanged;
@@ -176,34 +159,6 @@ public sealed class TabEditFlyout
                 FontSize = 14,
             },
         };
-
-        saveBtn.Resources["ButtonBackground"] = transparentBrush;
-        saveBtn.Resources["ButtonBorderBrush"] = transparentBrush;
-        saveBtn.Resources["ButtonBorderBrushPointerOver"] = transparentBrush;
-        saveBtn.Resources["ButtonBorderBrushPressed"] = transparentBrush;
-        saveBtn.Resources["ButtonBackgroundDisabled"] = transparentBrush;
-        saveBtn.Resources["ButtonBorderBrushDisabled"] = transparentBrush;
-
-        if (Application.Current != null)
-        {
-            if (Application.Current.Resources.TryGetValue("SubtleFillColorSecondaryBrush", out var hoverBrush) && hoverBrush is Brush hb)
-            {
-                saveBtn.Resources["ButtonBackgroundPointerOver"] = hb;
-            }
-            if (Application.Current.Resources.TryGetValue("SubtleFillColorTertiaryBrush", out var pressedBrush) && pressedBrush is Brush pb)
-            {
-                saveBtn.Resources["ButtonBackgroundPressed"] = pb;
-            }
-            if (Application.Current.Resources.TryGetValue("TextFillColorSecondaryBrush", out var normalFore) && normalFore is Brush nf)
-            {
-                saveBtn.Foreground = nf;
-            }
-            if (Application.Current.Resources.TryGetValue("TextFillColorPrimaryBrush", out var hoverFore) && hoverFore is Brush hf)
-            {
-                saveBtn.Resources["ButtonForegroundPointerOver"] = hf;
-                saveBtn.Resources["ButtonForegroundPressed"] = hf;
-            }
-        }
         saveBtn.Click += OnSaveClick;
 
         var titleRow = new StackPanel
@@ -354,5 +309,30 @@ public sealed class TabEditFlyout
     private static string BuildCounterText(int length)
     {
         return $"{length} / {MaxTitleLength}";
+    }
+
+    private static DependencyObject FindVisualChildByName(DependencyObject obj, string name)
+    {
+        if (obj == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(obj, i);
+            if (child is FrameworkElement fe && fe.Name == name)
+            {
+                return child;
+            }
+
+            DependencyObject childOfChild = FindVisualChildByName(child, name);
+            if (childOfChild != null)
+            {
+                return childOfChild;
+            }
+        }
+
+        return null;
     }
 }

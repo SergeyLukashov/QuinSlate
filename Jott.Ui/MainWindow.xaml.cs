@@ -60,7 +60,6 @@ public sealed partial class MainWindow : Window
     private HotkeyManager hotkeyManager;
     private TrayIcon trayIcon;
     private TrayPeekWindow trayPeekWindow;
-    private TrayMenuOwnerWindow trayMenuOwnerWindow;
 
     private bool isPanelVisible;
     private bool isWindowActive;
@@ -126,7 +125,6 @@ public sealed partial class MainWindow : Window
         hotkeyManager.RegisterDefaultHotkey();
 
         trayPeekWindow = new TrayPeekWindow();
-        trayMenuOwnerWindow = new TrayMenuOwnerWindow();
 
         trayIcon = new TrayIcon(windowHandle);
         trayIcon.LeftClicked += OnTrayLeftClicked;
@@ -422,54 +420,50 @@ public sealed partial class MainWindow : Window
 
     private void ShowContextMenu()
     {
-        if (startupService == null || trayMenuOwnerWindow == null)
+        if (startupService == null)
         {
             return;
         }
 
         bool startupEnabled = startupService.IsEnabled();
         bool peekEnabled = settingsService != null && settingsService.TrayPeekEnabled;
-        var menu = new TrayMenu();
-        uint command = menu.Show(trayMenuOwnerWindow.Handle, startupEnabled, peekEnabled);
-        HandleMenuCommand(command, startupEnabled);
-    }
 
-    private void HandleMenuCommand(uint command, bool startupWasEnabled)
-    {
-        if (command == NativeMethods.IDM_OPEN)
-        {
-            ShowPanel();
-        }
-        else if (command == NativeMethods.IDM_LAUNCH_STARTUP)
-        {
-            if (startupWasEnabled)
+        var menu = new TrayMenu();
+        menu.Show(
+            onOpen: () => ShowPanel(),
+            onToggleStartup: () =>
             {
-                startupService.Disable();
-            }
-            else
+                if (startupService.IsEnabled())
+                {
+                    startupService.Disable();
+                }
+                else
+                {
+                    startupService.Enable();
+                }
+            },
+            onTogglePeek: () =>
             {
-                startupService.Enable();
-            }
-        }
-        else if (command == NativeMethods.IDM_PEEK_PREVIEW)
-        {
-            bool newPeekEnabled = !settingsService.TrayPeekEnabled;
-            settingsService.TrayPeekEnabled = newPeekEnabled;
-            string tooltip = newPeekEnabled
-                ? string.Empty
-                : BuildTrayTooltip(settingsService.GetTabs(), bufferService);
-            trayIcon.SetTooltip(tooltip);
-            _ = settingsService.SaveAsync();
-        }
-        else if (command == NativeMethods.IDM_ABOUT)
-        {
-            ShowPanel();
-            _ = ShowAboutDialog();
-        }
-        else if (command == NativeMethods.IDM_EXIT)
-        {
-            ExitApplication();
-        }
+                bool newPeekEnabled = !settingsService.TrayPeekEnabled;
+                settingsService.TrayPeekEnabled = newPeekEnabled;
+                string tooltip = newPeekEnabled
+                    ? string.Empty
+                    : BuildTrayTooltip(settingsService.GetTabs(), bufferService);
+                if (trayIcon != null)
+                {
+                    trayIcon.SetTooltip(tooltip);
+                }
+                _ = settingsService.SaveAsync();
+            },
+            onAbout: () =>
+            {
+                ShowPanel();
+                _ = ShowAboutDialog();
+            },
+            onExit: () => ExitApplication(),
+            startupEnabled: startupEnabled,
+            peekEnabled: peekEnabled
+        );
     }
 
     private async Task ShowAboutDialog()
@@ -528,11 +522,6 @@ public sealed partial class MainWindow : Window
             trayIcon = null;
         }
 
-        if (trayMenuOwnerWindow != null)
-        {
-            trayMenuOwnerWindow.Dispose();
-            trayMenuOwnerWindow = null;
-        }
 
         if (hotkeyManager != null)
         {

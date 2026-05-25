@@ -335,35 +335,6 @@ public sealed partial class BufferPanel : UserControl
             Content = new FontIcon { Glyph = EditorClearGlyph, FontSize = EditorClearGlyphSize },
         };
 
-        var transparentBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
-        clearButton.Resources["ButtonBackground"] = transparentBrush;
-        clearButton.Resources["ButtonBorderBrush"] = transparentBrush;
-        clearButton.Resources["ButtonBorderBrushPointerOver"] = transparentBrush;
-        clearButton.Resources["ButtonBorderBrushPressed"] = transparentBrush;
-        clearButton.Resources["ButtonBackgroundDisabled"] = transparentBrush;
-        clearButton.Resources["ButtonBorderBrushDisabled"] = transparentBrush;
-
-        if (Application.Current != null)
-        {
-            if (Application.Current.Resources.TryGetValue("SubtleFillColorSecondaryBrush", out var hoverBrush) && hoverBrush is Microsoft.UI.Xaml.Media.Brush hb)
-            {
-                clearButton.Resources["ButtonBackgroundPointerOver"] = hb;
-            }
-            if (Application.Current.Resources.TryGetValue("SubtleFillColorTertiaryBrush", out var pressedBrush) && pressedBrush is Microsoft.UI.Xaml.Media.Brush pb)
-            {
-                clearButton.Resources["ButtonBackgroundPressed"] = pb;
-            }
-            if (Application.Current.Resources.TryGetValue("TextFillColorSecondaryBrush", out var normalFore) && normalFore is Microsoft.UI.Xaml.Media.Brush nf)
-            {
-                clearButton.Foreground = nf;
-            }
-            if (Application.Current.Resources.TryGetValue("TextFillColorPrimaryBrush", out var hoverFore) && hoverFore is Microsoft.UI.Xaml.Media.Brush hf)
-            {
-                clearButton.Resources["ButtonForegroundPointerOver"] = hf;
-                clearButton.Resources["ButtonForegroundPressed"] = hf;
-            }
-        }
-
         clearButton.Click += OnClearButtonClick;
         ToolTipService.SetToolTip(clearButton, "Clear this tab");
 

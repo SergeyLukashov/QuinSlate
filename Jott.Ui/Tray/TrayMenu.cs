@@ -1,84 +1,303 @@
 using Jott.Ui.Interop;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Media;
 using System;
+using Windows.Graphics;
+using WinRT.Interop;
 
 namespace Jott.Ui.Tray;
 
 /// <summary>
-/// Builds and shows the Win32 tray context menu using <c>CreatePopupMenu</c>
-/// and <c>TrackPopupMenu</c>. Returns the selected command identifier (or
-/// zero if the menu was dismissed without a selection).
+/// Builds and shows a modernized, native WinUI 3 tray context menu using
+/// <see cref="MenuFlyout"/> inside a helper borderless transparent window.
 /// </summary>
 public sealed class TrayMenu
 {
-    private const string OpenLabel = "Open";
+    private const string OpenLabel = "Open Jott";
     private const string LaunchOnStartupLabel = "Launch on startup";
     private const string PeekPreviewLabel = "Peek preview";
     private const string AboutLabel = "About";
     private const string ExitLabel = "Exit";
 
-    /// <summary>
-    /// Displays the tray context menu near the current cursor position and
-    /// blocks until the user selects an item or dismisses the menu.
-    /// </summary>
-    /// <param name="ownerHandle">The HWND that owns the menu. Used as the
-    /// foreground window so the menu dismisses correctly when focus is lost.
-    /// Pass a dedicated invisible window (see
-    /// <see cref="TrayMenuOwnerWindow"/>) to avoid activating the visible
-    /// application window as a side effect.</param>
-    /// <param name="startupEnabled">Whether the "Launch on startup" item is
-    /// rendered with a check mark.</param>
-    /// <param name="peekEnabled">Whether the "Peek preview" item is rendered with
-    /// a check mark.</param>
-    /// <returns>The selected command identifier, or zero if no item was chosen.</returns>
-    public uint Show(IntPtr ownerHandle, bool startupEnabled, bool peekEnabled)
-    {
-        if (ownerHandle == IntPtr.Zero)
-        {
-            throw new ArgumentException("Owner handle must not be zero.", nameof(ownerHandle));
-        }
+    private const string SegoeFluentIconsFamily = "Segoe Fluent Icons";
 
+    // Compact design constants matching Windows 11 context menus
+    private const double GlyphFontSize = 12.0;
+    private const double ItemFontSize = 12.0;
+    private const double ItemHeight = 28.0;
+    private const double SeparatorMarginY = 2.0;
+
+    private const string OpenGlyph = "\xE8A7";
+    private const string AboutGlyph = "\xE946";
+    private const string ExitGlyph = "\xE711";
+    private const string CheckmarkGlyph = "\xE73E";
+
+    private const int OffscreenX = -32000;
+    private const int OffscreenY = -32000;
+
+    private Window menuWindow;
+
+    /// <summary>
+    /// Displays the modernized tray context menu near the current cursor position.
+    /// </summary>
+    /// <param name="onOpen">Action invoked when the Open item is clicked.</param>
+    /// <param name="onToggleStartup">Action invoked when the Launch on Startup item is clicked.</param>
+    /// <param name="onTogglePeek">Action invoked when the Peek Preview item is clicked.</param>
+    /// <param name="onAbout">Action invoked when the About item is clicked.</param>
+    /// <param name="onExit">Action invoked when the Exit item is clicked.</param>
+    /// <param name="startupEnabled">Whether the "Launch on startup" item is checked.</param>
+    /// <param name="peekEnabled">Whether the "Peek preview" item is checked.</param>
+    public void Show(
+        Action onOpen,
+        Action onToggleStartup,
+        Action onTogglePeek,
+        Action onAbout,
+        Action onExit,
+        bool startupEnabled,
+        bool peekEnabled)
+    {
         NativeMethods.POINT cursor;
         if (NativeMethods.GetCursorPos(out cursor) == false)
         {
             cursor = new NativeMethods.POINT();
         }
 
-        // The standard Win32 fix for the tray-menu-dismiss-on-click bug: the
-        // owning window must be the foreground window before TrackPopupMenu,
-        // and a final WM_NULL post is required after it returns.
-        NativeMethods.SetForegroundWindow(ownerHandle);
+        menuWindow = new Window();
 
-        var menu = NativeMethods.CreatePopupMenu();
-        if (menu == IntPtr.Zero)
+        // Use a simple transparent Grid as the root content
+        var rootGrid = new Grid
         {
-            return 0;
+            Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent)
+        };
+        menuWindow.Content = rootGrid;
+
+        IntPtr menuHwnd = WindowNative.GetWindowHandle(menuWindow);
+        if (menuHwnd == IntPtr.Zero)
+        {
+            return;
         }
 
-        try
+        // Configure borderless and non-taskbar styles
+        var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(menuHwnd);
+        var appWindow = AppWindow.GetFromWindowId(windowId);
+        if (appWindow != null)
         {
-            NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, NativeMethods.IDM_OPEN, OpenLabel);
-            NativeMethods.AppendMenu(menu, NativeMethods.MF_SEPARATOR, 0, null);
+            var presenter = OverlappedPresenter.CreateForDialog();
+            presenter.IsResizable = false;
+            presenter.IsMaximizable = false;
+            presenter.IsMinimizable = false;
+            presenter.IsAlwaysOnTop = true;
+            presenter.SetBorderAndTitleBar(false, false);
+            appWindow.SetPresenter(presenter);
 
-            var startupFlags = NativeMethods.MF_STRING | (startupEnabled ? NativeMethods.MF_CHECKED : NativeMethods.MF_UNCHECKED);
-            NativeMethods.AppendMenu(menu, startupFlags, NativeMethods.IDM_LAUNCH_STARTUP, LaunchOnStartupLabel);
-
-            var peekFlags = NativeMethods.MF_STRING | (peekEnabled ? NativeMethods.MF_CHECKED : NativeMethods.MF_UNCHECKED);
-            NativeMethods.AppendMenu(menu, peekFlags, NativeMethods.IDM_PEEK_PREVIEW, PeekPreviewLabel);
-
-            NativeMethods.AppendMenu(menu, NativeMethods.MF_SEPARATOR, 0, null);
-            NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, NativeMethods.IDM_ABOUT, AboutLabel);
-            NativeMethods.AppendMenu(menu, NativeMethods.MF_STRING, NativeMethods.IDM_EXIT, ExitLabel);
-
-            var flags = NativeMethods.TPM_RETURNCMD | NativeMethods.TPM_BOTTOMALIGN | NativeMethods.TPM_RIGHTALIGN;
-            var command = NativeMethods.TrackPopupMenu(menu, flags, cursor.X, cursor.Y, 0, ownerHandle, IntPtr.Zero);
-
-            NativeMethods.PostMessage(ownerHandle, (uint)NativeMethods.WM_NULL, IntPtr.Zero, IntPtr.Zero);
-
-            return (uint)command;
+            // Move the helper window completely offscreen to eliminate any visible black box or shadow
+            appWindow.MoveAndResize(new RectInt32(OffscreenX, OffscreenY, 1, 1));
         }
-        finally
+
+        IntPtr exStyle = NativeMethods.GetWindowLongPtr(menuHwnd, NativeMethods.GWL_EXSTYLE);
+        long bits = exStyle.ToInt64();
+        bits |= NativeMethods.WS_EX_TOOLWINDOW;
+        bits &= ~(long)NativeMethods.WS_EX_APPWINDOW;
+        NativeMethods.SetWindowLongPtr(menuHwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(bits));
+
+        NativeMethods.SetWindowPos(
+            menuHwnd,
+            NativeMethods.HWND_TOPMOST,
+            0, 0, 0, 0,
+            NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE);
+
+        // Build the MenuFlyout with a compact solid presenter style
+        var presenterStyle = new Style(typeof(MenuFlyoutPresenter));
+        presenterStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(0, 2, 0, 2)));
+        presenterStyle.Setters.Add(new Setter(Control.MinWidthProperty, 150.0));
+        presenterStyle.Setters.Add(new Setter(Control.BackgroundProperty, GetSolidBackgroundBrush()));
+
+        var flyout = new MenuFlyout
         {
-            NativeMethods.DestroyMenu(menu);
+            MenuFlyoutPresenterStyle = presenterStyle
+        };
+
+        var openItem = new MenuFlyoutItem
+        {
+            Text = OpenLabel,
+            Icon = new FontIcon
+            {
+                Glyph = OpenGlyph,
+                FontFamily = new FontFamily(SegoeFluentIconsFamily),
+                FontSize = GlyphFontSize
+            }
+        };
+        openItem.Click += (s, e) =>
+        {
+            if (onOpen != null)
+            {
+                onOpen();
+            }
+        };
+        ApplyCompactStyle(openItem);
+        flyout.Items.Add(openItem);
+
+        var separator1 = new MenuFlyoutSeparator { Margin = new Thickness(0, SeparatorMarginY, 0, SeparatorMarginY) };
+        flyout.Items.Add(separator1);
+
+        // Using standard MenuFlyoutItem with a manual checkmark icon ensures checkmarks
+        // align perfectly in the exact same column as the other custom icons.
+        var startupItem = new MenuFlyoutItem
+        {
+            Text = LaunchOnStartupLabel,
+            Icon = new FontIcon
+            {
+                Glyph = startupEnabled ? CheckmarkGlyph : string.Empty,
+                FontFamily = new FontFamily(SegoeFluentIconsFamily),
+                FontSize = GlyphFontSize
+            }
+        };
+        startupItem.Click += (s, e) =>
+        {
+            if (onToggleStartup != null)
+            {
+                onToggleStartup();
+            }
+        };
+        ApplyCompactStyle(startupItem);
+        flyout.Items.Add(startupItem);
+
+        var peekItem = new MenuFlyoutItem
+        {
+            Text = PeekPreviewLabel,
+            Icon = new FontIcon
+            {
+                Glyph = peekEnabled ? CheckmarkGlyph : string.Empty,
+                FontFamily = new FontFamily(SegoeFluentIconsFamily),
+                FontSize = GlyphFontSize
+            }
+        };
+        peekItem.Click += (s, e) =>
+        {
+            if (onTogglePeek != null)
+            {
+                onTogglePeek();
+            }
+        };
+        ApplyCompactStyle(peekItem);
+        flyout.Items.Add(peekItem);
+
+        var separator2 = new MenuFlyoutSeparator { Margin = new Thickness(0, SeparatorMarginY, 0, SeparatorMarginY) };
+        flyout.Items.Add(separator2);
+
+        var aboutItem = new MenuFlyoutItem
+        {
+            Text = AboutLabel,
+            Icon = new FontIcon
+            {
+                Glyph = AboutGlyph,
+                FontFamily = new FontFamily(SegoeFluentIconsFamily),
+                FontSize = GlyphFontSize
+            }
+        };
+        aboutItem.Click += (s, e) =>
+        {
+            if (onAbout != null)
+            {
+                onAbout();
+            }
+        };
+        ApplyCompactStyle(aboutItem);
+        flyout.Items.Add(aboutItem);
+
+        var exitItem = new MenuFlyoutItem
+        {
+            Text = ExitLabel,
+            Icon = new FontIcon
+            {
+                Glyph = ExitGlyph,
+                FontFamily = new FontFamily(SegoeFluentIconsFamily),
+                FontSize = GlyphFontSize
+            }
+        };
+        exitItem.Click += (s, e) =>
+        {
+            if (onExit != null)
+            {
+                onExit();
+            }
+        };
+        ApplyCompactStyle(exitItem);
+        flyout.Items.Add(exitItem);
+
+        // When the flyout is closed, clean up the helper window
+        flyout.Closed += (s, e) =>
+        {
+            Teardown();
+        };
+
+        // Crucial: Only show the flyout after the root Grid has been fully loaded into the visual tree.
+        // Calling ShowAt synchronously before layout has completed causes a fatal COMException in WinUI 3.
+        rootGrid.Loaded += (s, e) =>
+        {
+            float scale = NativeMethods.GetDpiForWindow(menuHwnd) / 96.0f;
+            if (scale <= 0.0f)
+            {
+                scale = 1.0f;
+            }
+
+            // Calculate the logical offset to project the flyout back onto the actual cursor position
+            double offsetX = cursor.X - OffscreenX;
+            double offsetY = cursor.Y - OffscreenY;
+            double logicalX = offsetX / scale;
+            double logicalY = offsetY / scale;
+
+            var options = new FlyoutShowOptions
+            {
+                ShowMode = FlyoutShowMode.Standard,
+                Position = new Windows.Foundation.Point(logicalX, logicalY),
+                Placement = FlyoutPlacementMode.TopEdgeAlignedLeft
+            };
+            flyout.ShowAt(rootGrid, options);
+        };
+
+        // Safeguard: Automatically close and teardown if the helper window loses focus/deactivates
+        menuWindow.Activated += (s, e) =>
+        {
+            if (e.WindowActivationState == WindowActivationState.Deactivated)
+            {
+                Teardown();
+            }
+        };
+
+        // Activate the helper window, which triggers XAML loading and fires the Loaded event
+        menuWindow.Activate();
+        NativeMethods.SetForegroundWindow(menuHwnd);
+    }
+
+    private void ApplyCompactStyle(Control item)
+    {
+        item.Height = ItemHeight;
+        item.MinHeight = ItemHeight;
+        item.FontSize = ItemFontSize;
+        item.Padding = new Thickness(8, 0, 8, 0);
+    }
+
+    private static Brush GetSolidBackgroundBrush()
+    {
+        if (Application.Current != null &&
+            Application.Current.Resources.TryGetValue("SolidBackgroundFillColorBaseBrush", out object obj) &&
+            obj is Brush brush)
+        {
+            return brush;
+        }
+        return new SolidColorBrush(Windows.UI.Color.FromArgb(255, 32, 32, 32));
+    }
+
+    private void Teardown()
+    {
+        if (menuWindow != null)
+        {
+            menuWindow.Close();
+            menuWindow = null;
         }
     }
 }

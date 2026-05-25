@@ -38,10 +38,12 @@ Exit
 
 ## Implementation
 
-Built as part of the `Shell_NotifyIcon` setup in `TrayIcon.cs`. Use a
-Win32 `HMENU` created with `CreatePopupMenu` and `AppendMenu`. Display
-with `TrackPopupMenu` in response to `WM_RBUTTONUP`.
+Built using a native WinUI 3 `MenuFlyout` displayed inside a helper borderless transparent window.
+When `Show` is called on `TrayMenu`, it:
+1. Obtains the current mouse cursor location using Win32 `GetCursorPos`.
+2. Creates a 1x1 borderless, non-activating, transparent helper WinUI 3 `Window`.
+3. Positions the helper window exactly at the cursor coordinates.
+4. Renders a native WinUI 3 `MenuFlyout` populated with the items and Fluent Icons (Segoe Fluent Icons: `\xE8A7` for Open, `\xE946` for About, and `\xE711` for Exit).
+5. Shows the flyout using `ShowAt` on the helper window's root grid.
+6. Cleans up, closes, and disposes the helper window automatically as soon as the flyout triggers its `Closed` event (which is raised when the user either clicks a menu item or clicks anywhere else on the screen to trigger light dismiss).
 
-Set the foreground window to the tray HWND before calling
-`TrackPopupMenu`, then post `WM_NULL` afterward — this is the standard
-fix for the Win32 tray menu disappear-on-click bug.

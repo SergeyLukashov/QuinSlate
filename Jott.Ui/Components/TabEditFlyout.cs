@@ -1,10 +1,10 @@
+using Jott.Ui.Helpers;
 using Jott.Ui.Models;
 using Jott.Ui.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
 using System;
 using Windows.System;
 
@@ -19,10 +19,12 @@ namespace Jott.Ui.Components;
 public sealed class TabEditFlyout
 {
     private const double EmojiButtonWidth = 28;
-    private const double TitleFieldWidth = 150;
+    private const double TitleFieldWidth = 140;
     private const double ControlHeight = 28;
-    private const int MaxTitleLength = 16;
+    private const int MaxTitleLength = 12;
+    private const double TitleFontSize = 13;
     private const string DefaultEmoji = "📋";
+    private const string CompactClearTextBoxStyleKey = "CompactClearTextBoxStyle";
 
     private readonly EmojiPicker emojiPicker;
     private readonly SettingsService settingsService;
@@ -118,46 +120,44 @@ public sealed class TabEditFlyout
             PlaceholderText = "Tab title",
             VerticalAlignment = VerticalAlignment.Center,
             VerticalContentAlignment = VerticalAlignment.Center,
-            FontSize = 13,
+            FontSize = TitleFontSize,
         };
 
-        titleTextBox.Loaded += (s, e) =>
-        {
-            if (FindVisualChildByName(titleTextBox, "DeleteButton") is Button deleteBtn)
-            {
-                deleteBtn.Width = 22.0;
-                deleteBtn.Height = 22.0;
-                deleteBtn.MinWidth = 0.0;
-                deleteBtn.MinHeight = 0.0;
-                deleteBtn.CornerRadius = new CornerRadius(4);
-            }
-        };
+        titleTextBox.Style = (Style)Application.Current.Resources[CompactClearTextBoxStyleKey];
 
         titleBox = titleTextBox;
         titleTextBox.KeyDown += OnTitleBoxKeyDown;
         titleTextBox.TextChanged += OnTitleBoxTextChanged;
-
-        var counter = new TextBlock
+        titleTextBox.Loaded += (sender, e) =>
         {
-            Text = BuildCounterText(tab.Title.Length),
-            FontSize = 11,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+            var tb = (TextBox)sender;
+            charCounter = VisualTreeHelpers.FindVisualChild<TextBlock>(tb, "CharCounter");
+            if (charCounter != null)
+            {
+                charCounter.Text = BuildCounterText(tb.Text.Length);
+            }
         };
-        charCounter = counter;
+
+        var cancelBtn = new Button
+        {
+            Content = "Cancel",
+            Height = ControlHeight,
+            Padding = new Thickness(8, 0, 8, 0),
+            CornerRadius = new CornerRadius(4),
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        cancelBtn.Click += OnCancelClick;
 
         var saveBtn = new Button
         {
-            Width = EmojiButtonWidth,
+            Content = "Save",
             Height = ControlHeight,
-            Padding = new Thickness(0),
+            Padding = new Thickness(12, 0, 12, 0),
             CornerRadius = new CornerRadius(4),
-            Content = new FontIcon
-            {
-                Glyph = "",
-                FontFamily = new FontFamily("Segoe Fluent Icons"),
-                FontSize = 14,
-            },
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center,
+            Style = (Style)Application.Current.Resources["AccentButtonStyle"],
         };
         saveBtn.Click += OnSaveClick;
 
@@ -169,19 +169,28 @@ public sealed class TabEditFlyout
         };
         titleRow.Children.Add(emojiBtn);
         titleRow.Children.Add(titleTextBox);
-        titleRow.Children.Add(saveBtn);
+
+        var buttonRow = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Spacing = 8,
+        };
+        buttonRow.Children.Add(cancelBtn);
+        buttonRow.Children.Add(saveBtn);
 
         var content = new StackPanel
         {
             Spacing = 8,
         };
         content.Children.Add(titleRow);
-        content.Children.Add(counter);
+        content.Children.Add(buttonRow);
         flyoutContent = content;
         content.GotFocus += OnFlyoutContentGotFocus;
 
         var presenterStyle = new Style(typeof(FlyoutPresenter));
         presenterStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(8)));
+        presenterStyle.Setters.Add(new Setter(Control.CornerRadiusProperty, new CornerRadius(8)));
 
         var flyout = new Flyout
         {
@@ -236,6 +245,11 @@ public sealed class TabEditFlyout
     private void OnSaveClick(object sender, RoutedEventArgs e)
     {
         CommitEdit();
+    }
+
+    private void OnCancelClick(object sender, RoutedEventArgs e)
+    {
+        CancelEdit();
     }
 
     private void OnFlyoutContentGotFocus(object sender, RoutedEventArgs e)
@@ -308,31 +322,6 @@ public sealed class TabEditFlyout
 
     private static string BuildCounterText(int length)
     {
-        return $"{length} / {MaxTitleLength}";
-    }
-
-    private static DependencyObject FindVisualChildByName(DependencyObject obj, string name)
-    {
-        if (obj == null)
-        {
-            return null;
-        }
-
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
-        {
-            DependencyObject child = VisualTreeHelper.GetChild(obj, i);
-            if (child is FrameworkElement fe && fe.Name == name)
-            {
-                return child;
-            }
-
-            DependencyObject childOfChild = FindVisualChildByName(child, name);
-            if (childOfChild != null)
-            {
-                return childOfChild;
-            }
-        }
-
-        return null;
+        return $"{length}/{MaxTitleLength}";
     }
 }

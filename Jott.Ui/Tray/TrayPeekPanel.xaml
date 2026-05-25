@@ -21,6 +21,8 @@
 
             <Grid.RowDefinitions>
                 <RowDefinition Height="22" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="22" />
                 <RowDefinition Height="22" />
                 <RowDefinition Height="22" />
                 <RowDefinition Height="22" />
@@ -33,10 +35,41 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
+            <!-- Head Row -->
+            <Grid
+                Grid.Row="0"
+                Grid.Column="0"
+                Grid.ColumnSpan="3">
+                <TextBlock
+                    Text="Jott"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    FontSize="12"
+                    FontWeight="SemiBold"
+                    FontFamily="Segoe UI Variable Display"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock
+                    Text="Ctrl+Shift+Q"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    FontSize="11"
+                    FontFamily="Segoe UI Variable Text"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+            </Grid>
+
+            <!-- Separator -->
+            <Border
+                Grid.Row="1"
+                Grid.Column="0"
+                Grid.ColumnSpan="3"
+                Height="1"
+                Background="{ThemeResource CardStrokeColorDefaultBrush}"
+                VerticalAlignment="Center" />
+
             <!-- Row 0 -->
             <TextBlock
                 x:Name="Label0"
-                Grid.Row="0"
+                Grid.Row="2"
                 Grid.Column="0"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
@@ -45,7 +78,7 @@
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview0"
-                Grid.Row="0"
+                Grid.Row="2"
                 Grid.Column="2"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
@@ -56,7 +89,7 @@
             <!-- Row 1 -->
             <TextBlock
                 x:Name="Label1"
-                Grid.Row="1"
+                Grid.Row="3"
                 Grid.Column="0"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
@@ -65,7 +98,7 @@
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview1"
-                Grid.Row="1"
+                Grid.Row="3"
                 Grid.Column="2"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
@@ -76,7 +109,7 @@
             <!-- Row 2 -->
             <TextBlock
                 x:Name="Label2"
-                Grid.Row="2"
+                Grid.Row="4"
                 Grid.Column="0"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
@@ -85,7 +118,7 @@
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview2"
-                Grid.Row="2"
+                Grid.Row="4"
                 Grid.Column="2"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
@@ -96,7 +129,7 @@
             <!-- Row 3 -->
             <TextBlock
                 x:Name="Label3"
-                Grid.Row="3"
+                Grid.Row="5"
                 Grid.Column="0"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
@@ -105,7 +138,7 @@
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview3"
-                Grid.Row="3"
+                Grid.Row="5"
                 Grid.Column="2"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
@@ -116,7 +149,7 @@
             <!-- Row 4 -->
             <TextBlock
                 x:Name="Label4"
-                Grid.Row="4"
+                Grid.Row="6"
                 Grid.Column="0"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
@@ -125,7 +158,7 @@
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview4"
-                Grid.Row="4"
+                Grid.Row="6"
                 Grid.Column="2"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"

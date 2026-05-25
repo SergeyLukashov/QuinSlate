@@ -99,15 +99,15 @@ normally.
 ```
 ┌─────────────────────────────────┐
 │  [emoji button]  [____________] │  ← emoji picker trigger + title field
-│                  14 / 16 chars  │
+│                  10 / 12 chars  │
 │              [Cancel]  [Save]   │
 └─────────────────────────────────┘
 ```
 
 **Emoji button** — opens a dedicated emoji picker grid (see §5.1).
 
-**Title field** — plain text input, maximum **16 characters**, enforced client-side with a
-live character counter (`n / 16`). No error dialog is shown; input is blocked at the
+**Title field** — plain text input, maximum **12 characters**, enforced client-side with a
+live character counter (`n / 12`). No error dialog is shown; input is blocked at the
 limit.
 
 **Save** (`Enter` or button) — persists both fields to `settings.json` and updates the

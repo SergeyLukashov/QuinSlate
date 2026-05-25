@@ -24,9 +24,11 @@ public sealed class TrayPeekWindow : IDisposable
     private const int BufferCount = Buffer.MaxIndex - Buffer.MinIndex + 1;
 
     private const int LogicalWindowWidth = 340;
-    private const int LogicalWindowHeight = (BufferCount * LogicalLineHeight) + (LogicalPaddingY * 2);
+    private const int LogicalHeaderHeight = 22;
+    private const int LogicalSeparatorHeight = 12;
     private const int LogicalLineHeight = 22;
     private const int LogicalPaddingY = 8;
+    private const int LogicalWindowHeight = (BufferCount * LogicalLineHeight) + (LogicalPaddingY * 2) + LogicalHeaderHeight + LogicalSeparatorHeight;
     private const int GapAboveTray = 8;
     private const int HoverCheckIntervalMs = 150;
     private const int HoverHitExpansionLogical = 12;

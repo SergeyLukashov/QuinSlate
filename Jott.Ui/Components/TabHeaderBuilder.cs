@@ -18,6 +18,7 @@ internal static class TabHeaderBuilder
     private const double TabEmojiSize = 16;
     private const double TabEmojiMarginRight = 4;
     private const double TabTitleMaxWidth = 80;
+    private const double TabTitleFontSize = 13;
     private const double EditButtonSize = 20;
     private const double EditGlyphSize = 11;
     private const string EditGlyph = "";
@@ -51,6 +52,7 @@ internal static class TabHeaderBuilder
             VerticalAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
             MaxWidth = TabTitleMaxWidth,
+            FontSize = TabTitleFontSize,
         };
 
         var editButton = new Button

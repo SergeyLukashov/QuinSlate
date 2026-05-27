@@ -6,6 +6,7 @@ using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using System;
 using System.Collections.Generic;
 using Windows.System;
@@ -17,6 +18,16 @@ namespace Jott.Ui.Views;
 /// <summary>
 /// The 5-tab buffer UI surface. Each tab has a user-editable emoji + title header
 /// and contains a monospace multiline rich-edit box bound to a single <see cref="Buffer"/>.
+///
+/// Title-bar layout: the pin and close buttons are a top-level overlay anchored to the
+/// window's top-right corner, so they can never be clipped by the TabView's internal
+/// columns. The TabView's TabStripFooter holds a fixed-width transparent spacer reserving
+/// exactly the overlay cluster's width, which pins RightContentColumn.MinWidth to a stable
+/// value so the tabs stop where the buttons begin and never slide under them. A large
+/// static TabViewItemMaxWidth lets the 5 equal-mode tabs stretch to fill the row up to that
+/// spacer at every practical width, with a consistent 12px gap before the pin button. The
+/// scroll (overflow) buttons surface only on genuine overflow, once the row is too narrow to
+/// give every tab its 100px minimum.
 /// </summary>
 public sealed partial class BufferPanel : UserControl
 {
@@ -27,6 +38,44 @@ public sealed partial class BufferPanel : UserControl
     private const string PinTooltip = "Pin";
     private const string UnpinTooltip = "Unpin";
     private const int MaxBufferLength = 1_000_000;
+
+    /// <summary>
+    /// Per-tab floor in Equal mode (mirrors the <c>TabViewItemMinWidth</c> XAML resource).
+    /// Once the equal share of the strip drops below this, tabs stop shrinking, overflow,
+    /// and the SDK surfaces the scroll buttons.
+    /// </summary>
+    private const double TabMinWidth = 100;
+
+    /// <summary>
+    /// Inter-tab gap baked into the right edge of each tab's <c>TabBackground</c> pill in
+    /// the XAML ControlTemplate. The gap is part of the measured tab width (rather than an
+    /// outer item margin) so it does not spuriously trip the SDK's equal-mode overflow test.
+    /// This must stay in sync with the pill's right <c>Margin</c> in BufferPanel.xaml (6).
+    /// The last tab needs no trailing gap, so its pill's right margin is zeroed in code to
+    /// keep the strip symmetric (see <see cref="RecomputeLastTabTrailingGap"/>).
+    /// </summary>
+    private const double InterTabGapRight = 6;
+
+    /// <summary>
+    /// Name of the floating pill <c>Border</c> template part inside the TabViewItem
+    /// ControlTemplate whose right margin carries the inter-tab gap.
+    /// </summary>
+    private const string TabBackgroundPartName = "TabBackground";
+
+    private TabViewItem lastTabWithZeroedGap;
+
+    /// <summary>
+    /// Fallback width of the title-bar icon (TabStripHeader) used when its
+    /// <c>ActualWidth</c> is not yet realized. Padding 10+6 + a 16px image = 32.
+    /// </summary>
+    private const double TitleBarHeaderFallbackWidth = 32;
+
+    /// <summary>
+    /// Fallback width of the right-hand footer spacer (button cluster reservation,
+    /// the <c>TitleBarButtonsClusterWidth</c> XAML resource) used when its
+    /// <c>ActualWidth</c> is not yet realized.
+    /// </summary>
+    private const double TitleBarFooterFallbackWidth = 92;
 
     private const double EditorClearButtonSize = 32;
     private const double EditorClearGlyphSize = 13;
@@ -223,7 +272,69 @@ public sealed partial class BufferPanel : UserControl
 
         BufferTabView.TabDragCompleted += OnTabDragCompleted;
         BufferTabView.SelectionChanged += OnBufferTabSelectionChanged;
+        BufferTabView.SizeChanged += OnBufferTabViewSizeChanged;
         RootGrid.PreviewKeyDown += OnPanelPreviewKeyDown;
+
+        UpdateEqualTabMaxWidth();
+        RecomputeLastTabTrailingGap();
+    }
+
+    private void OnBufferTabViewSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateEqualTabMaxWidth();
+    }
+
+    /// <summary>
+    /// Caps each <see cref="TabViewItem.MaxWidth"/> to the equal share of the live
+    /// tab-strip width so the equal-mode tabs fill the row and shrink as the window
+    /// narrows. The SDK does not shrink Equal-mode tabs against the available column
+    /// on its own (the tab strip is horizontally scrollable, so each item measures
+    /// against its MaxWidth), and the <c>TabViewItemMaxWidth</c> resource is read once
+    /// and cannot be updated at runtime — so the width-tracking cap must be applied
+    /// directly on each item here. The cap is floored at <see cref="TabMinWidth"/> so
+    /// that once the tabs can no longer fit at their minimum the SDK overflows and
+    /// surfaces its scroll buttons instead of clipping silently.
+    /// </summary>
+    private void UpdateEqualTabMaxWidth()
+    {
+        int count = BufferTabView.TabItems.Count;
+        if (count == 0)
+        {
+            return;
+        }
+
+        double totalWidth = BufferTabView.ActualWidth;
+        if (totalWidth <= 0)
+        {
+            return;
+        }
+
+        double headerWidth = TitleBarHeaderFallbackWidth;
+        if (TitleBarIconDragArea != null && TitleBarIconDragArea.ActualWidth > 0)
+        {
+            headerWidth = TitleBarIconDragArea.ActualWidth;
+        }
+
+        double footerWidth = TitleBarFooterFallbackWidth;
+        if (TitleBarFooterSpacer != null && TitleBarFooterSpacer.ActualWidth > 0)
+        {
+            footerWidth = TitleBarFooterSpacer.ActualWidth;
+        }
+
+        double available = totalWidth - headerWidth - footerWidth;
+        double perTab = available / count;
+        if (perTab < TabMinWidth)
+        {
+            perTab = TabMinWidth;
+        }
+
+        foreach (var obj in BufferTabView.TabItems)
+        {
+            if (obj is TabViewItem item)
+            {
+                item.MaxWidth = perTab;
+            }
+        }
     }
 
     private void OnBufferTabSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -536,6 +647,112 @@ public sealed partial class BufferPanel : UserControl
             tabDefinitions = reordered;
             settingsService.SetTabs(reordered);
         }
+
+        RecomputeLastTabTrailingGap();
+    }
+
+    /// <summary>
+    /// Removes the trailing inter-tab gap from the LAST tab only so the tab strip is
+    /// symmetric: the first tab's pill starts flush at the left, and the last tab's pill
+    /// must end flush at the right rather than leaving an <see cref="InterTabGapRight"/>
+    /// dead strip before the right edge / scroll-forward button. The gap stays intact
+    /// between all other tabs. Restores the gap on whichever tab was previously last (the
+    /// last item changes after a reorder), then zeroes the right margin on the new last
+    /// tab's <c>TabBackground</c> pill. When the new last tab's template is not yet
+    /// realized, the work is deferred until that item raises its <c>Loaded</c> event.
+    /// </summary>
+    private void RecomputeLastTabTrailingGap()
+    {
+        int count = BufferTabView.TabItems.Count;
+        TabViewItem newLast = null;
+        if (count > 0 && BufferTabView.TabItems[count - 1] is TabViewItem candidate)
+        {
+            newLast = candidate;
+        }
+
+        if (lastTabWithZeroedGap != null && !ReferenceEquals(lastTabWithZeroedGap, newLast))
+        {
+            SetTabBackgroundRightMargin(lastTabWithZeroedGap, InterTabGapRight);
+            lastTabWithZeroedGap = null;
+        }
+
+        if (newLast == null)
+        {
+            return;
+        }
+
+        if (SetTabBackgroundRightMargin(newLast, 0))
+        {
+            lastTabWithZeroedGap = newLast;
+            return;
+        }
+
+        RoutedEventHandler onLoaded = null;
+        onLoaded = (s, e) =>
+        {
+            newLast.Loaded -= onLoaded;
+            if (ReferenceEquals(BufferTabView.TabItems.Count > 0
+                ? BufferTabView.TabItems[BufferTabView.TabItems.Count - 1]
+                : null, newLast))
+            {
+                if (SetTabBackgroundRightMargin(newLast, 0))
+                {
+                    lastTabWithZeroedGap = newLast;
+                }
+            }
+        };
+        newLast.Loaded += onLoaded;
+    }
+
+    /// <summary>
+    /// Finds the <c>TabBackground</c> pill Border inside <paramref name="item"/>'s realized
+    /// template and sets its right margin to <paramref name="rightMargin"/>, leaving top,
+    /// left, and bottom untouched. Returns <c>false</c> when the template part is not yet
+    /// realized so the caller can defer.
+    /// </summary>
+    private bool SetTabBackgroundRightMargin(TabViewItem item, double rightMargin)
+    {
+        if (item == null)
+        {
+            return false;
+        }
+
+        Border pill = FindDescendantBorderByName(item, TabBackgroundPartName);
+        if (pill == null)
+        {
+            return false;
+        }
+
+        Thickness current = pill.Margin;
+        pill.Margin = new Thickness(current.Left, current.Top, rightMargin, current.Bottom);
+        return true;
+    }
+
+    private static Border FindDescendantBorderByName(DependencyObject root, string name)
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        int childCount = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < childCount; i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+
+            if (child is Border border && border.Name == name)
+            {
+                return border;
+            }
+
+            Border found = FindDescendantBorderByName(child, name);
+            if (found != null)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private void UpdateTabLabel(int bufferIndex, string emoji, string title)

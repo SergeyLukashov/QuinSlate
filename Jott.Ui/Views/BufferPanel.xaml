@@ -44,11 +44,15 @@
             <Thickness x:Key="TabViewTabStripRightPadding">0,0,0,0</Thickness>
             <SolidColorBrush x:Key="SystemAccentColorBrush" Color="{ThemeResource SystemAccentColor}" />
 
+            <!-- Active-tab indicator entrance animation timing. The indicator grows from the
+                 centre horizontally (ScaleX 0 -> 1) and fades in over a snappy, eased window. -->
+            <Duration x:Key="ActiveIndicatorAnimationDuration">0:0:0.2</Duration>
+
             <Style TargetType="TabViewItem">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderBrush" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="CornerRadius" Value="6" />
                 <!-- No outer right margin: the SDK's equal-mode overflow test counts only
                      tabWidth*count, NOT the item margin, so an outer margin makes the laid-out
                      strip wider than the SDK thinks and spuriously trips the scroll buttons even
@@ -104,50 +108,135 @@
                                             Height="2"
                                             Background="{ThemeResource SystemAccentColorBrush}"
                                             CornerRadius="1"
-                                            Visibility="Collapsed" />
+                                            Opacity="0"
+                                            RenderTransformOrigin="0.5,0.5">
+                                        <Border.RenderTransform>
+                                            <ScaleTransform x:Name="ActiveIndicatorScale" ScaleX="0" />
+                                        </Border.RenderTransform>
+                                    </Border>
                                 </Grid>
 
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup x:Name="CommonStates">
                                         <VisualState x:Name="Normal">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="ActiveIndicator"
+                                                                 Storyboard.TargetProperty="Opacity"
+                                                                 To="0"
+                                                                 Duration="0" />
+                                                <DoubleAnimation Storyboard.TargetName="ActiveIndicatorScale"
+                                                                 Storyboard.TargetProperty="ScaleX"
+                                                                 To="0"
+                                                                 Duration="0" />
+                                            </Storyboard>
                                             <VisualState.Setters>
                                                 <Setter Target="TabBackground.Background" Value="{ThemeResource TabViewItemHeaderBackgroundInactive}" />
                                                 <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TabViewItemHeaderForeground}" />
                                                 <Setter Target="ContentPresenter.FontWeight" Value="Normal" />
-                                                <Setter Target="ActiveIndicator.Visibility" Value="Collapsed" />
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="PointerOver">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="ActiveIndicator"
+                                                                 Storyboard.TargetProperty="Opacity"
+                                                                 To="0"
+                                                                 Duration="0" />
+                                                <DoubleAnimation Storyboard.TargetName="ActiveIndicatorScale"
+                                                                 Storyboard.TargetProperty="ScaleX"
+                                                                 To="0"
+                                                                 Duration="0" />
+                                            </Storyboard>
                                             <VisualState.Setters>
                                                 <Setter Target="TabBackground.Background" Value="{ThemeResource TabViewItemHeaderBackgroundInactivePointerOver}" />
                                                 <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TabViewItemHeaderForegroundPointerOver}" />
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Pressed">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="ActiveIndicator"
+                                                                 Storyboard.TargetProperty="Opacity"
+                                                                 To="0"
+                                                                 Duration="0" />
+                                                <DoubleAnimation Storyboard.TargetName="ActiveIndicatorScale"
+                                                                 Storyboard.TargetProperty="ScaleX"
+                                                                 To="0"
+                                                                 Duration="0" />
+                                            </Storyboard>
                                             <VisualState.Setters>
                                                 <Setter Target="TabBackground.Background" Value="{ThemeResource TabViewItemHeaderBackgroundPressed}" />
                                                 <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TabViewItemHeaderForegroundPressed}" />
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Selected">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="ActiveIndicator"
+                                                                 Storyboard.TargetProperty="Opacity"
+                                                                 To="1"
+                                                                 Duration="{StaticResource ActiveIndicatorAnimationDuration}">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="ActiveIndicatorScale"
+                                                                 Storyboard.TargetProperty="ScaleX"
+                                                                 To="1"
+                                                                 Duration="{StaticResource ActiveIndicatorAnimationDuration}">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
                                             <VisualState.Setters>
                                                 <Setter Target="TabBackground.Background" Value="{ThemeResource TabViewItemHeaderBackgroundSelected}" />
                                                 <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TabViewItemHeaderForegroundSelected}" />
-                                                <Setter Target="ActiveIndicator.Visibility" Value="Visible" />
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="PointerOverSelected">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="ActiveIndicator"
+                                                                 Storyboard.TargetProperty="Opacity"
+                                                                 To="1"
+                                                                 Duration="{StaticResource ActiveIndicatorAnimationDuration}">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="ActiveIndicatorScale"
+                                                                 Storyboard.TargetProperty="ScaleX"
+                                                                 To="1"
+                                                                 Duration="{StaticResource ActiveIndicatorAnimationDuration}">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
                                             <VisualState.Setters>
                                                 <Setter Target="TabBackground.Background" Value="{ThemeResource TabViewItemHeaderBackgroundSelected}" />
                                                 <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TabViewItemHeaderForegroundSelected}" />
-                                                <Setter Target="ActiveIndicator.Visibility" Value="Visible" />
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="PressedSelected">
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="ActiveIndicator"
+                                                                 Storyboard.TargetProperty="Opacity"
+                                                                 To="1"
+                                                                 Duration="{StaticResource ActiveIndicatorAnimationDuration}">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetName="ActiveIndicatorScale"
+                                                                 Storyboard.TargetProperty="ScaleX"
+                                                                 To="1"
+                                                                 Duration="{StaticResource ActiveIndicatorAnimationDuration}">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
                                             <VisualState.Setters>
                                                 <Setter Target="TabBackground.Background" Value="{ThemeResource TabViewItemHeaderBackgroundSelected}" />
                                                 <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TabViewItemHeaderForegroundSelected}" />
-                                                <Setter Target="ActiveIndicator.Visibility" Value="Visible" />
                                             </VisualState.Setters>
                                         </VisualState>
                                     </VisualStateGroup>
@@ -271,7 +360,7 @@
                     <SolidColorBrush x:Key="CloseButtonForegroundPressed" Color="White" />
                     <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactive" Color="#0FFFFFFF" />
                     <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactivePointerOver" Color="#22FFFFFF" />
-                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#33FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#22FFFFFF" />
                     <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#22FFFFFF" />
                     <SolidColorBrush x:Key="TabViewItemHeaderForeground" Color="#99FFFFFF" />
                     <SolidColorBrush x:Key="TabViewItemHeaderForegroundPointerOver" Color="#E6FFFFFF" />
@@ -297,7 +386,7 @@
                     <SolidColorBrush x:Key="CloseButtonForegroundPressed" Color="White" />
                     <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactive" Color="#0F000000" />
                     <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactivePointerOver" Color="#22000000" />
-                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#33000000" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#22000000" />
                     <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#22000000" />
                     <SolidColorBrush x:Key="TabViewItemHeaderForeground" Color="#66000000" />
                     <SolidColorBrush x:Key="TabViewItemHeaderForegroundPointerOver" Color="#E6000000" />
@@ -323,7 +412,7 @@
                     <SolidColorBrush x:Key="CloseButtonForegroundPressed" Color="White" />
                     <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactive" Color="#0FFFFFFF" />
                     <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactivePointerOver" Color="#22FFFFFF" />
-                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#33FFFFFF" />
+                    <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#22FFFFFF" />
                     <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#22FFFFFF" />
                     <SolidColorBrush x:Key="TabViewItemHeaderForeground" Color="#99FFFFFF" />
                     <SolidColorBrush x:Key="TabViewItemHeaderForegroundPointerOver" Color="#E6FFFFFF" />

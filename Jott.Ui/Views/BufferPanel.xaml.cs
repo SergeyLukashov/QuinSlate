@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using System;
 using System.Collections.Generic;
 using Windows.System;
@@ -48,10 +49,23 @@ public sealed partial class BufferPanel : UserControl
 
     private TabViewItem lastTabWithZeroedGap;
 
+    /// <summary>
+    /// Duration, in milliseconds, of the tab-content entrance animation (fade + slide-up)
+    /// that plays when the active tab changes.
+    /// </summary>
+    private const int ContentEntranceDurationMs = 180;
+
+    /// <summary>
+    /// Vertical offset, in pixels, the newly-shown tab content slides up from during its
+    /// entrance animation.
+    /// </summary>
+    private const double ContentEntranceSlideOffset = 12;
+
     private const double EditorClearButtonSize = 32;
     private const double EditorClearGlyphSize = 13;
     private const string EditorClearGlyph = "\uE74D";
     private const double EditorOverlayMargin = 8;
+    private const double EditorContentTopGap = 4;
     private const double EditorConfirmTextFontSize = 11;
     private const double EditorConfirmButtonSize = 32;
     private const double EditorConfirmButtonMarginLeft = 4;
@@ -62,6 +76,7 @@ public sealed partial class BufferPanel : UserControl
 
     private readonly Dictionary<int, RichEditBox> editorsByBufferIndex = new Dictionary<int, RichEditBox>();
     private readonly Dictionary<int, Grid> headerContainersByIndex = new Dictionary<int, Grid>();
+    private readonly Dictionary<int, Grid> editorContainersByIndex = new Dictionary<int, Grid>();
     private readonly Dictionary<int, FrameworkElement> normalPanelsByIndex = new Dictionary<int, FrameworkElement>();
     private readonly Dictionary<int, Border> confirmPanelsByIndex = new Dictionary<int, Border>();
     private readonly Dictionary<int, Button> clearButtonsByIndex = new Dictionary<int, Button>();
@@ -298,7 +313,57 @@ public sealed partial class BufferPanel : UserControl
 
     private void OnBufferTabSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        AnimateActiveContentEntrance();
         FocusActiveEditor();
+    }
+
+    /// <summary>
+    /// Plays a fast fade + slide-up entrance on the newly-selected tab's content so the
+    /// editor area animates in rather than appearing instantly. Operates purely on a
+    /// <see cref="TranslateTransform"/> and <see cref="UIElement.Opacity"/>, leaving layout
+    /// and focus untouched.
+    /// </summary>
+    private void AnimateActiveContentEntrance()
+    {
+        int bufferIndex = BufferTabView.SelectedIndex + 1;
+        if (editorContainersByIndex.TryGetValue(bufferIndex, out Grid container) == false)
+        {
+            return;
+        }
+
+        var translate = container.RenderTransform as TranslateTransform;
+        if (translate == null)
+        {
+            return;
+        }
+
+        var duration = new Duration(TimeSpan.FromMilliseconds(ContentEntranceDurationMs));
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+        var fade = new DoubleAnimation
+        {
+            From = 0,
+            To = 1,
+            Duration = duration,
+            EasingFunction = ease,
+        };
+        Storyboard.SetTarget(fade, container);
+        Storyboard.SetTargetProperty(fade, "Opacity");
+
+        var slide = new DoubleAnimation
+        {
+            From = ContentEntranceSlideOffset,
+            To = 0,
+            Duration = duration,
+            EasingFunction = ease,
+        };
+        Storyboard.SetTarget(slide, translate);
+        Storyboard.SetTargetProperty(slide, "Y");
+
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(fade);
+        storyboard.Children.Add(slide);
+        storyboard.Begin();
     }
 
     private void ClearAllDictionaries()
@@ -306,6 +371,7 @@ public sealed partial class BufferPanel : UserControl
         BufferTabView.TabItems.Clear();
         editorsByBufferIndex.Clear();
         headerContainersByIndex.Clear();
+        editorContainersByIndex.Clear();
         normalPanelsByIndex.Clear();
         confirmPanelsByIndex.Clear();
         clearButtonsByIndex.Clear();
@@ -409,9 +475,14 @@ public sealed partial class BufferPanel : UserControl
         overlayContainer.Children.Add(clearButton);
         overlayContainer.Children.Add(confirmPanel);
 
-        var editorContainer = new Grid();
+        var editorContainer = new Grid
+        {
+            Margin = new Thickness(0, EditorContentTopGap, 0, 0),
+            RenderTransform = new TranslateTransform(),
+        };
         editorContainer.Children.Add(editor);
         editorContainer.Children.Add(overlayContainer);
+        editorContainersByIndex[buffer.Index] = editorContainer;
 
         editorContainer.PointerEntered += (s, e) =>
         {

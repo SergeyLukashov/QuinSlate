@@ -23,7 +23,7 @@ internal static class TabStripCalculator
     internal const double TitleBarFooterFallbackWidth = 92;
 
     /// <summary>Right margin applied to the emoji glyph inside each tab header.</summary>
-    internal const double TabEmojiMarginRight = 1;
+    internal const double TabEmojiMarginRight = 5;
 
     /// <summary>
     /// Safety padding subtracted from the title TextBlock's MaxWidth to prevent the

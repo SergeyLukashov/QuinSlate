@@ -111,15 +111,15 @@ public sealed class TabStripCalculatorTests
     [Fact]
     public void ComputeTitleMaxWidth_NormalCase_SubtractsEmojiMarginAndSafetyPadding()
     {
-        // 120 - 16 - 1 (TabEmojiMarginRight) - 6 (safety) = 97
+        // 120 - 16 - 5 (TabEmojiMarginRight) - 6 (safety) = 93
         double result = TabStripCalculator.ComputeTitleMaxWidth(120, 16);
-        Assert.Equal(97, result);
+        Assert.Equal(93, result);
     }
 
     [Fact]
     public void ComputeTitleMaxWidth_ContainerTooNarrow_ClampsToZero()
     {
-        // 20 - 16 - 1 - 6 = -3 → clamped to 0
+        // 20 - 16 - 5 - 6 = -7 → clamped to 0
         double result = TabStripCalculator.ComputeTitleMaxWidth(20, 16);
         Assert.Equal(0, result);
     }
@@ -127,25 +127,25 @@ public sealed class TabStripCalculatorTests
     [Fact]
     public void ComputeTitleMaxWidth_ContainerExactlyAtThreshold_ReturnsZero()
     {
-        // 23 - 16 - 1 - 6 = 0
-        double result = TabStripCalculator.ComputeTitleMaxWidth(23, 16);
+        // 27 - 16 - 5 - 6 = 0
+        double result = TabStripCalculator.ComputeTitleMaxWidth(27, 16);
         Assert.Equal(0, result);
     }
 
     [Fact]
     public void ComputeTitleMaxWidth_WideContainer_LeavesAmpleSpaceForTitle()
     {
-        // 200 - 16 - 1 - 6 = 177
+        // 200 - 16 - 5 - 6 = 173
         double result = TabStripCalculator.ComputeTitleMaxWidth(200, 16);
-        Assert.Equal(177, result);
+        Assert.Equal(173, result);
     }
 
     [Fact]
     public void ComputeTitleMaxWidth_ZeroEmojiWidth_SubtractsOnlyConstantOverhead()
     {
-        // 100 - 0 - 1 - 6 = 93
+        // 100 - 0 - 5 - 6 = 89
         double result = TabStripCalculator.ComputeTitleMaxWidth(100, 0);
-        Assert.Equal(93, result);
+        Assert.Equal(89, result);
     }
 
     [Fact]
@@ -158,7 +158,7 @@ public sealed class TabStripCalculatorTests
     [Fact]
     public void ComputeTitleMaxWidth_RespectsMeasuredEmojiWidthFromConstants()
     {
-        // TabEmojiSize = 16; confirm the formula uses TabEmojiMarginRight (1) not some other value
+        // TabEmojiSize = 16; confirm the formula uses TabEmojiMarginRight (5) not some other value
         double emojiWidth = 16;
         double container = 100;
         double expected = container - emojiWidth - TabStripCalculator.TabEmojiMarginRight - 6;

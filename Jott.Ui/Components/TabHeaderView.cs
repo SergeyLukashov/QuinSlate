@@ -15,7 +15,6 @@ internal sealed class TabHeaderView
     /// <summary>The panel shown in the normal (non-confirming) state.</summary>
     public FrameworkElement NormalPanel { get; set; }
 
-
     /// <summary>The <see cref="TextBlock"/> that displays the tab emoji.</summary>
     public TextBlock EmojiBlock { get; set; }
 

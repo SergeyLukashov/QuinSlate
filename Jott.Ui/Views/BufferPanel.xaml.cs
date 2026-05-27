@@ -81,16 +81,9 @@ public sealed partial class BufferPanel : UserControl
     private const double EditorClearGlyphSize = 13;
     private const string EditorClearGlyph = "\uE74D";
     private const double EditorOverlayMargin = 8;
-    private const double EditorConfirmBorderCornerRadius = 4;
-    private const double EditorConfirmPaddingH = 6;
-    private const double EditorConfirmPaddingV = 2;
     private const double EditorConfirmTextFontSize = 11;
     private const double EditorConfirmButtonSize = 32;
     private const double EditorConfirmButtonMarginLeft = 4;
-    private const byte EditorConfirmBgR = 180;
-    private const byte EditorConfirmBgG = 60;
-    private const byte EditorConfirmBgB = 60;
-    private const byte EditorConfirmBgA = 220;
 
     private BufferService bufferService;
     private SettingsService settingsService;

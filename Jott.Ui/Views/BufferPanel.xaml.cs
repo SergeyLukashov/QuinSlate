@@ -1,4 +1,5 @@
 using Jott.Ui.Components;
+using Jott.Ui.Layout;
 using Jott.Ui.Models;
 using Jott.Ui.Services;
 using Microsoft.UI.Input;
@@ -40,42 +41,12 @@ public sealed partial class BufferPanel : UserControl
     private const int MaxBufferLength = 1_000_000;
 
     /// <summary>
-    /// Per-tab floor in Equal mode (mirrors the <c>TabViewItemMinWidth</c> XAML resource).
-    /// Once the equal share of the strip drops below this, tabs stop shrinking, overflow,
-    /// and the SDK surfaces the scroll buttons.
-    /// </summary>
-    private const double TabMinWidth = 100;
-
-    /// <summary>
-    /// Inter-tab gap baked into the right edge of each tab's <c>TabBackground</c> pill in
-    /// the XAML ControlTemplate. The gap is part of the measured tab width (rather than an
-    /// outer item margin) so it does not spuriously trip the SDK's equal-mode overflow test.
-    /// This must stay in sync with the pill's right <c>Margin</c> in BufferPanel.xaml (6).
-    /// The last tab needs no trailing gap, so its pill's right margin is zeroed in code to
-    /// keep the strip symmetric (see <see cref="RecomputeLastTabTrailingGap"/>).
-    /// </summary>
-    private const double InterTabGapRight = 6;
-
-    /// <summary>
     /// Name of the floating pill <c>Border</c> template part inside the TabViewItem
     /// ControlTemplate whose right margin carries the inter-tab gap.
     /// </summary>
     private const string TabBackgroundPartName = "TabBackground";
 
     private TabViewItem lastTabWithZeroedGap;
-
-    /// <summary>
-    /// Fallback width of the title-bar icon (TabStripHeader) used when its
-    /// <c>ActualWidth</c> is not yet realized. Padding 10+6 + a 16px image = 32.
-    /// </summary>
-    private const double TitleBarHeaderFallbackWidth = 32;
-
-    /// <summary>
-    /// Fallback width of the right-hand footer spacer (button cluster reservation,
-    /// the <c>TitleBarButtonsClusterWidth</c> XAML resource) used when its
-    /// <c>ActualWidth</c> is not yet realized.
-    /// </summary>
-    private const double TitleBarFooterFallbackWidth = 92;
 
     private const double EditorClearButtonSize = 32;
     private const double EditorClearGlyphSize = 13;
@@ -302,24 +273,19 @@ public sealed partial class BufferPanel : UserControl
             return;
         }
 
-        double headerWidth = TitleBarHeaderFallbackWidth;
+        double headerWidth = TabStripCalculator.TitleBarHeaderFallbackWidth;
         if (TitleBarIconDragArea != null && TitleBarIconDragArea.ActualWidth > 0)
         {
             headerWidth = TitleBarIconDragArea.ActualWidth;
         }
 
-        double footerWidth = TitleBarFooterFallbackWidth;
+        double footerWidth = TabStripCalculator.TitleBarFooterFallbackWidth;
         if (TitleBarFooterSpacer != null && TitleBarFooterSpacer.ActualWidth > 0)
         {
             footerWidth = TitleBarFooterSpacer.ActualWidth;
         }
 
-        double available = totalWidth - headerWidth - footerWidth;
-        double perTab = available / count;
-        if (perTab < TabMinWidth)
-        {
-            perTab = TabMinWidth;
-        }
+        double perTab = TabStripCalculator.ComputePerTabMaxWidth(totalWidth, headerWidth, footerWidth, count);
 
         foreach (var obj in BufferTabView.TabItems)
         {
@@ -665,7 +631,7 @@ public sealed partial class BufferPanel : UserControl
 
         if (lastTabWithZeroedGap != null && !ReferenceEquals(lastTabWithZeroedGap, newLast))
         {
-            SetTabBackgroundRightMargin(lastTabWithZeroedGap, InterTabGapRight);
+            SetTabBackgroundRightMargin(lastTabWithZeroedGap, TabStripCalculator.InterTabGapRight);
             lastTabWithZeroedGap = null;
         }
 

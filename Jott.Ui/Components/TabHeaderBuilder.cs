@@ -1,3 +1,4 @@
+using Jott.Ui.Layout;
 using Jott.Ui.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -16,7 +17,6 @@ namespace Jott.Ui.Components;
 internal static class TabHeaderBuilder
 {
     private const double TabEmojiSize = 16;
-    private const double TabEmojiMarginRight = 1;
     private const double TabTitleFontSize = 13;
 
     /// <summary>
@@ -37,7 +37,7 @@ internal static class TabHeaderBuilder
             Text = tab.Emoji,
             FontSize = TabEmojiSize,
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, TabEmojiMarginRight, 0),
+            Margin = new Thickness(0, 0, TabStripCalculator.TabEmojiMarginRight, 0),
         };
 
         var titleBlock = new TextBlock
@@ -68,12 +68,7 @@ internal static class TabHeaderBuilder
 
         headerContainer.SizeChanged += (s, e) =>
         {
-            double newWidth = e.NewSize.Width;
-            double emojiWidth = emojiBlock.ActualWidth;
-
-            // Subtract the actual emoji width, the margin, and an additional 6px
-            // of safety padding to ensure the ellipsis never overflows the right padding.
-            titleBlock.MaxWidth = System.Math.Max(0, newWidth - emojiWidth - TabEmojiMarginRight - 6);
+            titleBlock.MaxWidth = TabStripCalculator.ComputeTitleMaxWidth(e.NewSize.Width, emojiBlock.ActualWidth);
         };
 
         return new TabHeaderView

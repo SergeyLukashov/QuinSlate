@@ -3,7 +3,6 @@ using Jott.Ui.Helpers;
 using Jott.Ui.Layout;
 using Jott.Ui.Models;
 using Jott.Ui.Services;
-using Microsoft.UI.Input;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -12,7 +11,6 @@ using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using System;
 using System.Collections.Generic;
-using Windows.System;
 using Buffer = Jott.Ui.Models.Buffer;
 
 namespace Jott.Ui.Views;
@@ -32,13 +30,14 @@ namespace Jott.Ui.Views;
 /// </summary>
 public sealed partial class BufferPanel : UserControl
 {
-    private const string MonospaceFont = "Cascadia Code";
-    private const double EditorFontSize = 15;
-    private const string PinGlyph = "\uE718";
-    private const string PinnedGlyph = "\uE77A";
+    private const string PinGlyph = "";
+    private const string PinnedGlyph = "";
     private const string PinTooltip = "Pin";
     private const string UnpinTooltip = "Unpin";
     private const int MaxBufferLength = 1_000_000;
+    private const string RenameTabMenuText = "Rename tab";
+    private const string RenameTabIconGlyph = "";
+    private const string FluentIconFontFamily = "Segoe Fluent Icons";
 
     /// <summary>
     /// Name of the floating pill <c>Border</c> template part inside the TabViewItem
@@ -67,23 +66,6 @@ public sealed partial class BufferPanel : UserControl
     /// </summary>
     private const double ContentEntranceSlideOffset = 12;
 
-    private const double EditorClearButtonSize = 32;
-    private const double EditorClearGlyphSize = 13;
-    private const string EditorClearGlyph = "\uE74D";
-    private const double EditorOverlayMargin = 8;
-    private const double EditorContentTopGap = 4;
-    private const double EditorConfirmTextFontSize = 11;
-    private const double EditorConfirmButtonSize = 32;
-    private const double EditorConfirmButtonMarginLeft = 4;
-
-    private const string ConfirmCardBackgroundBrushKey = "SystemControlBackgroundChromeMediumLowBrush";
-    private const string ConfirmCardBorderBrushKey = "SystemControlTransientBorderBrush";
-    private const string ConfirmTextBrushKey = "SystemFillColorAttentionBrush";
-    private const string ConfirmAccentBrushKey = "SystemAccentColorBrush";
-    private const string ConfirmHoverBrushKey = "SubtleFillColorSecondaryBrush";
-    private const string ConfirmPressedBrushKey = "SubtleFillColorTertiaryBrush";
-    private const string ConfirmTextPrimaryBrushKey = "TextFillColorPrimaryBrush";
-
     private BufferService bufferService;
     private SettingsService settingsService;
     private IReadOnlyList<TabDefinition> tabDefinitions;
@@ -96,13 +78,12 @@ public sealed partial class BufferPanel : UserControl
     private readonly Dictionary<int, TextBlock> tabEmojiBlocksByIndex = new Dictionary<int, TextBlock>();
     private readonly Dictionary<int, TextBlock> tabTitleBlocksByIndex = new Dictionary<int, TextBlock>();
 
-    private RichEditBox pendingFocusEditor;
-    private RoutedEventHandler pendingFocusHandler;
-
     private readonly EmojiPicker emojiPicker = new EmojiPicker();
+    private readonly EditorFocusController focusController = new EditorFocusController();
+    private readonly CalcResultAnimator calcResultAnimator = new CalcResultAnimator();
     private TabEditFlyout tabEditFlyout;
     private ClearConfirmOverlay clearConfirmOverlay;
-    private readonly CalcResultAnimator calcResultAnimator = new CalcResultAnimator();
+    private BufferKeyboardController keyboardController;
 
     /// <summary>
     /// Raised when the user clicks the pin button. The caller should toggle
@@ -159,45 +140,7 @@ public sealed partial class BufferPanel : UserControl
             return;
         }
 
-        FocusEditorWhenReady(editor);
-    }
-
-    private void FocusEditorWhenReady(RichEditBox editor)
-    {
-        ClearPendingFocusHandler();
-
-        if (editor.IsLoaded)
-        {
-            DispatcherQueue.TryEnqueue(() => editor.Focus(FocusState.Programmatic));
-            return;
-        }
-
-        pendingFocusEditor = editor;
-        pendingFocusHandler = OnPendingFocusEditorLoaded;
-        editor.Loaded += pendingFocusHandler;
-    }
-
-    private void OnPendingFocusEditorLoaded(object sender, RoutedEventArgs e)
-    {
-        var editor = sender as RichEditBox;
-        ClearPendingFocusHandler();
-        if (editor == null)
-        {
-            return;
-        }
-
-        DispatcherQueue.TryEnqueue(() => editor.Focus(FocusState.Programmatic));
-    }
-
-    private void ClearPendingFocusHandler()
-    {
-        if (pendingFocusEditor != null && pendingFocusHandler != null)
-        {
-            pendingFocusEditor.Loaded -= pendingFocusHandler;
-        }
-
-        pendingFocusEditor = null;
-        pendingFocusHandler = null;
+        focusController.FocusWhenReady(editor);
     }
 
     /// <summary>
@@ -238,6 +181,13 @@ public sealed partial class BufferPanel : UserControl
 
         clearConfirmOverlay = new ClearConfirmOverlay(confirmPanelsByIndex);
         clearConfirmOverlay.Cleared += OnClearConfirmed;
+
+        keyboardController = new BufferKeyboardController(
+            BufferTabView,
+            editorsByBufferIndex,
+            clearConfirmOverlay,
+            calcResultAnimator);
+        keyboardController.EditFlyoutRequested += OnEditFlyoutRequested;
 
         ClearAllDictionaries();
 
@@ -316,9 +266,10 @@ public sealed partial class BufferPanel : UserControl
     /// is only a ceiling and never forces a tab to grow), so without an explicit width the
     /// tabs sit at their title width and leave unused space on the right. Assigning an explicit
     /// per-tab width forces all of them to the same value and consumes the full strip. The
-    /// share is floored at <see cref="TabMinWidth"/> so that once the tabs can no longer fit at
-    /// their minimum the SDK overflows and surfaces its scroll buttons instead of clipping.
-    /// The matching title <c>MaxWidth</c> is derived from the same stable share.
+    /// share is floored at <see cref="TabStripCalculator.TabMinWidth"/> so that once the tabs
+    /// can no longer fit at their minimum the SDK overflows and surfaces its scroll buttons
+    /// instead of clipping. The matching title <c>MaxWidth</c> is derived from the same stable
+    /// share.
     /// </summary>
     private void UpdateEqualTabMaxWidth()
     {
@@ -463,41 +414,50 @@ public sealed partial class BufferPanel : UserControl
         tabEmojiBlocksByIndex[buffer.Index] = header.EmojiBlock;
         tabTitleBlocksByIndex[buffer.Index] = header.TitleBlock;
 
-        var editor = new RichEditBox
-        {
-            AcceptsReturn = true,
-            TextWrapping = TextWrapping.Wrap,
-            FontFamily = new Microsoft.UI.Xaml.Media.FontFamily(MonospaceFont),
-            FontSize = EditorFontSize,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Stretch,
-            IsSpellCheckEnabled = false,
-            Tag = buffer.Index,
-            SelectionFlyout = null,
-            MaxLength = MaxBufferLength,
-            BorderThickness = new Thickness(0),
-        };
+        EditorView editorView = EditorViewBuilder.Build(buffer, GetThemeBrush);
 
-        editor.Document.SetText(TextSetOptions.None, buffer.Content ?? string.Empty);
-
+        RichEditBox editor = editorView.Editor;
         editor.TextChanged += OnEditorTextChanged;
-        editor.KeyDown += OnEditorKeyDown;
+        editor.KeyDown += keyboardController.HandleEditorKey;
         editor.PointerPressed += OnEditorPointerPressed;
         editor.Paste += OnEditorPaste;
         editorsByBufferIndex[buffer.Index] = editor;
 
-        var (editorContainer, clearButton, confirmPanel) = BuildEditorContainer(buffer, editor);
-        confirmPanelsByIndex[buffer.Index] = confirmPanel;
+        Button clearButton = editorView.ClearButton;
+        clearButton.Click += OnClearButtonClick;
         clearButtonsByIndex[buffer.Index] = clearButton;
+
+        Border confirmPanel = editorView.ConfirmPanel;
+        confirmPanelsByIndex[buffer.Index] = confirmPanel;
+
+        editorView.ConfirmButton.Click += OnConfirmCheckButtonClick;
+
+        Grid editorContainer = editorView.Container;
+        editorContainersByIndex[buffer.Index] = editorContainer;
+
+        editorContainer.PointerEntered += (s, e) =>
+        {
+            if (!clearConfirmOverlay.IsConfirming)
+            {
+                clearButton.Visibility = Visibility.Visible;
+            }
+        };
+        editorContainer.PointerExited += (s, e) =>
+        {
+            if (!clearConfirmOverlay.IsConfirming)
+            {
+                clearButton.Visibility = Visibility.Collapsed;
+            }
+        };
 
         var menuFlyout = new MenuFlyout();
         var renameItem = new MenuFlyoutItem
         {
-            Text = "Rename tab",
+            Text = RenameTabMenuText,
             Icon = new FontIcon
             {
-                Glyph = "\uE8AC",
-                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe Fluent Icons"),
+                Glyph = RenameTabIconGlyph,
+                FontFamily = new FontFamily(FluentIconFontFamily),
             }
         };
         renameItem.Click += (s, e) => OpenEditFlyout(buffer.Index);
@@ -517,63 +477,6 @@ public sealed partial class BufferPanel : UserControl
         return tabItem;
     }
 
-    private (Grid container, Button clearButton, Border confirmPanel) BuildEditorContainer(Buffer buffer, RichEditBox editor)
-    {
-        var clearButton = new Button
-        {
-            Width = EditorClearButtonSize,
-            Height = EditorClearButtonSize,
-            Padding = new Thickness(0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Visibility = Visibility.Collapsed,
-            IsEnabled = !string.IsNullOrEmpty(buffer.Content),
-            Tag = buffer.Index,
-            CornerRadius = new CornerRadius(4),
-            Content = new FontIcon { Glyph = EditorClearGlyph, FontSize = EditorClearGlyphSize },
-        };
-
-        clearButton.Click += OnClearButtonClick;
-        ToolTipService.SetToolTip(clearButton, "Clear this tab");
-
-        var confirmPanel = BuildEditorConfirmPanel(buffer.Index);
-
-        var overlayContainer = new Grid
-        {
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Bottom,
-            Margin = new Thickness(0, 0, EditorOverlayMargin, EditorOverlayMargin),
-            IsHitTestVisible = true,
-        };
-        overlayContainer.Children.Add(clearButton);
-        overlayContainer.Children.Add(confirmPanel);
-
-        var editorContainer = new Grid
-        {
-            Margin = new Thickness(0, EditorContentTopGap, 0, 0),
-            RenderTransform = new TranslateTransform(),
-        };
-        editorContainer.Children.Add(editor);
-        editorContainer.Children.Add(overlayContainer);
-        editorContainersByIndex[buffer.Index] = editorContainer;
-
-        editorContainer.PointerEntered += (s, e) =>
-        {
-            if (!clearConfirmOverlay.IsConfirming)
-            {
-                clearButton.Visibility = Visibility.Visible;
-            }
-        };
-        editorContainer.PointerExited += (s, e) =>
-        {
-            if (!clearConfirmOverlay.IsConfirming)
-            {
-                clearButton.Visibility = Visibility.Collapsed;
-            }
-        };
-
-        return (editorContainer, clearButton, confirmPanel);
-    }
-
     private Brush GetThemeBrush(string key)
     {
         if (this.Resources.TryGetValue(key, out var localValue) && localValue is Brush localBrush)
@@ -584,76 +487,17 @@ public sealed partial class BufferPanel : UserControl
         return (Brush)Application.Current.Resources[key];
     }
 
-    private Border BuildEditorConfirmPanel(int bufferIndex)
-    {
-        Brush cardBg = GetThemeBrush(ConfirmCardBackgroundBrushKey);
-        Brush cardBorder = GetThemeBrush(ConfirmCardBorderBrushKey);
-        Brush textFg = GetThemeBrush(ConfirmTextBrushKey);
-        Brush accentBrush = GetThemeBrush(ConfirmAccentBrushKey);
-        Brush hoverBg = GetThemeBrush(ConfirmHoverBrushKey);
-        Brush pressedBg = GetThemeBrush(ConfirmPressedBrushKey);
-        Brush normalText = GetThemeBrush(ConfirmTextPrimaryBrushKey);
-
-        var confirmButton = new Button
-        {
-            Content = "✓",
-            Width = EditorConfirmButtonSize,
-            Height = EditorConfirmButtonSize,
-            Padding = new Thickness(0),
-            Margin = new Thickness(EditorConfirmButtonMarginLeft, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            CornerRadius = new CornerRadius(4),
-            Tag = bufferIndex,
-            Foreground = accentBrush,
-        };
-        confirmButton.Click += OnConfirmCheckButtonClick;
-
-        var transparentBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
-        confirmButton.Resources["ButtonBackground"] = transparentBrush;
-        confirmButton.Resources["ButtonBorderBrush"] = transparentBrush;
-        confirmButton.Resources["ButtonBorderBrushPointerOver"] = transparentBrush;
-        confirmButton.Resources["ButtonBorderBrushPressed"] = transparentBrush;
-        confirmButton.Resources["ButtonBackgroundDisabled"] = transparentBrush;
-        confirmButton.Resources["ButtonBorderBrushDisabled"] = transparentBrush;
-        confirmButton.Resources["ButtonBackgroundPointerOver"] = hoverBg;
-        confirmButton.Resources["ButtonBackgroundPressed"] = pressedBg;
-        confirmButton.Resources["ButtonForegroundPointerOver"] = normalText;
-        confirmButton.Resources["ButtonForegroundPressed"] = normalText;
-
-        var content = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        content.Children.Add(new TextBlock
-        {
-            Text = "Clear?",
-            FontSize = EditorConfirmTextFontSize,
-            VerticalAlignment = VerticalAlignment.Center,
-            Foreground = textFg,
-            FontWeight = FontWeights.SemiBold,
-        });
-        content.Children.Add(confirmButton);
-
-        return new Border
-        {
-            CornerRadius = new CornerRadius(6),
-            BorderThickness = new Thickness(1),
-            BorderBrush = cardBorder,
-            Padding = new Thickness(8, 2, 4, 2),
-            Background = cardBg,
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = content,
-            Visibility = Visibility.Collapsed,
-        };
-    }
-
     private void OnTabItemGettingFocus(UIElement sender, GettingFocusEventArgs e)
     {
         if (ReferenceEquals(e.NewFocusedElement, sender))
         {
             e.TryCancel();
         }
+    }
+
+    private void OnEditFlyoutRequested(object sender, int bufferIndex)
+    {
+        OpenEditFlyout(bufferIndex);
     }
 
     private void OpenEditFlyout(int bufferIndex)
@@ -714,7 +558,7 @@ public sealed partial class BufferPanel : UserControl
     /// <summary>
     /// Removes the leading inter-tab gap from the FIRST tab only so the tab strip is
     /// symmetric: the first tab's pill must start flush at the left rather than leaving an
-    /// <see cref="InterTabGapLeft"/> dead strip after the left edge / scroll-back button,
+    /// <see cref="TabStripCalculator.InterTabGapLeft"/> dead strip after the left edge / scroll-back button,
     /// and because no tab carries a trailing margin the rightmost-visible tab always abuts
     /// the right edge / scroll-forward button. The gap stays intact between all other tabs.
     /// Restores the gap on whichever tab was previously first (the first item changes after
@@ -924,21 +768,6 @@ public sealed partial class BufferPanel : UserControl
         }
     }
 
-    private void OnEditorKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key == VirtualKey.Tab)
-        {
-            bool back = IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift));
-            CycleBuffer(back ? -1 : 1);
-            e.Handled = true;
-            return;
-        }
-
-        calcResultAnimator.TrackKeyDown(
-            (int)e.Key,
-            IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)));
-    }
-
     private void OnEditorTextChanged(object sender, RoutedEventArgs e)
     {
         if (bufferService == null)
@@ -965,59 +794,7 @@ public sealed partial class BufferPanel : UserControl
 
     private void OnPanelPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Escape && clearConfirmOverlay.IsConfirming)
-        {
-            clearConfirmOverlay.Exit();
-            e.Handled = true;
-            return;
-        }
-
-        if (e.Key == VirtualKey.F2)
-        {
-            int selectedIndex = BufferTabView.SelectedIndex;
-            if (selectedIndex >= 0)
-            {
-                OpenEditFlyout(selectedIndex + 1);
-                e.Handled = true;
-                return;
-            }
-        }
-
-        bool ctrl = IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control));
-        if (!ctrl)
-        {
-            return;
-        }
-
-        if (e.Key == VirtualKey.Tab)
-        {
-            bool back = IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift));
-            CycleBuffer(back ? -1 : 1);
-            e.Handled = true;
-            return;
-        }
-
-        if (e.Key == VirtualKey.B || e.Key == VirtualKey.I || e.Key == VirtualKey.U)
-        {
-            e.Handled = true;
-            return;
-        }
-
-        int bufferIndexFromKey = -1;
-        if (e.Key >= VirtualKey.Number1 && e.Key <= VirtualKey.Number5)
-        {
-            bufferIndexFromKey = (int)e.Key - (int)VirtualKey.Number1;
-        }
-        else if (e.Key >= VirtualKey.NumberPad1 && e.Key <= VirtualKey.NumberPad5)
-        {
-            bufferIndexFromKey = (int)e.Key - (int)VirtualKey.NumberPad1;
-        }
-
-        if (bufferIndexFromKey >= 0)
-        {
-            SelectBuffer(bufferIndexFromKey);
-            e.Handled = true;
-        }
+        keyboardController.HandlePanelPreviewKey(e);
     }
 
     private void UpdateClearButtonState(int bufferIndex, bool isEmpty)
@@ -1025,33 +802,6 @@ public sealed partial class BufferPanel : UserControl
         if (clearButtonsByIndex.TryGetValue(bufferIndex, out Button clearButton))
         {
             clearButton.IsEnabled = !isEmpty;
-        }
-    }
-
-    private void CycleBuffer(int direction)
-    {
-        int count = BufferTabView.TabItems.Count;
-        if (count == 0)
-        {
-            return;
-        }
-
-        int next = ((BufferTabView.SelectedIndex + direction) % count + count) % count;
-        SelectBuffer(next);
-    }
-
-    private void SelectBuffer(int zeroBasedIndex)
-    {
-        if (zeroBasedIndex < 0 || zeroBasedIndex >= BufferTabView.TabItems.Count)
-        {
-            return;
-        }
-
-        BufferTabView.SelectedIndex = zeroBasedIndex;
-        int bufferIndex = zeroBasedIndex + 1;
-        if (editorsByBufferIndex.TryGetValue(bufferIndex, out RichEditBox editor))
-        {
-            DispatcherQueue.TryEnqueue(() => editor.Focus(FocusState.Programmatic));
         }
     }
 
@@ -1071,10 +821,5 @@ public sealed partial class BufferPanel : UserControl
         }
 
         return null;
-    }
-
-    private static bool IsKeyDown(Windows.UI.Core.CoreVirtualKeyStates state)
-    {
-        return (state & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0;
     }
 }

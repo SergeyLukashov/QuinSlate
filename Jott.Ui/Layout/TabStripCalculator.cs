@@ -26,6 +26,18 @@ internal static class TabStripCalculator
     internal const double TabEmojiMarginRight = 5;
 
     /// <summary>
+    /// Horizontal chrome consumed by a tab around its header content in Equal mode:
+    /// the <c>TabViewItem</c> Padding (3 + 3) plus the <c>TabBackground</c> pill right Margin (6).
+    /// </summary>
+    internal const double TabHorizontalChrome = 12;
+
+    /// <summary>
+    /// Fallback emoji width used when the emoji TextBlock has not yet been measured
+    /// (<c>ActualWidth</c> &lt;= 0): the measured advance width of a 16px color-emoji glyph.
+    /// </summary>
+    internal const double TabEmojiFallbackWidth = 22;
+
+    /// <summary>
     /// Safety padding subtracted from the title TextBlock's MaxWidth to prevent the
     /// ellipsis from overflowing the right edge of the tab header's padding area.
     /// </summary>
@@ -54,13 +66,32 @@ internal static class TabStripCalculator
     }
 
     /// <summary>
+    /// Returns the explicit <c>Width</c> to assign to a tab's header content so the
+    /// content-sized tab grows to its equal share. In <c>TabWidthMode="Equal"</c> the SDK
+    /// sizes each tab to its header's desired width and ignores the item's own width, so the
+    /// only way to make all tabs equal and fill the strip is to size the header itself. This
+    /// is the per-tab share minus the surrounding tab chrome (<see cref="TabHorizontalChrome"/>).
+    /// </summary>
+    /// <param name="perTabWidth">Stable equal-mode per-tab width (from <see cref="ComputePerTabMaxWidth"/>).</param>
+    internal static double ComputeHeaderWidth(double perTabWidth)
+    {
+        return System.Math.Max(0, perTabWidth - TabHorizontalChrome);
+    }
+
+    /// <summary>
     /// Returns the <c>MaxWidth</c> for the title TextBlock inside a tab header so it
     /// truncates cleanly without overflowing the right padding of the header container.
+    /// The cap is derived from the stable equal-mode per-tab width (minus tab chrome)
+    /// rather than the live header-container width: in <c>TabWidthMode="Equal"</c> the
+    /// container width is itself influenced by the header's desired width, so deriving the
+    /// title cap from the container creates a feedback spiral (shrinking the title shrinks
+    /// the container, which shrinks the title again, collapsing to zero). The per-tab width
+    /// does not depend on title width, so it cannot feed back.
     /// </summary>
-    /// <param name="containerWidth">Current width of the tab header container.</param>
+    /// <param name="perTabWidth">Stable equal-mode per-tab width (from <see cref="ComputePerTabMaxWidth"/>).</param>
     /// <param name="emojiWidth">Measured width of the emoji TextBlock (may be 0 before layout).</param>
-    internal static double ComputeTitleMaxWidth(double containerWidth, double emojiWidth)
+    internal static double ComputeTitleMaxWidth(double perTabWidth, double emojiWidth)
     {
-        return System.Math.Max(0, containerWidth - emojiWidth - TabEmojiMarginRight - TabTitleSafetyPadding);
+        return System.Math.Max(0, perTabWidth - TabHorizontalChrome - emojiWidth - TabEmojiMarginRight - TabTitleSafetyPadding);
     }
 }

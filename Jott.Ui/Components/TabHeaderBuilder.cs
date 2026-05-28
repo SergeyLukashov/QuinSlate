@@ -66,11 +66,6 @@ internal static class TabHeaderBuilder
         headerContainer.Children.Add(normalPanel);
         headerContainer.DoubleTapped += onDoubleTapped;
 
-        headerContainer.SizeChanged += (s, e) =>
-        {
-            titleBlock.MaxWidth = TabStripCalculator.ComputeTitleMaxWidth(e.NewSize.Width, emojiBlock.ActualWidth);
-        };
-
         return new TabHeaderView
         {
             HeaderContainer = headerContainer,

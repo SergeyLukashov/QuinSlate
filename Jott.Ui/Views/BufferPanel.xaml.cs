@@ -24,12 +24,11 @@ namespace Jott.Ui.Views;
 /// Title-bar layout: the pin and close buttons are a top-level overlay anchored to the
 /// window's top-right corner, so they can never be clipped by the TabView's internal
 /// columns. The TabView's TabStripFooter holds a fixed-width transparent spacer reserving
-/// exactly the overlay cluster's width, which pins RightContentColumn.MinWidth to a stable
-/// value so the tabs stop where the buttons begin and never slide under them. A large
-/// static TabViewItemMaxWidth lets the 5 equal-mode tabs stretch to fill the row up to that
-/// spacer at every practical width, with a consistent 12px gap before the pin button. The
-/// scroll (overflow) buttons surface only on genuine overflow, once the row is too narrow to
-/// give every tab its 100px minimum.
+/// exactly the overlay cluster's width so the tabs stop where the buttons begin. Each tab's
+/// header is given an explicit width (see <see cref="UpdateEqualTabMaxWidth"/>) so the five
+/// equal-mode tabs fill the row at every practical width. The scroll (overflow) buttons
+/// surface only on genuine overflow, once the row is too narrow to give every tab its 100px
+/// minimum.
 /// </summary>
 public sealed partial class BufferPanel : UserControl
 {
@@ -46,6 +45,13 @@ public sealed partial class BufferPanel : UserControl
     /// ControlTemplate whose right margin carries the inter-tab gap.
     /// </summary>
     private const string TabBackgroundPartName = "TabBackground";
+
+    /// <summary>
+    /// Name of the column container <c>Grid</c> in the SDK <c>TabView</c> template that hosts
+    /// <c>LeftContentColumn</c>, <c>TabColumn</c>, <c>AddButtonColumn</c>, and
+    /// <c>RightContentColumn</c>.
+    /// </summary>
+    private const string TabContainerGridPartName = "TabContainerGrid";
 
     private TabViewItem lastTabWithZeroedGap;
 
@@ -252,6 +258,7 @@ public sealed partial class BufferPanel : UserControl
         BufferTabView.TabDragCompleted += OnTabDragCompleted;
         BufferTabView.SelectionChanged += OnBufferTabSelectionChanged;
         BufferTabView.SizeChanged += OnBufferTabViewSizeChanged;
+        BufferTabView.Loaded += OnBufferTabViewLoaded;
         RootGrid.PreviewKeyDown += OnPanelPreviewKeyDown;
 
         UpdateEqualTabMaxWidth();
@@ -261,18 +268,73 @@ public sealed partial class BufferPanel : UserControl
     private void OnBufferTabViewSizeChanged(object sender, SizeChangedEventArgs e)
     {
         UpdateEqualTabMaxWidth();
+        PinRightContentColumnReservation();
+    }
+
+    private void OnBufferTabViewLoaded(object sender, RoutedEventArgs e)
+    {
+        PinRightContentColumnReservation();
     }
 
     /// <summary>
-    /// Caps each <see cref="TabViewItem.MaxWidth"/> to the equal share of the live
-    /// tab-strip width so the equal-mode tabs fill the row and shrink as the window
-    /// narrows. The SDK does not shrink Equal-mode tabs against the available column
-    /// on its own (the tab strip is horizontally scrollable, so each item measures
-    /// against its MaxWidth), and the <c>TabViewItemMaxWidth</c> resource is read once
-    /// and cannot be updated at runtime — so the width-tracking cap must be applied
-    /// directly on each item here. The cap is floored at <see cref="TabMinWidth"/> so
-    /// that once the tabs can no longer fit at their minimum the SDK overflows and
-    /// surfaces its scroll buttons instead of clipping silently.
+    /// Pins the SDK <c>TabView</c> template's right-content column to a fixed pixel width equal
+    /// to the overlay button cluster, so the <c>TabStripFooter</c> reservation survives overflow
+    /// mode. In the default template that column is <c>Width="*"</c> and collapses to ~0 once
+    /// the tabs overflow and the Auto <c>TabColumn</c> consumes all available width; the SDK
+    /// then stops reserving the cluster and the tabs + scroll-forward button render under the
+    /// top-right pin/close overlay. Walking the live visual tree (rather than copying the SDK
+    /// template) is intentional: a full template copy is pinned to whatever <c>WindowsAppSDK</c>
+    /// ships and crashes the app when parts diverge. The right-content column is always the
+    /// last column inside <c>TabContainerGrid</c>. The reservation is re-applied on every
+    /// <c>SizeChanged</c> to survive the SDK's own column-width updates.
+    /// </summary>
+    private void PinRightContentColumnReservation()
+    {
+        Grid container = FindDescendantByName<Grid>(BufferTabView, TabContainerGridPartName);
+        if (container == null || container.ColumnDefinitions.Count == 0)
+        {
+            return;
+        }
+
+        ColumnDefinition rightColumn = container.ColumnDefinitions[container.ColumnDefinitions.Count - 1];
+        var target = new GridLength(TabStripCalculator.TitleBarFooterFallbackWidth, GridUnitType.Pixel);
+        if (rightColumn.Width.GridUnitType != target.GridUnitType || rightColumn.Width.Value != target.Value)
+        {
+            rightColumn.Width = target;
+        }
+    }
+
+    private static T FindDescendantByName<T>(DependencyObject root, string name) where T : FrameworkElement
+    {
+        int count = VisualTreeHelper.GetChildrenCount(root);
+        for (int i = 0; i < count; i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is T match && match.Name == name)
+            {
+                return match;
+            }
+
+            T nested = FindDescendantByName<T>(child, name);
+            if (nested != null)
+            {
+                return nested;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Sets each <see cref="TabViewItem.Width"/> to the equal share of the live tab-strip
+    /// width so the tabs fill the row exactly and shrink as the window narrows. In
+    /// <c>TabWidthMode="Equal"</c> the SDK sizes each tab to its own content (a <c>MaxWidth</c>
+    /// is only a ceiling and never forces a tab to grow), so without an explicit width the
+    /// tabs sit at their title width and leave unused space on the right. Assigning an explicit
+    /// per-tab width forces all of them to the same value and consumes the full strip. The
+    /// share is floored at <see cref="TabMinWidth"/> so that once the tabs can no longer fit at
+    /// their minimum the SDK overflows and surfaces its scroll buttons instead of clipping.
+    /// The matching title <c>MaxWidth</c> is derived from the same stable share.
     /// </summary>
     private void UpdateEqualTabMaxWidth()
     {
@@ -308,6 +370,34 @@ public sealed partial class BufferPanel : UserControl
             {
                 item.MaxWidth = perTab;
             }
+        }
+
+        double headerWidthEach = TabStripCalculator.ComputeHeaderWidth(perTab);
+        foreach (var entry in headerContainersByIndex)
+        {
+            if (entry.Value != null)
+            {
+                entry.Value.Width = headerWidthEach;
+            }
+        }
+
+        foreach (var entry in tabTitleBlocksByIndex)
+        {
+            TextBlock titleBlock = entry.Value;
+            if (titleBlock == null)
+            {
+                continue;
+            }
+
+            double emojiWidth = TabStripCalculator.TabEmojiFallbackWidth;
+            if (tabEmojiBlocksByIndex.TryGetValue(entry.Key, out TextBlock emojiBlock)
+                && emojiBlock != null
+                && emojiBlock.ActualWidth > 0)
+            {
+                emojiWidth = emojiBlock.ActualWidth;
+            }
+
+            titleBlock.MaxWidth = TabStripCalculator.ComputeTitleMaxWidth(perTab, emojiWidth);
         }
     }
 
@@ -821,6 +911,8 @@ public sealed partial class BufferPanel : UserControl
         {
             settingsService.SetTabs(updated);
         }
+
+        UpdateEqualTabMaxWidth();
     }
 
     private void OnPinButtonClicked(object sender, RoutedEventArgs e)

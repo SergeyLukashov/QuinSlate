@@ -106,50 +106,77 @@ public sealed class TabStripCalculatorTests
         Assert.Equal(expected, result, precision: 10);
     }
 
-    // ── ComputeTitleMaxWidth ──────────────────────────────────────────────────
+    // ── ComputeHeaderWidth ────────────────────────────────────────────────────
 
     [Fact]
-    public void ComputeTitleMaxWidth_NormalCase_SubtractsEmojiMarginAndSafetyPadding()
+    public void ComputeHeaderWidth_NormalCase_SubtractsTabChromeFromPerTab()
     {
-        // 120 - 16 - 5 (TabEmojiMarginRight) - 6 (safety) = 93
-        double result = TabStripCalculator.ComputeTitleMaxWidth(120, 16);
-        Assert.Equal(93, result);
+        // perTab 100.5 - 12 (chrome) = 88.5 — the header width that fills the tab to its share.
+        double result = TabStripCalculator.ComputeHeaderWidth(100.5);
+        Assert.Equal(88.5, result);
     }
 
     [Fact]
-    public void ComputeTitleMaxWidth_ContainerTooNarrow_ClampsToZero()
+    public void ComputeHeaderWidth_PerTabBelowChrome_ClampsToZero()
     {
-        // 20 - 16 - 5 - 6 = -7 → clamped to 0
+        double result = TabStripCalculator.ComputeHeaderWidth(8);
+        Assert.Equal(0, result);
+    }
+
+    // ── ComputeTitleMaxWidth ──────────────────────────────────────────────────
+
+    [Fact]
+    public void ComputeTitleMaxWidth_NormalCase_SubtractsChromeEmojiMarginAndSafetyPadding()
+    {
+        // perTab 120 - 12 (chrome) - 16 - 5 (TabEmojiMarginRight) - 6 (safety) = 81
+        double result = TabStripCalculator.ComputeTitleMaxWidth(120, 16);
+        Assert.Equal(81, result);
+    }
+
+    [Fact]
+    public void ComputeTitleMaxWidth_StableEndStateMatchesObservedFix()
+    {
+        // The stable end-state from the logged spiral fix:
+        // perTab 100 - 12 (chrome) - 22 (emoji) - 5 (margin) - 6 (safety) = 55.
+        // Because perTab does not depend on title width, this cannot feed back to zero.
+        double result = TabStripCalculator.ComputeTitleMaxWidth(100, 22);
+        Assert.Equal(55, result);
+    }
+
+    [Fact]
+    public void ComputeTitleMaxWidth_PerTabTooNarrow_ClampsToZero()
+    {
+        // 20 - 12 - 16 - 5 - 6 = -19 → clamped to 0
         double result = TabStripCalculator.ComputeTitleMaxWidth(20, 16);
         Assert.Equal(0, result);
     }
 
     [Fact]
-    public void ComputeTitleMaxWidth_ContainerExactlyAtThreshold_ReturnsZero()
+    public void ComputeTitleMaxWidth_PerTabExactlyAtThreshold_ReturnsZero()
     {
-        // 27 - 16 - 5 - 6 = 0
-        double result = TabStripCalculator.ComputeTitleMaxWidth(27, 16);
+        // 39 - 12 - 16 - 5 - 6 = 0
+        double result = TabStripCalculator.ComputeTitleMaxWidth(39, 16);
         Assert.Equal(0, result);
     }
 
     [Fact]
-    public void ComputeTitleMaxWidth_WideContainer_LeavesAmpleSpaceForTitle()
+    public void ComputeTitleMaxWidth_WidePerTab_LeavesAmpleSpaceForTitle()
     {
-        // 200 - 16 - 5 - 6 = 173
+        // 200 - 12 - 16 - 5 - 6 = 161
         double result = TabStripCalculator.ComputeTitleMaxWidth(200, 16);
-        Assert.Equal(173, result);
+        Assert.Equal(161, result);
     }
 
     [Fact]
     public void ComputeTitleMaxWidth_ZeroEmojiWidth_SubtractsOnlyConstantOverhead()
     {
-        // 100 - 0 - 5 - 6 = 89
+        // 100 - 12 - 0 - 5 - 6 = 77
         double result = TabStripCalculator.ComputeTitleMaxWidth(100, 0);
-        Assert.Equal(89, result);
+        Assert.Equal(77, result);
     }
 
     [Fact]
-    public void ComputeTitleMaxWidth_ZeroContainerWidth_ReturnsZero()
+    public void ComputeTitleMaxWidth_ZeroPerTabWidth_ReturnsZero()
     {
         double result = TabStripCalculator.ComputeTitleMaxWidth(0, 0);
         Assert.Equal(0, result);
@@ -158,11 +185,11 @@ public sealed class TabStripCalculatorTests
     [Fact]
     public void ComputeTitleMaxWidth_RespectsMeasuredEmojiWidthFromConstants()
     {
-        // TabEmojiSize = 16; confirm the formula uses TabEmojiMarginRight (5) not some other value
+        // confirm the formula subtracts TabHorizontalChrome (12) and TabEmojiMarginRight (5)
         double emojiWidth = 16;
-        double container = 100;
-        double expected = container - emojiWidth - TabStripCalculator.TabEmojiMarginRight - 6;
-        double result = TabStripCalculator.ComputeTitleMaxWidth(container, emojiWidth);
+        double perTab = 100;
+        double expected = perTab - TabStripCalculator.TabHorizontalChrome - emojiWidth - TabStripCalculator.TabEmojiMarginRight - 6;
+        double result = TabStripCalculator.ComputeTitleMaxWidth(perTab, emojiWidth);
         Assert.Equal(expected, result);
     }
 }

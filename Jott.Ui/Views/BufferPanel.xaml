@@ -52,12 +52,15 @@
                 <Setter Property="BorderBrush" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
                 <Setter Property="CornerRadius" Value="6" />
-                <!-- No outer right margin: the SDK's equal-mode overflow test counts only
+                <!-- No outer margin: the SDK's equal-mode overflow test counts only
                      tabWidth*count, NOT the item margin, so an outer margin makes the laid-out
                      strip wider than the SDK thinks and spuriously trips the scroll buttons even
                      when the tabs fill exactly. The inter-tab gap is instead applied INSIDE the
-                     tab, on the TabBackground pill (see its Margin below), so it is part of the
-                     measured tab width. -->
+                     tab, on the TabBackground pill's leading edge (see its Margin below), so it
+                     is part of the measured tab width. Carrying the gap on the LEFT means no tab
+                     ever has a trailing margin: whichever tab is rightmost-visible always abuts
+                     the right scroll button, keeping the strip symmetric in overflow mode. -->
+
                 <Setter Property="Margin" Value="0,1,0,0" />
                 <Setter Property="Padding" Value="3,0,3,0" />
                 <Setter Property="MinHeight" Value="32" />
@@ -78,7 +81,7 @@
                                         CornerRadius="{TemplateBinding CornerRadius}"
                                         HorizontalAlignment="Stretch"
                                         VerticalAlignment="Top"
-                                        Margin="0,3,6,0">
+                                        Margin="6,3,0,0">
                                     <Grid>
                                         <!-- Header content (Emoji, title, edit button) -->
                                         <ContentPresenter x:Name="ContentPresenter"
@@ -96,10 +99,10 @@
                                 </Border>
 
                                 <!-- Indication bar under active tab, perfectly aligned at bottom of row.
-                                     The grid is inset by the same right margin (6) as the TabBackground
+                                     The grid is inset by the same left margin (6) as the TabBackground
                                      pill so its bounds match the visible tab exactly; this keeps the
                                      5%/90%/5% column split tracking the pill rather than the full row. -->
-                                <Grid VerticalAlignment="Bottom" Height="2" Margin="0,0,6,0">
+                                <Grid VerticalAlignment="Bottom" Height="2" Margin="6,0,0,0">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="5*" />
                                         <ColumnDefinition Width="90*" />
@@ -602,6 +605,7 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             Padding="{StaticResource TabViewTabStripRightPadding}"
+            Margin="0,-1,0,0"
             BorderBrush="Transparent"
             BorderThickness="0">
 
@@ -634,8 +638,8 @@
                 <!-- Compact scroll buttons styling -->
                 <x:Double x:Key="TabViewItemScrollButtonWidth">20</x:Double>
                 <x:Double x:Key="TabViewItemScrollButonFontSize">8</x:Double>
-                <Thickness x:Key="TabViewItemLeftScrollButtonContainerPadding">0,0,2,3</Thickness>
-                <Thickness x:Key="TabViewItemRightScrollButtonContainerPadding">2,0,0,3</Thickness>
+                <Thickness x:Key="TabViewItemLeftScrollButtonContainerPadding">0,0,0,3</Thickness>
+                <Thickness x:Key="TabViewItemRightScrollButtonContainerPadding">0,0,0,3</Thickness>
 
                 <!-- Modern WinUI tooltip shared by the pin and close buttons -->
                 <Style TargetType="ToolTip">
@@ -653,7 +657,7 @@
             <TabView.TabStripHeader>
                 <Border
                     x:Name="TitleBarIconDragArea"
-                    Padding="10,0,6,0"
+                    Padding="9,3,12,0"
                     MinHeight="{StaticResource TitleBarRowHeight}"
                     VerticalAlignment="Stretch"
                     Background="Transparent">

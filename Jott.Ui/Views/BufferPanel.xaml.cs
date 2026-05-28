@@ -42,7 +42,7 @@ public sealed partial class BufferPanel : UserControl
 
     /// <summary>
     /// Name of the floating pill <c>Border</c> template part inside the TabViewItem
-    /// ControlTemplate whose right margin carries the inter-tab gap.
+    /// ControlTemplate whose left margin carries the inter-tab gap.
     /// </summary>
     private const string TabBackgroundPartName = "TabBackground";
 
@@ -53,7 +53,7 @@ public sealed partial class BufferPanel : UserControl
     /// </summary>
     private const string TabContainerGridPartName = "TabContainerGrid";
 
-    private TabViewItem lastTabWithZeroedGap;
+    private TabViewItem firstTabWithZeroedGap;
 
     /// <summary>
     /// Duration, in milliseconds, of the tab-content entrance animation (fade + slide-up)
@@ -262,7 +262,7 @@ public sealed partial class BufferPanel : UserControl
         RootGrid.PreviewKeyDown += OnPanelPreviewKeyDown;
 
         UpdateEqualTabMaxWidth();
-        RecomputeLastTabTrailingGap();
+        RecomputeFirstTabLeadingGap();
     }
 
     private void OnBufferTabViewSizeChanged(object sender, SizeChangedEventArgs e)
@@ -768,69 +768,70 @@ public sealed partial class BufferPanel : UserControl
             settingsService.SetTabs(reordered);
         }
 
-        RecomputeLastTabTrailingGap();
+        RecomputeFirstTabLeadingGap();
     }
 
     /// <summary>
-    /// Removes the trailing inter-tab gap from the LAST tab only so the tab strip is
-    /// symmetric: the first tab's pill starts flush at the left, and the last tab's pill
-    /// must end flush at the right rather than leaving an <see cref="InterTabGapRight"/>
-    /// dead strip before the right edge / scroll-forward button. The gap stays intact
-    /// between all other tabs. Restores the gap on whichever tab was previously last (the
-    /// last item changes after a reorder), then zeroes the right margin on the new last
-    /// tab's <c>TabBackground</c> pill. When the new last tab's template is not yet
-    /// realized, the work is deferred until that item raises its <c>Loaded</c> event.
+    /// Removes the leading inter-tab gap from the FIRST tab only so the tab strip is
+    /// symmetric: the first tab's pill must start flush at the left rather than leaving an
+    /// <see cref="InterTabGapLeft"/> dead strip after the left edge / scroll-back button,
+    /// and because no tab carries a trailing margin the rightmost-visible tab always abuts
+    /// the right edge / scroll-forward button. The gap stays intact between all other tabs.
+    /// Restores the gap on whichever tab was previously first (the first item changes after
+    /// a reorder), then zeroes the left margin on the new first tab's <c>TabBackground</c>
+    /// pill. When the new first tab's template is not yet realized, the work is deferred
+    /// until that item raises its <c>Loaded</c> event.
     /// </summary>
-    private void RecomputeLastTabTrailingGap()
+    private void RecomputeFirstTabLeadingGap()
     {
         int count = BufferTabView.TabItems.Count;
-        TabViewItem newLast = null;
-        if (count > 0 && BufferTabView.TabItems[count - 1] is TabViewItem candidate)
+        TabViewItem newFirst = null;
+        if (count > 0 && BufferTabView.TabItems[0] is TabViewItem candidate)
         {
-            newLast = candidate;
+            newFirst = candidate;
         }
 
-        if (lastTabWithZeroedGap != null && !ReferenceEquals(lastTabWithZeroedGap, newLast))
+        if (firstTabWithZeroedGap != null && !ReferenceEquals(firstTabWithZeroedGap, newFirst))
         {
-            SetTabBackgroundRightMargin(lastTabWithZeroedGap, TabStripCalculator.InterTabGapRight);
-            lastTabWithZeroedGap = null;
+            SetTabBackgroundLeftMargin(firstTabWithZeroedGap, TabStripCalculator.InterTabGapLeft);
+            firstTabWithZeroedGap = null;
         }
 
-        if (newLast == null)
+        if (newFirst == null)
         {
             return;
         }
 
-        if (SetTabBackgroundRightMargin(newLast, 0))
+        if (SetTabBackgroundLeftMargin(newFirst, 0))
         {
-            lastTabWithZeroedGap = newLast;
+            firstTabWithZeroedGap = newFirst;
             return;
         }
 
         RoutedEventHandler onLoaded = null;
         onLoaded = (s, e) =>
         {
-            newLast.Loaded -= onLoaded;
+            newFirst.Loaded -= onLoaded;
             if (ReferenceEquals(BufferTabView.TabItems.Count > 0
-                ? BufferTabView.TabItems[BufferTabView.TabItems.Count - 1]
-                : null, newLast))
+                ? BufferTabView.TabItems[0]
+                : null, newFirst))
             {
-                if (SetTabBackgroundRightMargin(newLast, 0))
+                if (SetTabBackgroundLeftMargin(newFirst, 0))
                 {
-                    lastTabWithZeroedGap = newLast;
+                    firstTabWithZeroedGap = newFirst;
                 }
             }
         };
-        newLast.Loaded += onLoaded;
+        newFirst.Loaded += onLoaded;
     }
 
     /// <summary>
     /// Finds the <c>TabBackground</c> pill Border inside <paramref name="item"/>'s realized
-    /// template and sets its right margin to <paramref name="rightMargin"/>, leaving top,
-    /// left, and bottom untouched. Returns <c>false</c> when the template part is not yet
+    /// template and sets its left margin to <paramref name="leftMargin"/>, leaving top,
+    /// right, and bottom untouched. Returns <c>false</c> when the template part is not yet
     /// realized so the caller can defer.
     /// </summary>
-    private bool SetTabBackgroundRightMargin(TabViewItem item, double rightMargin)
+    private bool SetTabBackgroundLeftMargin(TabViewItem item, double leftMargin)
     {
         if (item == null)
         {
@@ -844,7 +845,7 @@ public sealed partial class BufferPanel : UserControl
         }
 
         Thickness current = pill.Margin;
-        pill.Margin = new Thickness(current.Left, current.Top, rightMargin, current.Bottom);
+        pill.Margin = new Thickness(leftMargin, current.Top, current.Right, current.Bottom);
         return true;
     }
 

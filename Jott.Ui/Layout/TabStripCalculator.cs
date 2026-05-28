@@ -11,13 +11,13 @@ internal static class TabStripCalculator
     internal const double TabMinWidth = 100;
 
     /// <summary>
-    /// Inter-tab gap baked into the right edge of each tab's <c>TabBackground</c> pill.
-    /// Must stay in sync with the pill's right <c>Margin</c> in BufferPanel.xaml (6).
+    /// Inter-tab gap baked into the left edge of each tab's <c>TabBackground</c> pill.
+    /// Must stay in sync with the pill's left <c>Margin</c> in BufferPanel.xaml (6).
     /// </summary>
-    internal const double InterTabGapRight = 6;
+    internal const double InterTabGapLeft = 6;
 
-    /// <summary>Fallback width of the title-bar icon area (TabStripHeader). Padding 10+6 + a 16px image = 32.</summary>
-    internal const double TitleBarHeaderFallbackWidth = 32;
+    /// <summary>Fallback width of the title-bar icon area (TabStripHeader). Padding 10+12 + a 16px image = 38.</summary>
+    internal const double TitleBarHeaderFallbackWidth = 38;
 
     /// <summary>Fallback width of the right-hand footer spacer (the <c>TitleBarButtonsClusterWidth</c> XAML resource).</summary>
     internal const double TitleBarFooterFallbackWidth = 92;
@@ -27,7 +27,7 @@ internal static class TabStripCalculator
 
     /// <summary>
     /// Horizontal chrome consumed by a tab around its header content in Equal mode:
-    /// the <c>TabViewItem</c> Padding (3 + 3) plus the <c>TabBackground</c> pill right Margin (6).
+    /// the <c>TabViewItem</c> Padding (3 + 3) plus the <c>TabBackground</c> pill left Margin (6).
     /// </summary>
     internal const double TabHorizontalChrome = 12;
 

@@ -69,7 +69,6 @@ internal static class TabHeaderBuilder
         return new TabHeaderView
         {
             HeaderContainer = headerContainer,
-            NormalPanel = normalPanel,
             EmojiBlock = emojiBlock,
             TitleBlock = titleBlock,
         };

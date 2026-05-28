@@ -1,4 +1,5 @@
 using Jott.Ui.Components;
+using Jott.Ui.Helpers;
 using Jott.Ui.Layout;
 using Jott.Ui.Models;
 using Jott.Ui.Services;
@@ -12,7 +13,6 @@ using Microsoft.UI.Xaml.Media.Animation;
 using System;
 using System.Collections.Generic;
 using Windows.System;
-using Windows.UI;
 using Buffer = Jott.Ui.Models.Buffer;
 
 namespace Jott.Ui.Views;
@@ -76,6 +76,14 @@ public sealed partial class BufferPanel : UserControl
     private const double EditorConfirmButtonSize = 32;
     private const double EditorConfirmButtonMarginLeft = 4;
 
+    private const string ConfirmCardBackgroundBrushKey = "SystemControlBackgroundChromeMediumLowBrush";
+    private const string ConfirmCardBorderBrushKey = "SystemControlTransientBorderBrush";
+    private const string ConfirmTextBrushKey = "SystemFillColorAttentionBrush";
+    private const string ConfirmAccentBrushKey = "SystemAccentColorBrush";
+    private const string ConfirmHoverBrushKey = "SubtleFillColorSecondaryBrush";
+    private const string ConfirmPressedBrushKey = "SubtleFillColorTertiaryBrush";
+    private const string ConfirmTextPrimaryBrushKey = "TextFillColorPrimaryBrush";
+
     private BufferService bufferService;
     private SettingsService settingsService;
     private IReadOnlyList<TabDefinition> tabDefinitions;
@@ -83,10 +91,8 @@ public sealed partial class BufferPanel : UserControl
     private readonly Dictionary<int, RichEditBox> editorsByBufferIndex = new Dictionary<int, RichEditBox>();
     private readonly Dictionary<int, Grid> headerContainersByIndex = new Dictionary<int, Grid>();
     private readonly Dictionary<int, Grid> editorContainersByIndex = new Dictionary<int, Grid>();
-    private readonly Dictionary<int, FrameworkElement> normalPanelsByIndex = new Dictionary<int, FrameworkElement>();
     private readonly Dictionary<int, Border> confirmPanelsByIndex = new Dictionary<int, Border>();
     private readonly Dictionary<int, Button> clearButtonsByIndex = new Dictionary<int, Button>();
-    private readonly Dictionary<int, TabViewItem> tabItemsByIndex = new Dictionary<int, TabViewItem>();
     private readonly Dictionary<int, TextBlock> tabEmojiBlocksByIndex = new Dictionary<int, TextBlock>();
     private readonly Dictionary<int, TextBlock> tabTitleBlocksByIndex = new Dictionary<int, TextBlock>();
 
@@ -230,7 +236,7 @@ public sealed partial class BufferPanel : UserControl
         tabEditFlyout = new TabEditFlyout(emojiPicker, settingsService);
         tabEditFlyout.Saved += OnTabEditSaved;
 
-        clearConfirmOverlay = new ClearConfirmOverlay(normalPanelsByIndex, confirmPanelsByIndex);
+        clearConfirmOverlay = new ClearConfirmOverlay(confirmPanelsByIndex);
         clearConfirmOverlay.Cleared += OnClearConfirmed;
 
         ClearAllDictionaries();
@@ -247,7 +253,6 @@ public sealed partial class BufferPanel : UserControl
 
             var item = BuildTabViewItem(buffer, tab);
             BufferTabView.TabItems.Add(item);
-            tabItemsByIndex[buffer.Index] = item;
         }
 
         if (BufferTabView.TabItems.Count > 0)
@@ -290,7 +295,7 @@ public sealed partial class BufferPanel : UserControl
     /// </summary>
     private void PinRightContentColumnReservation()
     {
-        Grid container = FindDescendantByName<Grid>(BufferTabView, TabContainerGridPartName);
+        Grid container = VisualTreeHelpers.FindVisualChild<Grid>(BufferTabView, TabContainerGridPartName);
         if (container == null || container.ColumnDefinitions.Count == 0)
         {
             return;
@@ -302,27 +307,6 @@ public sealed partial class BufferPanel : UserControl
         {
             rightColumn.Width = target;
         }
-    }
-
-    private static T FindDescendantByName<T>(DependencyObject root, string name) where T : FrameworkElement
-    {
-        int count = VisualTreeHelper.GetChildrenCount(root);
-        for (int i = 0; i < count; i++)
-        {
-            DependencyObject child = VisualTreeHelper.GetChild(root, i);
-            if (child is T match && match.Name == name)
-            {
-                return match;
-            }
-
-            T nested = FindDescendantByName<T>(child, name);
-            if (nested != null)
-            {
-                return nested;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>
@@ -462,10 +446,8 @@ public sealed partial class BufferPanel : UserControl
         editorsByBufferIndex.Clear();
         headerContainersByIndex.Clear();
         editorContainersByIndex.Clear();
-        normalPanelsByIndex.Clear();
         confirmPanelsByIndex.Clear();
         clearButtonsByIndex.Clear();
-        tabItemsByIndex.Clear();
         tabEmojiBlocksByIndex.Clear();
         tabTitleBlocksByIndex.Clear();
     }
@@ -505,7 +487,6 @@ public sealed partial class BufferPanel : UserControl
         editorsByBufferIndex[buffer.Index] = editor;
 
         var (editorContainer, clearButton, confirmPanel) = BuildEditorContainer(buffer, editor);
-        normalPanelsByIndex[buffer.Index] = clearButton;
         confirmPanelsByIndex[buffer.Index] = confirmPanel;
         clearButtonsByIndex[buffer.Index] = clearButton;
 
@@ -530,6 +511,7 @@ public sealed partial class BufferPanel : UserControl
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             VerticalContentAlignment = VerticalAlignment.Stretch,
             ContextFlyout = menuFlyout,
+            Tag = buffer.Index,
         };
         tabItem.GettingFocus += OnTabItemGettingFocus;
         return tabItem;
@@ -592,61 +574,25 @@ public sealed partial class BufferPanel : UserControl
         return (editorContainer, clearButton, confirmPanel);
     }
 
+    private Brush GetThemeBrush(string key)
+    {
+        if (this.Resources.TryGetValue(key, out var localValue) && localValue is Brush localBrush)
+        {
+            return localBrush;
+        }
+
+        return (Brush)Application.Current.Resources[key];
+    }
+
     private Border BuildEditorConfirmPanel(int bufferIndex)
     {
-        // Premium default fallbacks in case system resources are missing
-        Microsoft.UI.Xaml.Media.Brush cardBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(220, 32, 32, 32)); // Dark fallback
-        Microsoft.UI.Xaml.Media.Brush cardBorder = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
-        Microsoft.UI.Xaml.Media.Brush textFg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(255, 255, 99, 71)); // Soft red fallback
-        Microsoft.UI.Xaml.Media.Brush accentBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.DodgerBlue);
-        Microsoft.UI.Xaml.Media.Brush hoverBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(20, 255, 255, 255));
-        Microsoft.UI.Xaml.Media.Brush pressedBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
-        Microsoft.UI.Xaml.Media.Brush normalText = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
-
-        if (Application.Current != null)
-        {
-            // Detect theme to choose proper fallback colors
-            bool isDark = Application.Current.RequestedTheme == ApplicationTheme.Dark;
-            if (!isDark)
-            {
-                cardBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(220, 243, 243, 243)); // Light fallback
-                cardBorder = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(40, 0, 0, 0));
-                textFg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(255, 196, 43, 28)); // Darker red fallback
-                accentBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(255, 0, 90, 158));
-                hoverBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(10, 0, 0, 0));
-                pressedBg = new Microsoft.UI.Xaml.Media.SolidColorBrush(Color.FromArgb(20, 0, 0, 0));
-                normalText = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Black);
-            }
-
-            if (Application.Current.Resources.TryGetValue("SystemControlBackgroundChromeMediumLowBrush", out var cb) && cb is Microsoft.UI.Xaml.Media.Brush cbb)
-            {
-                cardBg = cbb;
-            }
-            if (Application.Current.Resources.TryGetValue("SystemControlTransientBorderBrush", out var sbb) && sbb is Microsoft.UI.Xaml.Media.Brush sbbb)
-            {
-                cardBorder = sbbb;
-            }
-            if (Application.Current.Resources.TryGetValue("SystemFillColorAttentionBrush", out var ab) && ab is Microsoft.UI.Xaml.Media.Brush abb)
-            {
-                textFg = abb;
-            }
-            if (Application.Current.Resources.TryGetValue("SystemAccentColorBrush", out var sacb) && sacb is Microsoft.UI.Xaml.Media.Brush sacbb)
-            {
-                accentBrush = sacbb;
-            }
-            if (Application.Current.Resources.TryGetValue("SubtleFillColorSecondaryBrush", out var sfcb) && sfcb is Microsoft.UI.Xaml.Media.Brush sfcbb)
-            {
-                hoverBg = sfcbb;
-            }
-            if (Application.Current.Resources.TryGetValue("SubtleFillColorTertiaryBrush", out var sfctb) && sfctb is Microsoft.UI.Xaml.Media.Brush sfctbb)
-            {
-                pressedBg = sfctbb;
-            }
-            if (Application.Current.Resources.TryGetValue("TextFillColorPrimaryBrush", out var tfcpb) && tfcpb is Microsoft.UI.Xaml.Media.Brush tfcpbb)
-            {
-                normalText = tfcpbb;
-            }
-        }
+        Brush cardBg = GetThemeBrush(ConfirmCardBackgroundBrushKey);
+        Brush cardBorder = GetThemeBrush(ConfirmCardBorderBrushKey);
+        Brush textFg = GetThemeBrush(ConfirmTextBrushKey);
+        Brush accentBrush = GetThemeBrush(ConfirmAccentBrushKey);
+        Brush hoverBg = GetThemeBrush(ConfirmHoverBrushKey);
+        Brush pressedBg = GetThemeBrush(ConfirmPressedBrushKey);
+        Brush normalText = GetThemeBrush(ConfirmTextPrimaryBrushKey);
 
         var confirmButton = new Button
         {
@@ -658,18 +604,17 @@ public sealed partial class BufferPanel : UserControl
             VerticalAlignment = VerticalAlignment.Center,
             CornerRadius = new CornerRadius(4),
             Tag = bufferIndex,
+            Foreground = accentBrush,
         };
         confirmButton.Click += OnConfirmCheckButtonClick;
 
-        var transparentBrush = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        var transparentBrush = new SolidColorBrush(Microsoft.UI.Colors.Transparent);
         confirmButton.Resources["ButtonBackground"] = transparentBrush;
         confirmButton.Resources["ButtonBorderBrush"] = transparentBrush;
         confirmButton.Resources["ButtonBorderBrushPointerOver"] = transparentBrush;
         confirmButton.Resources["ButtonBorderBrushPressed"] = transparentBrush;
         confirmButton.Resources["ButtonBackgroundDisabled"] = transparentBrush;
         confirmButton.Resources["ButtonBorderBrushDisabled"] = transparentBrush;
-
-        confirmButton.Foreground = accentBrush;
         confirmButton.Resources["ButtonBackgroundPointerOver"] = hoverBg;
         confirmButton.Resources["ButtonBackgroundPressed"] = pressedBg;
         confirmButton.Resources["ButtonForegroundPointerOver"] = normalText;
@@ -686,7 +631,7 @@ public sealed partial class BufferPanel : UserControl
             FontSize = EditorConfirmTextFontSize,
             VerticalAlignment = VerticalAlignment.Center,
             Foreground = textFg,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            FontWeight = FontWeights.SemiBold,
         });
         content.Children.Add(confirmButton);
 
@@ -747,17 +692,12 @@ public sealed partial class BufferPanel : UserControl
                 continue;
             }
 
-            foreach (var kv in tabItemsByIndex)
+            if (tabItem.Tag is int bufferIndex)
             {
-                if (kv.Value == tabItem)
+                TabDefinition found = FindTabDefinition(bufferIndex);
+                if (found != null)
                 {
-                    TabDefinition found = FindTabDefinition(kv.Key);
-                    if (found != null)
-                    {
-                        reordered.Add(found);
-                    }
-
-                    break;
+                    reordered.Add(found);
                 }
             }
         }
@@ -838,7 +778,7 @@ public sealed partial class BufferPanel : UserControl
             return false;
         }
 
-        Border pill = FindDescendantBorderByName(item, TabBackgroundPartName);
+        Border pill = VisualTreeHelpers.FindVisualChild<Border>(item, TabBackgroundPartName);
         if (pill == null)
         {
             return false;
@@ -847,33 +787,6 @@ public sealed partial class BufferPanel : UserControl
         Thickness current = pill.Margin;
         pill.Margin = new Thickness(leftMargin, current.Top, current.Right, current.Bottom);
         return true;
-    }
-
-    private static Border FindDescendantBorderByName(DependencyObject root, string name)
-    {
-        if (root == null)
-        {
-            return null;
-        }
-
-        int childCount = VisualTreeHelper.GetChildrenCount(root);
-        for (int i = 0; i < childCount; i++)
-        {
-            DependencyObject child = VisualTreeHelper.GetChild(root, i);
-
-            if (child is Border border && border.Name == name)
-            {
-                return border;
-            }
-
-            Border found = FindDescendantBorderByName(child, name);
-            if (found != null)
-            {
-                return found;
-            }
-        }
-
-        return null;
     }
 
     private void UpdateTabLabel(int bufferIndex, string emoji, string title)

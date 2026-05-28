@@ -8,13 +8,14 @@ namespace Jott.Ui.Components;
 /// <summary>
 /// Manages the two-step clear-confirm flow for buffer tabs.
 /// When the user clicks the clear button, the component enters a confirming
-/// state that swaps the normal header panel for a dismiss-or-confirm prompt.
-/// The prompt auto-cancels after a fixed timeout.
+/// state that shows the confirm-or-dismiss prompt. The prompt auto-cancels
+/// after a fixed timeout.
 /// </summary>
 /// <remarks>
-/// The component updates the visibility of UI elements directly via the
-/// dictionary references passed at construction time. It does not own
-/// those elements and never removes them.
+/// The component updates the visibility of the confirm panels directly via the
+/// dictionary reference passed at construction time. It does not own those
+/// elements and never removes them. The owning view is responsible for the
+/// clear-button visibility, since hover-driven visibility is the view's concern.
 /// Raises <see cref="Cleared"/> so the caller can clear the editor content
 /// and update any dependent UI (e.g. the clear-button enabled state).
 /// </remarks>
@@ -22,7 +23,6 @@ public sealed class ClearConfirmOverlay
 {
     private const int ConfirmAutoCancelMilliseconds = 4000;
 
-    private readonly Dictionary<int, FrameworkElement> normalPanels;
     private readonly Dictionary<int, Border> confirmPanels;
 
     private int confirmingBufferIndex = -1;
@@ -35,26 +35,17 @@ public sealed class ClearConfirmOverlay
     public event EventHandler<int> Cleared;
 
     /// <summary>
-    /// Initialises the component with the live panel-visibility dictionaries
+    /// Initialises the component with the live confirm-panel dictionary
     /// maintained by the owning view.
     /// </summary>
-    /// <param name="normalPanels">Maps buffer index → the panel shown in normal state.</param>
     /// <param name="confirmPanels">Maps buffer index → the confirm-overlay panel.</param>
-    public ClearConfirmOverlay(
-        Dictionary<int, FrameworkElement> normalPanels,
-        Dictionary<int, Border> confirmPanels)
+    public ClearConfirmOverlay(Dictionary<int, Border> confirmPanels)
     {
-        if (normalPanels == null)
-        {
-            throw new ArgumentNullException(nameof(normalPanels));
-        }
-
         if (confirmPanels == null)
         {
             throw new ArgumentNullException(nameof(confirmPanels));
         }
 
-        this.normalPanels = normalPanels;
         this.confirmPanels = confirmPanels;
     }
 
@@ -75,7 +66,7 @@ public sealed class ClearConfirmOverlay
         }
 
         confirmingBufferIndex = bufferIndex;
-        SetPanelVisibility(bufferIndex, normalVisible: false, confirmVisible: true);
+        SetConfirmPanelVisibility(bufferIndex, visible: true);
 
         StopTimer();
 
@@ -87,7 +78,7 @@ public sealed class ClearConfirmOverlay
 
     /// <summary>
     /// Cancels the confirm state for whichever buffer is currently confirming,
-    /// restoring the normal panel. No-op if nothing is confirming.
+    /// hiding the confirm panel. No-op if nothing is confirming.
     /// </summary>
     public void Exit()
     {
@@ -101,7 +92,7 @@ public sealed class ClearConfirmOverlay
             return;
         }
 
-        SetPanelVisibility(index, normalVisible: true, confirmVisible: false);
+        SetConfirmPanelVisibility(index, visible: false);
     }
 
     /// <summary>
@@ -132,16 +123,11 @@ public sealed class ClearConfirmOverlay
         confirmCancelTimer = null;
     }
 
-    private void SetPanelVisibility(int bufferIndex, bool normalVisible, bool confirmVisible)
+    private void SetConfirmPanelVisibility(int bufferIndex, bool visible)
     {
-        if (normalPanels.TryGetValue(bufferIndex, out FrameworkElement normalPanel))
-        {
-            normalPanel.Visibility = normalVisible ? Visibility.Visible : Visibility.Collapsed;
-        }
-
         if (confirmPanels.TryGetValue(bufferIndex, out Border confirmPanel))
         {
-            confirmPanel.Visibility = confirmVisible ? Visibility.Visible : Visibility.Collapsed;
+            confirmPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 }

@@ -38,6 +38,8 @@ public sealed partial class BufferPanel : UserControl
     private const string RenameTabMenuText = "Rename tab";
     private const string RenameTabIconGlyph = "";
     private const string FluentIconFontFamily = "Segoe Fluent Icons";
+    private const string ClearTabMenuText = "Clear tab";
+    private const string ClearTabIconGlyph = "";
 
     /// <summary>
     /// Name of the floating pill <c>Border</c> template part inside the TabViewItem
@@ -73,8 +75,7 @@ public sealed partial class BufferPanel : UserControl
     private readonly Dictionary<int, RichEditBox> editorsByBufferIndex = new Dictionary<int, RichEditBox>();
     private readonly Dictionary<int, Grid> headerContainersByIndex = new Dictionary<int, Grid>();
     private readonly Dictionary<int, Grid> editorContainersByIndex = new Dictionary<int, Grid>();
-    private readonly Dictionary<int, Border> confirmPanelsByIndex = new Dictionary<int, Border>();
-    private readonly Dictionary<int, Button> clearButtonsByIndex = new Dictionary<int, Button>();
+    private readonly Dictionary<int, MenuFlyoutItem> clearMenuItemsByIndex = new Dictionary<int, MenuFlyoutItem>();
     private readonly Dictionary<int, TextBlock> tabEmojiBlocksByIndex = new Dictionary<int, TextBlock>();
     private readonly Dictionary<int, TextBlock> tabTitleBlocksByIndex = new Dictionary<int, TextBlock>();
 
@@ -82,8 +83,10 @@ public sealed partial class BufferPanel : UserControl
     private readonly EditorFocusController focusController = new EditorFocusController();
     private readonly CalcResultAnimator calcResultAnimator = new CalcResultAnimator();
     private TabEditFlyout tabEditFlyout;
-    private ClearConfirmOverlay clearConfirmOverlay;
     private BufferKeyboardController keyboardController;
+    private bool preventMenuClosing;
+    private DateTime clearTransitionTime;
+    private const int ClearConfirmCooldownMs = 500;
 
     /// <summary>
     /// Raised when the user clicks the pin button. The caller should toggle
@@ -179,13 +182,9 @@ public sealed partial class BufferPanel : UserControl
         tabEditFlyout = new TabEditFlyout(emojiPicker, settingsService);
         tabEditFlyout.Saved += OnTabEditSaved;
 
-        clearConfirmOverlay = new ClearConfirmOverlay(confirmPanelsByIndex);
-        clearConfirmOverlay.Cleared += OnClearConfirmed;
-
         keyboardController = new BufferKeyboardController(
             BufferTabView,
             editorsByBufferIndex,
-            clearConfirmOverlay,
             calcResultAnimator);
         keyboardController.EditFlyoutRequested += OnEditFlyoutRequested;
 
@@ -397,8 +396,7 @@ public sealed partial class BufferPanel : UserControl
         editorsByBufferIndex.Clear();
         headerContainersByIndex.Clear();
         editorContainersByIndex.Clear();
-        confirmPanelsByIndex.Clear();
-        clearButtonsByIndex.Clear();
+        clearMenuItemsByIndex.Clear();
         tabEmojiBlocksByIndex.Clear();
         tabTitleBlocksByIndex.Clear();
     }
@@ -419,38 +417,28 @@ public sealed partial class BufferPanel : UserControl
         RichEditBox editor = editorView.Editor;
         editor.TextChanged += OnEditorTextChanged;
         editor.KeyDown += keyboardController.HandleEditorKey;
-        editor.PointerPressed += OnEditorPointerPressed;
         editor.Paste += OnEditorPaste;
         editorsByBufferIndex[buffer.Index] = editor;
-
-        Button clearButton = editorView.ClearButton;
-        clearButton.Click += OnClearButtonClick;
-        clearButtonsByIndex[buffer.Index] = clearButton;
-
-        Border confirmPanel = editorView.ConfirmPanel;
-        confirmPanelsByIndex[buffer.Index] = confirmPanel;
-
-        editorView.ConfirmButton.Click += OnConfirmCheckButtonClick;
 
         Grid editorContainer = editorView.Container;
         editorContainersByIndex[buffer.Index] = editorContainer;
 
-        editorContainer.PointerEntered += (s, e) =>
+        var tabItem = new TabViewItem
         {
-            if (!clearConfirmOverlay.IsConfirming)
-            {
-                clearButton.Visibility = Visibility.Visible;
-            }
+            Header = header.HeaderContainer,
+            Content = editorContainer,
+            IsClosable = false,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            VerticalContentAlignment = VerticalAlignment.Stretch,
+            Tag = buffer.Index,
         };
-        editorContainer.PointerExited += (s, e) =>
-        {
-            if (!clearConfirmOverlay.IsConfirming)
-            {
-                clearButton.Visibility = Visibility.Collapsed;
-            }
-        };
+        tabItem.GettingFocus += OnTabItemGettingFocus;
 
         var menuFlyout = new MenuFlyout();
+        var presenterStyle = new Style(typeof(MenuFlyoutPresenter));
+        presenterStyle.Setters.Add(new Setter(Control.MinWidthProperty, 150.0));
+        menuFlyout.MenuFlyoutPresenterStyle = presenterStyle;
+
         var renameItem = new MenuFlyoutItem
         {
             Text = RenameTabMenuText,
@@ -463,17 +451,41 @@ public sealed partial class BufferPanel : UserControl
         renameItem.Click += (s, e) => OpenEditFlyout(buffer.Index);
         menuFlyout.Items.Add(renameItem);
 
-        var tabItem = new TabViewItem
+        var clearIcon = new FontIcon
         {
-            Header = header.HeaderContainer,
-            Content = editorContainer,
-            IsClosable = false,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            VerticalContentAlignment = VerticalAlignment.Stretch,
-            ContextFlyout = menuFlyout,
-            Tag = buffer.Index,
+            Glyph = ClearTabIconGlyph,
+            FontFamily = new FontFamily(FluentIconFontFamily),
         };
-        tabItem.GettingFocus += OnTabItemGettingFocus;
+
+        var clearItem = new MenuFlyoutItem
+        {
+            Text = ClearTabMenuText,
+            Icon = clearIcon,
+            IsEnabled = !string.IsNullOrEmpty(buffer.Content),
+            RenderTransformOrigin = new Windows.Foundation.Point(0.5, 0.5),
+        };
+
+        var itemTranslate = new TranslateTransform();
+        clearItem.RenderTransform = itemTranslate;
+        clearItem.Click += (s, e) => OnClearItemClick(buffer.Index, clearItem);
+        menuFlyout.Items.Add(clearItem);
+        clearMenuItemsByIndex[buffer.Index] = clearItem;
+
+        menuFlyout.Closing += (s, e) =>
+        {
+            if (preventMenuClosing)
+            {
+                e.Cancel = true;
+                preventMenuClosing = false;
+            }
+        };
+
+        menuFlyout.Closed += (s, e) =>
+        {
+            ResetClearMenuItem(buffer.Index);
+        };
+
+        tabItem.ContextFlyout = menuFlyout;
         return tabItem;
     }
 
@@ -683,39 +695,59 @@ public sealed partial class BufferPanel : UserControl
         CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    private void OnClearButtonClick(object sender, RoutedEventArgs e)
+    private void OnClearItemClick(int bufferIndex, MenuFlyoutItem clearItem)
     {
-        var button = sender as Button;
-        if (button == null)
+        if (clearItem.Text == ClearTabMenuText)
         {
-            return;
-        }
-
-        if (button.Tag is int index)
-        {
-            clearConfirmOverlay.Enter(index);
-            if (clearButtonsByIndex.TryGetValue(index, out Button clearBtn))
+            clearItem.Text = "Confirm clear";
+            if (clearItem.Icon is FontIcon fontIcon)
             {
-                clearBtn.Visibility = Visibility.Collapsed;
+                fontIcon.Glyph = ""; // Checkmark glyph
+            }
+
+            if (clearItem.RenderTransform is TranslateTransform translate)
+            {
+                var duration = new Duration(TimeSpan.FromMilliseconds(250));
+                var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+
+                var translateXAnim = new DoubleAnimation { From = -20.0, To = 0.0, Duration = duration, EasingFunction = ease };
+
+                Storyboard.SetTarget(translateXAnim, translate);
+                Storyboard.SetTargetProperty(translateXAnim, "X");
+
+                var sb = new Storyboard();
+                sb.Children.Add(translateXAnim);
+                sb.Begin();
+            }
+
+            clearTransitionTime = DateTime.UtcNow;
+            preventMenuClosing = true;
+        }
+        else
+        {
+            if ((DateTime.UtcNow - clearTransitionTime).TotalMilliseconds < ClearConfirmCooldownMs)
+            {
+                preventMenuClosing = true;
+                return;
+            }
+
+            OnClearConfirmed(bufferIndex);
+        }
+    }
+
+    private void ResetClearMenuItem(int bufferIndex)
+    {
+        if (clearMenuItemsByIndex.TryGetValue(bufferIndex, out MenuFlyoutItem clearItem))
+        {
+            clearItem.Text = ClearTabMenuText;
+            if (clearItem.Icon is FontIcon fontIcon)
+            {
+                fontIcon.Glyph = ClearTabIconGlyph;
             }
         }
     }
 
-    private void OnConfirmCheckButtonClick(object sender, RoutedEventArgs e)
-    {
-        var button = sender as Button;
-        if (button == null)
-        {
-            return;
-        }
-
-        if (button.Tag is int index)
-        {
-            clearConfirmOverlay.Confirm(index);
-        }
-    }
-
-    private void OnClearConfirmed(object sender, int bufferIndex)
+    private void OnClearConfirmed(int bufferIndex)
     {
         if (editorsByBufferIndex.TryGetValue(bufferIndex, out RichEditBox editor))
         {
@@ -728,14 +760,7 @@ public sealed partial class BufferPanel : UserControl
         }
 
         UpdateClearButtonState(bufferIndex, isEmpty: true);
-    }
-
-    private void OnEditorPointerPressed(object sender, PointerRoutedEventArgs e)
-    {
-        if (clearConfirmOverlay.IsConfirming)
-        {
-            clearConfirmOverlay.Exit();
-        }
+        ResetClearMenuItem(bufferIndex);
     }
 
     private async void OnEditorPaste(object sender, TextControlPasteEventArgs e)
@@ -799,9 +824,9 @@ public sealed partial class BufferPanel : UserControl
 
     private void UpdateClearButtonState(int bufferIndex, bool isEmpty)
     {
-        if (clearButtonsByIndex.TryGetValue(bufferIndex, out Button clearButton))
+        if (clearMenuItemsByIndex.TryGetValue(bufferIndex, out MenuFlyoutItem clearItem))
         {
-            clearButton.IsEnabled = !isEmpty;
+            clearItem.IsEnabled = !isEmpty;
         }
     }
 

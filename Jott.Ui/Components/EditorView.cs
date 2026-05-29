@@ -14,13 +14,4 @@ internal sealed class EditorView
 
     /// <summary>The monospace <see cref="RichEditBox"/> bound to the buffer's content.</summary>
     public RichEditBox Editor { get; set; }
-
-    /// <summary>The trash <see cref="Button"/> in the bottom-right overlay that initiates the clear-confirm flow.</summary>
-    public Button ClearButton { get; set; }
-
-    /// <summary>The "Clear?" confirm card shown after <see cref="ClearButton"/> is pressed.</summary>
-    public Border ConfirmPanel { get; set; }
-
-    /// <summary>The green check <see cref="Button"/> inside <see cref="ConfirmPanel"/> that finalises the clear.</summary>
-    public Button ConfirmButton { get; set; }
 }

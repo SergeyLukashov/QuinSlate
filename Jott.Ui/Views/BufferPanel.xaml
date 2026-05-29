@@ -128,6 +128,8 @@
                 Style="{StaticResource TitleBarButtonStyle}"
                 Margin="{StaticResource TitleBarFooterLeftGap}"
                 ToolTipService.ToolTip="Pin window"
+                IsTabStop="False"
+                UseSystemFocusVisuals="False"
                 Click="OnPinButtonClicked">
                 <FontIcon
                     x:Name="PinIcon"
@@ -139,6 +141,8 @@
                 Style="{StaticResource CloseTitleBarButtonStyle}"
                 Margin="0"
                 ToolTipService.ToolTip="Close"
+                IsTabStop="False"
+                UseSystemFocusVisuals="False"
                 Click="OnCloseButtonClicked">
                 <FontIcon
                     Glyph="&#xE8BB;"

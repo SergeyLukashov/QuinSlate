@@ -1,48 +1,41 @@
 # SPEC: Clear buffer with confirmation
 
 ## What
-Each buffer tab has a clear button. Clicking it requires a single inline
-confirmation before wiping the content, preventing accidental data loss.
+Each buffer tab's context menu (right-click menu) has a compact "Clear tab" item. To prevent accidental data loss, clicking this item does not immediately clear; instead, it changes in-place to "Confirm clear" with a Fluent whole-item slide-in micro-animation. Clicking a second time completes the action.
 
 ## Behaviour
 
-1. Each buffer tab shows a small ✕ button in its header area.
-2. Clicking ✕ does not clear immediately. Instead, the tab header
-   switches to a confirmation state showing: `Clear?  ✓`
-3. Clicking ✓ clears the buffer text, writes an empty file, and returns
-   the tab header to its normal state.
-4. If the user does not click ✓ within 4 seconds, the header reverts to
-   normal state automatically. No clear occurs.
-5. Clicking anywhere outside the confirm control also cancels it.
-6. Pressing Escape while the confirm is showing cancels it.
+1. Right-clicking a buffer tab shows a "Clear tab" menu item.
+2. The context menu has a highly compact, perfect style (`MinWidth = 150.0`) to give the labels optimal fit.
+3. If the tab's content is completely empty, the "Clear tab" item is disabled (greyed out).
+4. If the tab has content, clicking "Clear tab" changes the item in-place to `"Confirm clear"` (with a checkmark icon) with a gorgeous Fluent whole-item slide-in micro-animation, and natively cancels the closing of the context menu, keeping it open.
+5. Clicking `"Confirm clear"` immediately wipes the active buffer's content, writes a zero-length file to disk, and disables the menu item.
+6. If the user clicks anywhere else, the context menu closes normally, and the menu item automatically reverts back to `"Clear tab"`.
+7. To prevent accidental double-clicks from triggering an immediate, unintended clear, a safety debounce cooldown of 500ms is enforced: clicking the item a second time within 500ms of the initial transition is ignored and keeps the menu open.
 
 ## UI states
 
-Normal state:
+Normal context menu item:
 
-    [ 1 ]  [ ✕ ]
+    Rename tab []
+    Clear tab  []
 
-Confirmation state (replaces the header in-place, no modal, no flyout):
+After clicking "Clear tab" (the whole menu item transitions inline with a slide-in animation):
 
-    [ Clear?  ✓ ]     (auto-cancels after 4 s)
-
-The confirmation replaces the tab label and ✕ button inline. It must be
-visually distinct — e.g. muted red background or warning-coloured text —
-so the user understands it is a destructive action.
+    Rename tab []
+    Confirm clear []
 
 ## Implementation
 
-- Drive with a simple boolean flag per buffer (`_awaitingClearConfirm[N]`)
-  and a `DispatcherTimer` with a 4-second interval.
-- Starting the timer on the first ✕ click; stop and reset on ✓, Escape,
-  or outside click.
-- On confirm: set buffer content to empty string, trigger the debounced
-  file write immediately with a zero-length file (do not delete the file).
+- Implemented natively using WinUI 3's `MenuFlyoutItem` and `MenuFlyoutPresenterStyle`.
+- Sets `MinWidth = 150.0` on the `MenuFlyoutPresenter` to give a tight, perfect width.
+- Under `Click`, if the text is `"Clear tab"`, updates the text to `"Confirm clear"` and icon to checkmark (``), and plays a hardware-accelerated `Storyboard` animation on the `MenuFlyoutItem`'s `RenderTransform` (sliding the entire item X translation from `-20.0` to `0.0` with `CubicEase` over `250` milliseconds).
+- Sets `preventMenuClosing = true` during state transition.
+- Subscribes to `menuFlyout.Closing` and, if `preventMenuClosing` is `true`, sets `e.Cancel = true` to cancel the close action and keep the menu open.
+- Under `Click`, if the text is `"Confirm clear"`, validates if the time elapsed since the transition is at least `500` milliseconds. If it is less than `500` milliseconds, the click is ignored, `preventMenuClosing` is set to `true` to keep the menu open, and the action is aborted. If the elapsed time exceeds the safety cooldown, executes `OnClearConfirmed`.
+- Subscribes to `menuFlyout.Closed` to reset the item's text and icon back to `"Clear tab"` and `""`.
 
 ## Notes
 
-- Only one buffer can be in confirmation state at a time. If the user
-  clicks ✕ on a second buffer while another is in confirmation state,
-  cancel the first and start confirmation on the second.
-- If the buffer is already empty, the ✕ button is disabled (greyed out).
+- If the buffer is already empty, the "Clear tab" context menu item is disabled (greyed out).
   There is nothing to clear.

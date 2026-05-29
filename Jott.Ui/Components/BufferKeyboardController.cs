@@ -29,7 +29,6 @@ public sealed class BufferKeyboardController
 
     private readonly TabView tabView;
     private readonly IReadOnlyDictionary<int, RichEditBox> editorsByBufferIndex;
-    private readonly ClearConfirmOverlay clearConfirmOverlay;
     private readonly CalcResultAnimator calcResultAnimator;
 
     /// <summary>
@@ -50,7 +49,6 @@ public sealed class BufferKeyboardController
     public BufferKeyboardController(
         TabView tabView,
         IReadOnlyDictionary<int, RichEditBox> editorsByBufferIndex,
-        ClearConfirmOverlay clearConfirmOverlay,
         CalcResultAnimator calcResultAnimator)
     {
         if (tabView == null)
@@ -63,11 +61,6 @@ public sealed class BufferKeyboardController
             throw new ArgumentNullException(nameof(editorsByBufferIndex));
         }
 
-        if (clearConfirmOverlay == null)
-        {
-            throw new ArgumentNullException(nameof(clearConfirmOverlay));
-        }
-
         if (calcResultAnimator == null)
         {
             throw new ArgumentNullException(nameof(calcResultAnimator));
@@ -75,7 +68,6 @@ public sealed class BufferKeyboardController
 
         this.tabView = tabView;
         this.editorsByBufferIndex = editorsByBufferIndex;
-        this.clearConfirmOverlay = clearConfirmOverlay;
         this.calcResultAnimator = calcResultAnimator;
     }
 
@@ -90,12 +82,7 @@ public sealed class BufferKeyboardController
             return;
         }
 
-        if (e.Key == VirtualKey.Escape && clearConfirmOverlay.IsConfirming)
-        {
-            clearConfirmOverlay.Exit();
-            e.Handled = true;
-            return;
-        }
+
 
         if (e.Key == VirtualKey.F2)
         {

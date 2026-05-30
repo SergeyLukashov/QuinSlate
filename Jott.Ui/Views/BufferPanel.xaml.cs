@@ -1,5 +1,6 @@
 using Jott.Ui.Components;
 using Jott.Ui.Helpers;
+using Jott.Ui.Interop;
 using Jott.Ui.Layout;
 using Jott.Ui.Models;
 using Jott.Ui.Services;
@@ -471,6 +472,10 @@ public sealed partial class BufferPanel : UserControl
         menuFlyout.Items.Add(clearItem);
         clearMenuItemsByIndex[buffer.Index] = clearItem;
 
+        // Forces the arrow cursor the instant the menu's windowed popup appears so the
+        // busy/app-starting cursor never shows. See microsoft-ui-xaml#8829.
+        menuFlyout.Opened += (s, e) => ForceArrowCursor();
+
         menuFlyout.Closing += (s, e) =>
         {
             if (preventMenuClosing)
@@ -487,6 +492,16 @@ public sealed partial class BufferPanel : UserControl
 
         tabItem.ContextFlyout = menuFlyout;
         return tabItem;
+    }
+
+    /// <summary>
+    /// Sets the system arrow cursor for the current frame to suppress the busy/app-starting
+    /// cursor that WinUI shows over a freshly-opened flyout popup (microsoft-ui-xaml#8829).
+    /// The handle returned for a system cursor is shared and OS-cached, so it is never freed.
+    /// </summary>
+    private void ForceArrowCursor()
+    {
+        NativeMethods.SetCursor(NativeMethods.LoadCursor(IntPtr.Zero, NativeMethods.IDC_ARROW));
     }
 
     private Brush GetThemeBrush(string key)

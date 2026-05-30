@@ -79,6 +79,8 @@ internal static class NativeMethods
 
     public static readonly IntPtr IDI_APPLICATION = new IntPtr(32512);
 
+    public static readonly IntPtr IDC_ARROW = new IntPtr(32512);
+
     /// <summary>
     /// Defines a rectangle by its left, top, right, and bottom edges.
     /// </summary>
@@ -198,6 +200,21 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool DestroyIcon(IntPtr hIcon);
+
+    /// <summary>
+    /// Loads a cursor resource. For a system cursor such as <see cref="IDC_ARROW"/>,
+    /// pass <see cref="IntPtr.Zero"/> as <paramref name="hInstance"/>; the returned handle
+    /// is shared and OS-cached, so it must not be passed to <c>DestroyCursor</c>.
+    /// </summary>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern IntPtr LoadCursor(IntPtr hInstance, IntPtr lpCursorName);
+
+    /// <summary>
+    /// Sets the cursor shape for the current state. Windows resets the cursor on the next
+    /// <c>WM_SETCURSOR</c> (the next mouse move), so the set shape persists only until then.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern IntPtr SetCursor(IntPtr hCursor);
 
     [DllImport("user32.dll")]
     public static extern int GetSystemMetrics(int nIndex);

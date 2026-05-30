@@ -52,6 +52,8 @@ internal static class EditorViewBuilder
             BorderThickness = new Thickness(0),
         };
 
+        EditorContextMenu.Create(editor);
+
         editor.Document.SetText(TextSetOptions.None, buffer.Content ?? string.Empty);
 
         var editorContainer = new Grid
@@ -67,4 +69,6 @@ internal static class EditorViewBuilder
             Editor = editor,
         };
     }
+
+
 }

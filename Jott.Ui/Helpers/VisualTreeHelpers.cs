@@ -35,4 +35,32 @@ public static class VisualTreeHelpers
 
         return null;
     }
+
+    /// <summary>
+    /// Recursively searches the visual tree of a dependency object for a child of type T.
+    /// </summary>
+    public static T FindVisualChild<T>(DependencyObject obj) where T : DependencyObject
+    {
+        if (obj == null)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(obj); i++)
+        {
+            var child = VisualTreeHelper.GetChild(obj, i);
+            if (child is T typedChild)
+            {
+                return typedChild;
+            }
+
+            var childOfChild = FindVisualChild<T>(child);
+            if (childOfChild != null)
+            {
+                return childOfChild;
+            }
+        }
+
+        return null;
+    }
 }

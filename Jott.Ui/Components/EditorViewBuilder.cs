@@ -50,11 +50,21 @@ internal static class EditorViewBuilder
             SelectionFlyout = null,
             MaxLength = MaxBufferLength,
             BorderThickness = new Thickness(0),
+            Padding = new Thickness(16, 10, 16, 16),
         };
+
+        ScrollViewer.SetBringIntoViewOnFocusChange(editor, false);
 
         EditorContextMenu.Create(editor);
 
+        var smoothScroll = new SmoothScrollController();
+        smoothScroll.Register(editor);
+
         editor.Document.SetText(TextSetOptions.None, buffer.Content ?? string.Empty);
+
+        var paragraphFormat = editor.Document.GetDefaultParagraphFormat();
+        paragraphFormat.SetLineSpacing(LineSpacingRule.Multiple, 1.4f);
+        editor.Document.SetDefaultParagraphFormat(paragraphFormat);
 
         var editorContainer = new Grid
         {

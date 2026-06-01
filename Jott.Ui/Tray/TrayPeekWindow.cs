@@ -24,14 +24,17 @@ public sealed class TrayPeekWindow : IDisposable
     private const int BufferCount = Buffer.MaxIndex - Buffer.MinIndex + 1;
 
     private const int LogicalWindowWidth = 340;
-    private const int LogicalHeaderHeight = 22;
+    private const int LogicalHeaderHeight = 26;
     private const int LogicalSeparatorHeight = 12;
-    private const int LogicalLineHeight = 22;
-    private const int LogicalPaddingY = 8;
-    private const int LogicalWindowHeight = (BufferCount * LogicalLineHeight) + (LogicalPaddingY * 2) + LogicalHeaderHeight + LogicalSeparatorHeight;
+    private const int LogicalLineHeight = 26;
+    private const int LogicalPaddingY = 6;
+    private const int LogicalFooterSeparatorHeight = 12;
+    private const int LogicalFooterHeight = 26;
+    private const int LogicalWindowHeight = (BufferCount * LogicalLineHeight) + (LogicalPaddingY * 2) + LogicalHeaderHeight + LogicalSeparatorHeight + LogicalFooterSeparatorHeight + LogicalFooterHeight;
     private const int GapAboveTray = 8;
     private const int HoverCheckIntervalMs = 150;
     private const int HoverHitExpansionLogical = 12;
+    private const int ShowDelayMs = 600;
 
     private Window peekWindow;
     private TrayPeekPanel panel;
@@ -44,11 +47,15 @@ public sealed class TrayPeekWindow : IDisposable
     private IntPtr originalWndProc;
 
     private DispatcherTimer hoverTimer;
+    private DispatcherTimer showDelayTimer;
     private bool isVisible;
     private bool disposed;
     private float dpiScale = 1.0f;
     private IntPtr storedTrayHwnd;
     private uint storedTrayIconId;
+
+    private BufferService storedBufferService;
+    private SettingsService storedSettingsService;
 
     /// <summary>
     /// Creates the peek window container. The underlying WinUI 3 <see cref="Window"/>
@@ -62,6 +69,7 @@ public sealed class TrayPeekWindow : IDisposable
     /// Builds the preview rows from <paramref name="bufferService"/> and
     /// <paramref name="settingsService"/>, positions the window above (or below)
     /// the tray icon, and shows it without activating the calling application.
+    /// A short hover delay is introduced to match standard OS tooltip behavior.
     /// </summary>
     /// <param name="bufferService">Supplies in-memory buffer content.</param>
     /// <param name="settingsService">Supplies tab emoji and title metadata.</param>
@@ -74,30 +82,18 @@ public sealed class TrayPeekWindow : IDisposable
             return;
         }
 
+        storedBufferService = bufferService;
+        storedSettingsService = settingsService;
         storedTrayHwnd = trayHwnd;
         storedTrayIconId = trayIconId;
         dpiScale = NativeMethods.GetDpiForSystem() / 96.0f;
 
-        TrayPeekRow[] rows = TrayPeekRowBuilder.Build(bufferService, settingsService);
-        EnsureWindowCreated();
-
-        if (peekHwnd == IntPtr.Zero || isVisible)
+        if (isVisible)
         {
             return;
         }
 
-        panel.SetRows(rows);
-
-        NativeMethods.RECT iconRect = QueryIconRect(trayHwnd, trayIconId);
-        (int windowWidth, int windowHeight) = CalculatePhysicalWindowSize();
-        (int x, int y) = CalculatePosition(iconRect, windowWidth, windowHeight);
-
-        appWindow.MoveAndResize(new RectInt32(x, y, windowWidth, windowHeight));
-
-        NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_SHOWNOACTIVATE);
-        isVisible = true;
-
-        StartHoverTimer();
+        StartShowDelayTimer();
     }
 
     /// <summary>
@@ -105,6 +101,8 @@ public sealed class TrayPeekWindow : IDisposable
     /// </summary>
     public void Hide()
     {
+        StopShowDelayTimer();
+
         if (peekHwnd == IntPtr.Zero || isVisible == false)
         {
             return;
@@ -125,7 +123,11 @@ public sealed class TrayPeekWindow : IDisposable
 
         disposed = true;
 
+        StopShowDelayTimer();
         StopHoverTimer();
+
+        storedBufferService = null;
+        storedSettingsService = null;
 
         if (backdropThemeElement != null)
         {
@@ -321,6 +323,66 @@ public sealed class TrayPeekWindow : IDisposable
         }
 
         return NativeMethods.CallWindowProc(originalWndProc, hWnd, msg, wParam, lParam);
+    }
+
+    private void StartShowDelayTimer()
+    {
+        if (showDelayTimer != null)
+        {
+            return;
+        }
+
+        showDelayTimer = new DispatcherTimer();
+        showDelayTimer.Interval = TimeSpan.FromMilliseconds(ShowDelayMs);
+        showDelayTimer.Tick += OnShowDelayTimerTick;
+        showDelayTimer.Start();
+    }
+
+    private void StopShowDelayTimer()
+    {
+        if (showDelayTimer == null)
+        {
+            return;
+        }
+
+        showDelayTimer.Stop();
+        showDelayTimer.Tick -= OnShowDelayTimerTick;
+        showDelayTimer = null;
+    }
+
+    private void OnShowDelayTimerTick(object sender, object e)
+    {
+        StopShowDelayTimer();
+        ExecuteShow();
+    }
+
+    private void ExecuteShow()
+    {
+        if (storedBufferService == null || storedSettingsService == null || disposed)
+        {
+            return;
+        }
+
+        TrayPeekRow[] rows = TrayPeekRowBuilder.Build(storedBufferService, storedSettingsService);
+        EnsureWindowCreated();
+
+        if (peekHwnd == IntPtr.Zero || isVisible)
+        {
+            return;
+        }
+
+        panel.SetRows(rows);
+
+        NativeMethods.RECT iconRect = QueryIconRect(storedTrayHwnd, storedTrayIconId);
+        (int windowWidth, int windowHeight) = CalculatePhysicalWindowSize();
+        (int x, int y) = CalculatePosition(iconRect, windowWidth, windowHeight);
+
+        appWindow.MoveAndResize(new RectInt32(x, y, windowWidth, windowHeight));
+
+        NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_SHOWNOACTIVATE);
+        isVisible = true;
+
+        StartHoverTimer();
     }
 
     private void StartHoverTimer()

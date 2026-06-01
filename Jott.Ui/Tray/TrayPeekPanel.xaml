@@ -13,24 +13,31 @@
         Background="Transparent"
         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
         BorderThickness="1"
-        CornerRadius="8">
+        CornerRadius="12">
 
         <Grid
             x:Name="RootGrid"
-            Padding="12,8,12,8">
+            Padding="0,6,0,6">
 
             <Grid.RowDefinitions>
-                <RowDefinition Height="22" />
+                <RowDefinition Height="26" />
                 <RowDefinition Height="12" />
-                <RowDefinition Height="22" />
-                <RowDefinition Height="22" />
-                <RowDefinition Height="22" />
-                <RowDefinition Height="22" />
-                <RowDefinition Height="22" />
+                <RowDefinition Height="26" />
+                <RowDefinition Height="26" />
+                <RowDefinition Height="26" />
+                <RowDefinition Height="26" />
+                <RowDefinition Height="26" />
+                <RowDefinition Height="12" />
+                <RowDefinition Height="26" />
             </Grid.RowDefinitions>
 
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="105" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="65" />
                 <ColumnDefinition Width="12" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
@@ -39,132 +46,313 @@
             <Grid
                 Grid.Row="0"
                 Grid.Column="0"
-                Grid.ColumnSpan="3">
-                <TextBlock
-                    x:Name="AppNameTextBlock"
+                Grid.ColumnSpan="8">
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="8"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Center"
-                    FontSize="12"
-                    FontWeight="SemiBold"
-                    FontFamily="Segoe UI Variable Display"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <TextBlock
-                    Text="Ctrl+Shift+Q"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Center"
-                    FontSize="11"
-                    FontFamily="Segoe UI Variable Text"
-                    Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                    Padding="12, 0, 12, 0">
+                    <Image
+                        x:Name="HeaderIcon"
+                        Source="ms-appx:///Assets/Square44x44Logo.scale-200.png"
+                        Width="16"
+                        Height="16"
+                        VerticalAlignment="Center"
+                        Margin="0,-1,0,0" />
+                    <TextBlock
+                        x:Name="AppNameTextBlock"
+                        FontSize="13"
+                        FontWeight="SemiBold"
+                        FontFamily="Segoe UI Variable Display"
+                        Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                </StackPanel>
             </Grid>
 
             <!-- Separator -->
             <Border
                 Grid.Row="1"
                 Grid.Column="0"
-                Grid.ColumnSpan="3"
+                Grid.ColumnSpan="8"
                 Height="1"
-                Background="{ThemeResource CardStrokeColorDefaultBrush}"
+                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
                 VerticalAlignment="Center" />
 
             <!-- Row 0 -->
             <TextBlock
-                x:Name="Label0"
+                x:Name="Number0"
                 Grid.Row="2"
-                Grid.Column="0"
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Right"
+                Margin="0,1,0,0"
+                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                FontSize="12"
+                FontFamily="Segoe UI Variable Text" />
+            <TextBlock
+                x:Name="Emoji0"
+                Grid.Row="2"
+                Grid.Column="3"
+                FontSize="14"
+                FontFamily="Segoe UI Emoji"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Center"
+                Margin="0,-2,0,0" />
+            <TextBlock
+                x:Name="Title0"
+                Grid.Row="2"
+                Grid.Column="5"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                FontSize="12"
+                FontWeight="SemiBold"
+                FontSize="13"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview0"
                 Grid.Row="2"
-                Grid.Column="2"
+                Grid.Column="7"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                Padding="0, 0, 12, 0"
+                Margin="0,-1.5,0,0"
                 FontSize="13"
                 FontFamily="Cascadia Code" />
 
             <!-- Row 1 -->
             <TextBlock
-                x:Name="Label1"
+                x:Name="Number1"
                 Grid.Row="3"
-                Grid.Column="0"
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Right"
+                Margin="0,1,0,0"
+                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                FontSize="12"
+                FontFamily="Segoe UI Variable Text" />
+            <TextBlock
+                x:Name="Emoji1"
+                Grid.Row="3"
+                Grid.Column="3"
+                FontSize="14"
+                FontFamily="Segoe UI Emoji"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Center"
+                Margin="0,-2,0,0" />
+            <TextBlock
+                x:Name="Title1"
+                Grid.Row="3"
+                Grid.Column="5"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                FontSize="12"
+                FontWeight="SemiBold"
+                FontSize="13"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview1"
                 Grid.Row="3"
-                Grid.Column="2"
+                Grid.Column="7"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                Padding="0, 0, 12, 0"
+                Margin="0,-1.5,0,0"
                 FontSize="13"
                 FontFamily="Cascadia Code" />
 
             <!-- Row 2 -->
             <TextBlock
-                x:Name="Label2"
+                x:Name="Number2"
                 Grid.Row="4"
-                Grid.Column="0"
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Right"
+                Margin="0,1,0,0"
+                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                FontSize="12"
+                FontFamily="Segoe UI Variable Text" />
+            <TextBlock
+                x:Name="Emoji2"
+                Grid.Row="4"
+                Grid.Column="3"
+                FontSize="14"
+                FontFamily="Segoe UI Emoji"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Center"
+                Margin="0,-2,0,0" />
+            <TextBlock
+                x:Name="Title2"
+                Grid.Row="4"
+                Grid.Column="5"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                FontSize="12"
+                FontWeight="SemiBold"
+                FontSize="13"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview2"
                 Grid.Row="4"
-                Grid.Column="2"
+                Grid.Column="7"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                Padding="0, 0, 12, 0"
+                Margin="0,-1.5,0,0"
                 FontSize="13"
                 FontFamily="Cascadia Code" />
 
             <!-- Row 3 -->
             <TextBlock
-                x:Name="Label3"
+                x:Name="Number3"
                 Grid.Row="5"
-                Grid.Column="0"
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Right"
+                Margin="0,1,0,0"
+                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                FontSize="12"
+                FontFamily="Segoe UI Variable Text" />
+            <TextBlock
+                x:Name="Emoji3"
+                Grid.Row="5"
+                Grid.Column="3"
+                FontSize="14"
+                FontFamily="Segoe UI Emoji"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Center"
+                Margin="0,-2,0,0" />
+            <TextBlock
+                x:Name="Title3"
+                Grid.Row="5"
+                Grid.Column="5"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                FontSize="12"
+                FontWeight="SemiBold"
+                FontSize="13"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview3"
                 Grid.Row="5"
-                Grid.Column="2"
+                Grid.Column="7"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                Padding="0, 0, 12, 0"
+                Margin="0,-1.5,0,0"
                 FontSize="13"
                 FontFamily="Cascadia Code" />
 
             <!-- Row 4 -->
             <TextBlock
-                x:Name="Label4"
+                x:Name="Number4"
                 Grid.Row="6"
-                Grid.Column="0"
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Right"
+                Margin="0,1,0,0"
+                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                FontSize="12"
+                FontFamily="Segoe UI Variable Text" />
+            <TextBlock
+                x:Name="Emoji4"
+                Grid.Row="6"
+                Grid.Column="3"
+                FontSize="14"
+                FontFamily="Segoe UI Emoji"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Center"
+                Margin="0,-2,0,0" />
+            <TextBlock
+                x:Name="Title4"
+                Grid.Row="6"
+                Grid.Column="5"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                FontSize="12"
+                FontWeight="SemiBold"
+                FontSize="13"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
                 x:Name="Preview4"
                 Grid.Row="6"
-                Grid.Column="2"
+                Grid.Column="7"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                Padding="0, 0, 12, 0"
+                Margin="0,-1.5,0,0"
                 FontSize="13"
                 FontFamily="Cascadia Code" />
+
+            <!-- Separator Above Footer -->
+            <Border
+                Grid.Row="7"
+                Grid.Column="0"
+                Grid.ColumnSpan="8"
+                Height="1"
+                Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                VerticalAlignment="Center" />
+
+            <!-- Footer Row -->
+            <Grid
+                Grid.Row="8"
+                Grid.Column="0"
+                Grid.ColumnSpan="8"
+                Padding="12, 0, 8, 0">
+                <TextBlock
+                    Text="Press to open"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    Margin="0,-3,0,0"
+                    FontSize="11"
+                    FontFamily="Segoe UI Variable Text"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="4"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Margin="0,-3,0,0">
+                    
+                    <Border
+                        Background="#313131"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="6,2,6,2"
+                        VerticalAlignment="Center">
+                        <TextBlock
+                            Text="Ctrl"
+                            FontSize="10"
+                            FontFamily="Segoe UI Variable Text"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Border>
+
+                    <Border
+                        Background="#313131"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="6,2,6,2"
+                        VerticalAlignment="Center">
+                        <TextBlock
+                            Text="Shift"
+                            FontSize="10"
+                            FontFamily="Segoe UI Variable Text"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Border>
+
+                    <Border
+                        Background="#313131"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="6,2,6,2"
+                        VerticalAlignment="Center">
+                        <TextBlock
+                            Text="Q"
+                            FontSize="10"
+                            FontFamily="Segoe UI Variable Text"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Border>
+
+                </StackPanel>
+            </Grid>
 
         </Grid>
     </Border>

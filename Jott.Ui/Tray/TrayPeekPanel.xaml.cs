@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
+using Windows.UI.Text;
 
 namespace Jott.Ui.Tray;
 
@@ -10,7 +11,9 @@ namespace Jott.Ui.Tray;
 /// </summary>
 public sealed partial class TrayPeekPanel : UserControl
 {
-    private readonly TextBlock[] labels;
+    private readonly TextBlock[] numbers;
+    private readonly TextBlock[] emojis;
+    private readonly TextBlock[] titles;
     private readonly TextBlock[] previews;
 
     /// <summary>
@@ -21,7 +24,9 @@ public sealed partial class TrayPeekPanel : UserControl
         InitializeComponent();
         AppNameTextBlock.Text = AppConstants.AppName;
 
-        labels = new TextBlock[] { Label0, Label1, Label2, Label3, Label4 };
+        numbers = new TextBlock[] { Number0, Number1, Number2, Number3, Number4 };
+        emojis = new TextBlock[] { Emoji0, Emoji1, Emoji2, Emoji3, Emoji4 };
+        titles = new TextBlock[] { Title0, Title1, Title2, Title3, Title4 };
         previews = new TextBlock[] { Preview0, Preview1, Preview2, Preview3, Preview4 };
     }
 
@@ -36,24 +41,38 @@ public sealed partial class TrayPeekPanel : UserControl
             return;
         }
 
-        int count = rows.Length < labels.Length ? rows.Length : labels.Length;
+        int count = rows.Length < titles.Length ? rows.Length : titles.Length;
         for (int i = 0; i < count; i++)
         {
             TrayPeekRow row = rows[i];
             if (row == null)
             {
-                labels[i].Text = string.Empty;
+                numbers[i].Text = string.Empty;
+                emojis[i].Text = string.Empty;
+                titles[i].Text = string.Empty;
                 previews[i].Text = string.Empty;
                 continue;
             }
 
-            labels[i].Text = row.Label;
-            previews[i].Text = row.Preview;
-            previews[i].Foreground = row.IsEmpty
-                ? GetThemeBrush("TextFillColorTertiaryBrush", Color.FromArgb(255, 136, 136, 136))
-                : GetThemeBrush("TextFillColorPrimaryBrush", Color.FromArgb(255, 224, 224, 224));
+            numbers[i].Text = row.Number.ToString();
+            emojis[i].Text = row.Emoji;
+            titles[i].Text = row.Title;
+            titles[i].FontStyle = FontStyle.Normal;
+            titles[i].Foreground = GetThemeBrush("TabViewItemHeaderForeground", Color.FromArgb(255, 153, 153, 153));
+
+            if (row.IsEmpty)
+            {
+                previews[i].Text = "(empty)";
+                previews[i].Foreground = GetThemeBrush("TextFillColorTertiaryBrush", Color.FromArgb(255, 136, 136, 136));
+            }
+            else
+            {
+                previews[i].Text = row.Preview;
+                previews[i].Foreground = GetThemeBrush("TextFillColorPrimaryBrush", Color.FromArgb(255, 224, 224, 224));
+            }
         }
     }
+
 
     private static Brush GetThemeBrush(string resourceKey, Color fallbackColor)
     {

@@ -42,7 +42,7 @@ internal static class TrayPeekRowBuilder
 
             if (string.IsNullOrEmpty(content))
             {
-                rows[slot] = new TrayPeekRow(label, EmptyPreview, true);
+                rows[slot] = new TrayPeekRow(i, emoji, title, EmptyPreview, true);
             }
             else
             {
@@ -53,7 +53,7 @@ internal static class TrayPeekRowBuilder
                     firstLine = content.Substring(0, newlineIndex);
                 }
 
-                rows[slot] = new TrayPeekRow(label, firstLine, false);
+                rows[slot] = new TrayPeekRow(i, emoji, title, firstLine, false);
             }
         }
 

@@ -5,18 +5,26 @@ namespace Jott.Ui.Tray;
 /// </summary>
 internal sealed class TrayPeekRow
 {
-    /// <summary>Emoji followed by the tab title, e.g. "📋 Scratch".</summary>
-    public string Label { get; }
+    /// <summary>The 1-based index/number of the buffer.</summary>
+    public int Number { get; }
 
-    /// <summary>First line of the buffer content, or the empty-state placeholder.</summary>
+    /// <summary>Emoji character(s) for the tab.</summary>
+    public string Emoji { get; }
+
+    /// <summary>Display title for the tab.</summary>
+    public string Title { get; }
+
+    /// <summary>First line of the buffer content, or empty if no content.</summary>
     public string Preview { get; }
 
-    /// <summary><c>true</c> when the buffer has no content; renders the preview as muted.</summary>
+    /// <summary><c>true</c> when the buffer has no content.</summary>
     public bool IsEmpty { get; }
 
-    public TrayPeekRow(string label, string preview, bool isEmpty)
+    public TrayPeekRow(int number, string emoji, string title, string preview, bool isEmpty)
     {
-        Label = label;
+        Number = number;
+        Emoji = emoji;
+        Title = title;
         Preview = preview;
         IsEmpty = isEmpty;
     }

@@ -19,6 +19,7 @@ public sealed partial class TrayPeekPanel : UserControl
     public TrayPeekPanel()
     {
         InitializeComponent();
+        AppNameTextBlock.Text = AppConstants.AppName;
 
         labels = new TextBlock[] { Label0, Label1, Label2, Label3, Label4 };
         previews = new TextBlock[] { Preview0, Preview1, Preview2, Preview3, Preview4 };

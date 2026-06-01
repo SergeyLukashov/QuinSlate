@@ -170,16 +170,9 @@ Buffer content remains in `buffer_1.json` … `buffer_5.json`, keyed by `id`.
 
 ## 7. Tray Tooltip
 
-Hover text is updated to display each tab's current emoji and title alongside its first
-line of content:
+When the peek preview window is enabled, the system tray icon tooltip is set to an empty string to suppress it, preventing it from competing with the custom peek preview UI.
 
-```
-📋 Scratch  — Meeting agenda draft…
-✅ Tasks    — [ ] Buy milk
-💡 Ideas    — App idea: offline-first…
-🔗 Links    — https://github.com/…
-📖 Notes    — (empty)
-```
+When the peek preview window is disabled, the tray icon tooltip is set to the static application name `"Jott"`, and no tab content or preview tooltip is shown on hover.
 
 ---
 

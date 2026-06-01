@@ -119,6 +119,7 @@ public sealed partial class BufferPanel : UserControl
     public BufferPanel()
     {
         InitializeComponent();
+        ToolTipService.SetToolTip(TitleBarIconImage, AppConstants.AppName);
     }
 
     /// <summary>

@@ -52,7 +52,7 @@ public sealed class HotkeyManager : IDisposable
         if (result == false)
         {
             var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
-            Debug.WriteLine($"[Jott] RegisterHotKey failed for Ctrl+Shift+Q. Win32 error: {error}");
+            Debug.WriteLine($"[{AppConstants.AppName}] RegisterHotKey failed for Ctrl+Shift+Q. Win32 error: {error}");
             return false;
         }
 

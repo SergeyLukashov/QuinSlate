@@ -26,7 +26,7 @@ public sealed partial class MainWindow : Window
     /// Title of the main window. Used by secondary instances to locate the
     /// existing window via <c>FindWindow</c> when handing off activation.
     /// </summary>
-    public const string WindowTitle = "JottMainWindow";
+    public const string WindowTitle = AppConstants.AppName + "MainWindow";
 
     private const int PanelDefaultWidth = 660;
     private const int PanelDefaultHeight = 560;
@@ -43,7 +43,7 @@ public sealed partial class MainWindow : Window
     private int pendingPositionY;
     private volatile bool isTornDown;
 
-    private const string AboutDialogTitle = "Jott";
+    private const string AboutDialogTitle = AppConstants.AppName;
     private const string AboutDialogContent = "Version 1.0.0\n\nHotkeys:\nShow / Hide: Ctrl+Shift+Q";
     private const string AboutDialogCloseButton = "OK";
 
@@ -114,7 +114,6 @@ public sealed partial class MainWindow : Window
         IReadOnlyList<Buffer> buffers = bufferService.LoadAll();
         IReadOnlyList<Jott.Ui.Models.TabDefinition> tabDefinitions = settingsService.GetTabs();
         Panel.Initialise(bufferService, buffers, settingsService, tabDefinitions);
-        Panel.TabLabelChanged += OnTabLabelChanged;
 
         windowHandle = WindowNative.GetWindowHandle(this);
         ConfigureWindowAppearance();
@@ -134,7 +133,7 @@ public sealed partial class MainWindow : Window
 
         string trayTooltip = settingsService.TrayPeekEnabled
             ? string.Empty
-            : BuildTrayTooltip(settingsService.GetTabs(), bufferService);
+            : AppConstants.AppName;
         trayIcon.Add(trayIconFilePath, trayTooltip);
 
         Closed += OnWindowClosed;
@@ -203,7 +202,12 @@ public sealed partial class MainWindow : Window
         {
             presenter.IsResizable = true;
             presenter.IsMaximizable = false;
-            presenter.IsMinimizable = false;
+
+            // Keep the window minimizable so the shell sends WM_SYSCOMMAND/
+            // SC_MINIMIZE when its taskbar button is clicked while active; the
+            // WndProc intercepts that to hide-to-tray instead of minimizing.
+            // No minimize button renders because the title bar is removed below.
+            presenter.IsMinimizable = true;
 
             // Keep the resize border but remove the system title bar and its
             // caption buttons; the panel draws its own pin and close buttons.
@@ -448,7 +452,7 @@ public sealed partial class MainWindow : Window
                 settingsService.TrayPeekEnabled = newPeekEnabled;
                 string tooltip = newPeekEnabled
                     ? string.Empty
-                    : BuildTrayTooltip(settingsService.GetTabs(), bufferService);
+                    : AppConstants.AppName;
                 if (trayIcon != null)
                 {
                     trayIcon.SetTooltip(tooltip);
@@ -632,71 +636,6 @@ public sealed partial class MainWindow : Window
         HidePanel();
     }
 
-    private void OnTabLabelChanged(object sender, EventArgs e)
-    {
-        if (trayIcon == null || settingsService == null || settingsService.TrayPeekEnabled)
-        {
-            return;
-        }
-
-        trayIcon.SetTooltip(BuildTrayTooltip(settingsService.GetTabs(), bufferService));
-    }
-
-    private static string BuildTrayTooltip(
-        IReadOnlyList<Jott.Ui.Models.TabDefinition> tabs,
-        BufferService bufferService)
-    {
-        if (tabs == null || bufferService == null)
-        {
-            return "Jott";
-        }
-
-        const int TrayTooltipMaxLength = 127;
-        const int MaxLineLength = 40;
-
-        var lines = new System.Text.StringBuilder();
-
-        for (int i = 0; i < tabs.Count; i++)
-        {
-            var tab = tabs[i];
-            var buffer = bufferService.GetBuffer(tab.Id);
-
-            string firstLine = string.Empty;
-            if (buffer != null && !string.IsNullOrEmpty(buffer.Content))
-            {
-                int newline = buffer.Content.IndexOf('\n');
-                firstLine = newline >= 0
-                    ? buffer.Content.Substring(0, newline).Trim()
-                    : buffer.Content.Trim();
-            }
-
-            string lineText = $"{tab.Emoji} {tab.Title}";
-            if (!string.IsNullOrEmpty(firstLine))
-            {
-                lineText = $"{lineText} — {firstLine}";
-            }
-
-            if (lineText.Length > MaxLineLength)
-            {
-                lineText = lineText.Substring(0, MaxLineLength - 1) + "…";
-            }
-
-            if (i > 0)
-            {
-                lines.Append('\n');
-            }
-
-            lines.Append(lineText);
-        }
-
-        string result = lines.ToString();
-        if (result.Length > TrayTooltipMaxLength)
-        {
-            result = result.Substring(0, TrayTooltipMaxLength);
-        }
-
-        return result;
-    }
 
     private void OnWindowClosed(object sender, WindowEventArgs args)
     {

@@ -13,9 +13,9 @@ namespace Jott.Ui;
 /// </summary>
 public partial class App : Application
 {
-    private const string AppDataFolderName = "Jott";
+    private const string AppDataFolderName = AppConstants.AppName;
     private const string TrayIconAssetRelativePath = "Assets\\Square44x44Logo.scale-200.png";
-    private const string MutexName = "Local\\JottSingleInstance";
+    private const string MutexName = "Local\\" + AppConstants.AppName + "SingleInstance";
     internal const int ExitCodeNormal = 0;
 
     private MainWindow window;
@@ -50,7 +50,7 @@ public partial class App : Application
         }
         catch (SynchronizationLockException ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[Jott] ReleaseSingleInstanceMutex: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[{AppConstants.AppName}] ReleaseSingleInstanceMutex: {ex.Message}");
         }
 
         singleInstanceMutex.Dispose();

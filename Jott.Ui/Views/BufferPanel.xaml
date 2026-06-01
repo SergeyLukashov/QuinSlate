@@ -84,11 +84,11 @@
                     VerticalAlignment="Stretch"
                     Background="Transparent">
                     <Image
+                        x:Name="TitleBarIconImage"
                         Source="ms-appx:///Assets/Square44x44Logo.scale-200.png"
                         Width="16"
                         Height="16"
-                        VerticalAlignment="Center"
-                        ToolTipService.ToolTip="Jott" />
+                        VerticalAlignment="Center" />
                 </Border>
             </TabView.TabStripHeader>
 

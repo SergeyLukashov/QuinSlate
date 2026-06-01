@@ -41,7 +41,7 @@
                 Grid.Column="0"
                 Grid.ColumnSpan="3">
                 <TextBlock
-                    Text="Jott"
+                    x:Name="AppNameTextBlock"
                     HorizontalAlignment="Left"
                     VerticalAlignment="Center"
                     FontSize="12"

@@ -13,7 +13,7 @@ namespace Jott.Ui.Services;
 public sealed class StartupService
 {
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string AppRegistryValueName = "Jott";
+    private const string AppRegistryValueName = AppConstants.AppName;
 
     private readonly SettingsService settingsService;
 

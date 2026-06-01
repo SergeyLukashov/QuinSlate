@@ -87,7 +87,7 @@ public sealed class TrayIcon : IDisposable
         if (addResult == false)
         {
             var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
-            Debug.WriteLine($"[Jott] Shell_NotifyIcon NIM_ADD failed. Win32 error: {error}");
+            Debug.WriteLine($"[{AppConstants.AppName}] Shell_NotifyIcon NIM_ADD failed. Win32 error: {error}");
             return false;
         }
 

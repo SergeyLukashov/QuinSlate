@@ -1,5 +1,7 @@
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Media.Animation;
 using System;
 using System.Collections.Generic;
 
@@ -46,10 +48,24 @@ public sealed class EmojiPicker
         cachedView = new EmojiPickerView();
         cachedView.EmojiClicked += OnEmojiClicked;
 
+        var presenterStyle = new Style(typeof(FlyoutPresenter));
+        presenterStyle.Setters.Add(new Setter(Control.CornerRadiusProperty, new CornerRadius(8)));
+
+        var transitions = new TransitionCollection
+        {
+            new EntranceThemeTransition
+            {
+                FromVerticalOffset = 8,
+                FromHorizontalOffset = 0
+            }
+        };
+        presenterStyle.Setters.Add(new Setter(UIElement.TransitionsProperty, transitions));
+
         cachedFlyout = new Flyout
         {
             Content = cachedView,
             Placement = FlyoutPlacementMode.Bottom,
+            FlyoutPresenterStyle = presenterStyle,
             AreOpenCloseAnimationsEnabled = false,
         };
     }

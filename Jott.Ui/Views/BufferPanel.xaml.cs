@@ -182,6 +182,7 @@ public sealed partial class BufferPanel : UserControl
 
         tabEditFlyout = new TabEditFlyout(emojiPicker, settingsService);
         tabEditFlyout.Saved += OnTabEditSaved;
+        tabEditFlyout.FlyoutClosed += OnTabEditFlyoutClosed;
 
         keyboardController = new BufferKeyboardController(
             BufferTabView,
@@ -474,7 +475,15 @@ public sealed partial class BufferPanel : UserControl
 
         // Forces the arrow cursor the instant the menu's windowed popup appears so the
         // busy/app-starting cursor never shows. See microsoft-ui-xaml#8829.
-        menuFlyout.Opened += (s, e) => ForceArrowCursor();
+        menuFlyout.Opened += (s, e) =>
+        {
+            ForceArrowCursor();
+            bool isActive = ReferenceEquals(BufferTabView.SelectedItem, tabItem);
+            if (!isActive)
+            {
+                SetMenuOpenIndicatorVisibility(tabItem, true);
+            }
+        };
 
         menuFlyout.Closing += (s, e) =>
         {
@@ -488,6 +497,10 @@ public sealed partial class BufferPanel : UserControl
         menuFlyout.Closed += (s, e) =>
         {
             ResetClearMenuItem(buffer.Index);
+            if (tabEditFlyout == null || !tabEditFlyout.IsOpen || tabEditFlyout.EditingTabIndex != buffer.Index)
+            {
+                SetMenuOpenIndicatorVisibility(tabItem, false);
+            }
         };
 
         tabItem.ContextFlyout = menuFlyout;
@@ -543,6 +556,16 @@ public sealed partial class BufferPanel : UserControl
         if (headerContainersByIndex.TryGetValue(bufferIndex, out Grid headerContainer))
         {
             tabEditFlyout.Open(bufferIndex, currentTab, headerContainer);
+
+            var tabItem = FindTabViewItem(bufferIndex);
+            if (tabItem != null)
+            {
+                bool isActive = ReferenceEquals(BufferTabView.SelectedItem, tabItem);
+                if (!isActive)
+                {
+                    SetMenuOpenIndicatorVisibility(tabItem, true);
+                }
+            }
         }
     }
 
@@ -550,6 +573,50 @@ public sealed partial class BufferPanel : UserControl
     {
         UpdateTabLabel(e.BufferIndex, e.Emoji, e.Title);
         TabLabelChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnTabEditFlyoutClosed(object sender, EventArgs e)
+    {
+        foreach (var obj in BufferTabView.TabItems)
+        {
+            if (obj is TabViewItem tabItem)
+            {
+                SetMenuOpenIndicatorVisibility(tabItem, false);
+            }
+        }
+    }
+
+    private TabViewItem FindTabViewItem(int bufferIndex)
+    {
+        foreach (var obj in BufferTabView.TabItems)
+        {
+            if (obj is TabViewItem tabItem && tabItem.Tag is int index && index == bufferIndex)
+            {
+                return tabItem;
+            }
+        }
+
+        return null;
+    }
+
+    private void SetMenuOpenIndicatorVisibility(TabViewItem tabItem, bool visible)
+    {
+        if (tabItem == null)
+        {
+            return;
+        }
+
+        Border indicator = VisualTreeHelpers.FindVisualChild<Border>(tabItem, "MenuOpenIndicator");
+        if (indicator != null)
+        {
+            indicator.Opacity = visible ? 1 : 0;
+        }
+
+        Border activeIndicator = VisualTreeHelpers.FindVisualChild<Border>(tabItem, "ActiveIndicator");
+        if (activeIndicator != null)
+        {
+            activeIndicator.Visibility = visible ? Visibility.Collapsed : Visibility.Visible;
+        }
     }
 
     private void OnTabDragCompleted(TabView sender, TabViewTabDragCompletedEventArgs args)

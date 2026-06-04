@@ -8,6 +8,21 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
+    <UserControl.Resources>
+        <Storyboard x:Name="ShowStoryboard">
+            <DoubleAnimation
+                x:Name="GridAnimation"
+                Storyboard.TargetName="GridTransform"
+                Storyboard.TargetProperty="Y"
+                From="12" To="0"
+                Duration="0:0:0.15">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut" />
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+    </UserControl.Resources>
+
     <Border
         x:Name="RootBorder"
         Background="Transparent"
@@ -18,6 +33,10 @@
         <Grid
             x:Name="RootGrid"
             Padding="0,6,0,6">
+
+            <Grid.RenderTransform>
+                <TranslateTransform x:Name="GridTransform" Y="0" />
+            </Grid.RenderTransform>
 
             <Grid.RowDefinitions>
                 <RowDefinition Height="26" />

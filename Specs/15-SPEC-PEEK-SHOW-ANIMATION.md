@@ -1,10 +1,10 @@
-# 15 — SPEC: Tray Peek Show Animation (POSTPONED — research base)
+# 15 — SPEC: Tray Peek Show Animation
 
-> **Status: postponed / not implemented.** This document is a record of what was
-> wanted, everything that was attempted, and what was discovered, so a future
-> attempt can start from the findings instead of repeating the dead ends. The
-> working tree was reverted to the non-animated baseline (commit `5efe4fe`, real
-> Mica backdrop, no entrance animation).
+> **Status: Implemented.** The entrance animation has been implemented as a hybrid transition 
+> combining a stationary window-level fade-in (via `SetLayeredWindowAttributes` over a 90ms timer) 
+> with a GPU-accelerated content-level slide-up/down (via a XAML Storyboard over 150ms). This 
+> ensures the entire window fades smoothly into view without janky window position updates, 
+> restoring the full Mica backdrop upon completion.
 
 ## Goal
 

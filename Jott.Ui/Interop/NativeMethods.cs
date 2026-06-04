@@ -58,6 +58,9 @@ internal static class NativeMethods
     public const uint WS_EX_APPWINDOW = 0x00040000;
     public const uint WS_EX_TOOLWINDOW = 0x00000080;
     public const uint WS_EX_NOACTIVATE = 0x08000000;
+    public const uint WS_EX_LAYERED = 0x00080000;
+
+    public const uint LWA_ALPHA = 0x00000002;
 
     public const int SW_SHOWNOACTIVATE = 4;
     public const int SW_HIDE = 0;
@@ -308,6 +311,17 @@ internal static class NativeMethods
     /// </summary>
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    /// <summary>
+    /// Sets the opacity and transparency color key of a layered window.
+    /// </summary>
+    /// <param name="hwnd">A handle to the layered window.</param>
+    /// <param name="crKey">A COLORREF structure that specifies the transparency color key.</param>
+    /// <param name="bAlpha">Alpha value used to describe the opacity of the layered window.</param>
+    /// <param name="dwFlags">Actions to take.</param>
+    /// <returns><c>true</c> if the function succeeds.</returns>
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetLayeredWindowAttributes(IntPtr hwnd, uint crKey, byte bAlpha, uint dwFlags);
 
     /// <summary>
     /// Retrieves the dimensions of the bounding rectangle of the specified window.

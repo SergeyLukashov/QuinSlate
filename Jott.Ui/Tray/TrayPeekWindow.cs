@@ -48,6 +48,15 @@ public sealed class TrayPeekWindow : IDisposable
 
     private DispatcherTimer hoverTimer;
     private DispatcherTimer showDelayTimer;
+    private DispatcherTimer animationTimer;
+    private int animationStep;
+    private int targetX;
+    private int targetY;
+    private int windowWidth;
+    private int windowHeight;
+    private const int AnimationSteps = 6;
+    private const int AnimationIntervalMs = 15;
+    private const int StartYOffsetLogical = 16;
     private bool isVisible;
     private bool disposed;
     private float dpiScale = 1.0f;
@@ -108,6 +117,7 @@ public sealed class TrayPeekWindow : IDisposable
             return;
         }
 
+        StopAnimationTimer();
         StopHoverTimer();
         NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_HIDE);
         isVisible = false;
@@ -124,6 +134,7 @@ public sealed class TrayPeekWindow : IDisposable
         disposed = true;
 
         StopShowDelayTimer();
+        StopAnimationTimer();
         StopHoverTimer();
 
         storedBufferService = null;
@@ -374,15 +385,83 @@ public sealed class TrayPeekWindow : IDisposable
         panel.SetRows(rows);
 
         NativeMethods.RECT iconRect = QueryIconRect(storedTrayHwnd, storedTrayIconId);
-        (int windowWidth, int windowHeight) = CalculatePhysicalWindowSize();
-        (int x, int y) = CalculatePosition(iconRect, windowWidth, windowHeight);
+        (windowWidth, windowHeight) = CalculatePhysicalWindowSize();
+        (targetX, targetY) = CalculatePosition(iconRect, windowWidth, windowHeight);
 
-        appWindow.MoveAndResize(new RectInt32(x, y, windowWidth, windowHeight));
+        appWindow.MoveAndResize(new RectInt32(targetX, targetY, windowWidth, windowHeight));
+
+        ApplyLayeredStyle();
+        SetWindowOpacity(0);
+
+        bool slideUp = targetY < iconRect.Top;
+        panel.PlayShowAnimation(slideUp);
 
         NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_SHOWNOACTIVATE);
         isVisible = true;
 
+        StartAnimationTimer();
         StartHoverTimer();
+    }
+
+    private void StartAnimationTimer()
+    {
+        StopAnimationTimer();
+
+        animationStep = 0;
+        animationTimer = new DispatcherTimer();
+        animationTimer.Interval = TimeSpan.FromMilliseconds(AnimationIntervalMs);
+        animationTimer.Tick += OnAnimationTimerTick;
+        animationTimer.Start();
+    }
+
+    private void StopAnimationTimer()
+    {
+        if (animationTimer == null)
+        {
+            return;
+        }
+
+        animationTimer.Stop();
+        animationTimer.Tick -= OnAnimationTimerTick;
+        animationTimer = null;
+    }
+
+    private void OnAnimationTimerTick(object sender, object e)
+    {
+        animationStep++;
+        if (animationStep > AnimationSteps)
+        {
+            StopAnimationTimer();
+            SetWindowOpacity(255);
+            RemoveLayeredStyle();
+            return;
+        }
+
+        float t = (float)animationStep / AnimationSteps;
+        float ease = 1.0f - (1.0f - t) * (1.0f - t);
+        byte opacity = (byte)(255 * ease);
+        SetWindowOpacity(opacity);
+    }
+
+    private void ApplyLayeredStyle()
+    {
+        IntPtr exStyle = NativeMethods.GetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE);
+        long bits = exStyle.ToInt64();
+        bits |= (long)NativeMethods.WS_EX_LAYERED;
+        NativeMethods.SetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(bits));
+    }
+
+    private void RemoveLayeredStyle()
+    {
+        IntPtr exStyle = NativeMethods.GetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE);
+        long bits = exStyle.ToInt64();
+        bits &= ~(long)NativeMethods.WS_EX_LAYERED;
+        NativeMethods.SetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(bits));
+    }
+
+    private void SetWindowOpacity(byte opacity)
+    {
+        NativeMethods.SetLayeredWindowAttributes(peekHwnd, 0, opacity, NativeMethods.LWA_ALPHA);
     }
 
     private void StartHoverTimer()

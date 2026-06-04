@@ -73,6 +73,18 @@ public sealed partial class TrayPeekPanel : UserControl
         }
     }
 
+    /// <summary>
+    /// Starts the GPU-accelerated entrance animation (slide up or down)
+    /// for the panel content.
+    /// </summary>
+    /// <param name="slideUp">Whether to slide up (from bottom) or down (from top).</param>
+    internal void PlayShowAnimation(bool slideUp)
+    {
+        double fromOffset = slideUp ? 12.0 : -12.0;
+        GridAnimation.From = fromOffset;
+        ShowStoryboard.Begin();
+    }
+
 
     private static Brush GetThemeBrush(string resourceKey, Color fallbackColor)
     {

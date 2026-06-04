@@ -13,7 +13,7 @@ When the tray peek window appears (on tray-icon hover, see
 entrance animation: the **whole window** should **fade in and slide up from the
 bottom**, similar to:
 
-- the app's own emoji picker entrance (`EntranceThemeTransition { FromVerticalOffset = 8 }` on the flyout presenter — see `Jott.Ui/Components/EmojiPicker.cs`), and
+- the app's own emoji picker entrance (`EntranceThemeTransition { FromVerticalOffset = 8 }` on the flyout presenter — see `QuinSlate.Ui/Components/EmojiPicker.cs`), and
 - Windows 11's own taskbar app-preview flyouts, which animate smoothly.
 
 The hard requirement that broke every attempt: the **background/frame must
@@ -21,15 +21,15 @@ animate too**, not just the text content inside the window.
 
 ## Relevant code
 
-- `Jott.Ui/Tray/TrayPeekWindow.cs` — borderless, **non-activating tool window**
+- `QuinSlate.Ui/Tray/TrayPeekWindow.cs` — borderless, **non-activating tool window**
   (`WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`, `HWND_TOPMOST`, subclassed `WndProc`
   returns `MA_NOACTIVATE`). Uses a manually-managed `MicaController`
   (`SetupActiveMicaBackdrop`) with `IsInputActive = true` so Mica stays "active"
   on a window that never gets focus. Shown via `appWindow.MoveAndResize(...)` +
   `ShowWindow(SW_SHOWNOACTIVATE)`.
-- `Jott.Ui/Tray/TrayPeekPanel.xaml(.cs)` — the content; root is
+- `QuinSlate.Ui/Tray/TrayPeekPanel.xaml(.cs)` — the content; root is
   `<Border x:Name="RootBorder" CornerRadius="12">`.
-- `Jott.Ui/Interop/NativeMethods.cs` — all P/Invoke.
+- `QuinSlate.Ui/Interop/NativeMethods.cs` — all P/Invoke.
 
 ## Attempts (chronological) and why each failed
 

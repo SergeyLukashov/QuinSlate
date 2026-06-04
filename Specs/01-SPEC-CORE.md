@@ -18,10 +18,10 @@ automatic saving to plain text files.
 
 Buffers persist as UTF-8 text files (with BOM):
 
-    %AppData%\Jott\buffer-1.txt
-    %AppData%\Jott\buffer-2.txt
+    %AppData%\QuinSlate\buffer-1.txt
+    %AppData%\QuinSlate\buffer-2.txt
     ...
-    %AppData%\Jott\buffer-7.txt
+    %AppData%\QuinSlate\buffer-7.txt
 
 The directory is created on first launch if it does not exist.
 A missing buffer file on startup is treated as an empty buffer — no error.

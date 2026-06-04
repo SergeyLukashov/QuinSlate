@@ -40,7 +40,7 @@ Write to `settings.json` on every toggle. Read on startup to restore state.
 ## Notes
 
 - `HWND_TOPMOST` does not prevent other topmost windows (e.g. Task
-  Manager, other pinned apps) from appearing above Jott. This is
+  Manager, other pinned apps) from appearing above QuinSlate. This is
   expected Windows behaviour — do not attempt to work around it.
 - The pin state is independent of panel visibility. Toggling the panel
   hidden and reshowing it must restore the pinned state, not reset it.

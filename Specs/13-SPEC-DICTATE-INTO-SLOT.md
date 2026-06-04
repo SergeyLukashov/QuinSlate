@@ -36,7 +36,7 @@ UI contract; the rest of this spec applies to both.
 ## Microphone permission
 
 The app manifest must declare the `microphone` capability. On first use
-of dictation, Windows shows a one-time system consent dialog. Jott has
+of dictation, Windows shows a one-time system consent dialog. QuinSlate has
 no control over this dialog. After the user grants permission, it does
 not appear again.
 
@@ -71,7 +71,7 @@ panel window and avoids registering a system-wide hook for dictation.
 
 - The mic button enters an active state (pulsing red dot).
 - A single-utterance recogniser starts. It listens until natural silence
-  is detected (the engine handles this; Jott does not implement VAD).
+  is detected (the engine handles this; QuinSlate does not implement VAD).
 - An 8-second hard timeout ends the session silently if no speech is
   detected. The timeout resets each time the user speaks.
 

@@ -5,21 +5,24 @@
 | UI framework | WinUI 3 (.NET 10) |
 | Tray icon | Win32 `Shell_NotifyIcon` via P/Invoke |
 | Global hotkeys | Win32 `RegisterHotKey` via P/Invoke |
-| Persistence | Plain `.txt` files in `%AppData%\Jott\` |
+| Persistence | Plain `.txt` files in `%AppData%\QuinSlate\` |
 | Always-on-top | Win32 `SetWindowPos` via P/Invoke |
-| Single instance | Named Mutex (`Local\JottSingleInstance`) |
+| Single instance | Named Mutex (`Local\QuinSlateSingleInstance`) |
 | Clipboard capture | `SendInput` + `WM_CLIPBOARDUPDATE` + `OpenClipboard` |
 
 WinUI 3 has no native tray API. All tray behaviour is Win32 via P/Invoke.
+
+> [!NOTE]
+> The application was renamed from **Jott** to **QuinSlate**. All namespaces, project names, settings paths, and mutex names have been updated accordingly.
 
 ---
 
 ## Sample project structure
 
 ```
-Jott/
-├── Jott.Ui/       # WinUI 3 desktop application source code and assets
-├── Jott.Tests/    # Unit tests for models and services
+QuinSlate/
+├── QuinSlate.Ui/       # WinUI 3 desktop application source code and assets
+├── QuinSlate.Tests/    # Unit tests for models and services
 ├── Specs/         # Product specifications and feature queue
 ```
 
@@ -88,7 +91,7 @@ Always use the WinUI 3 Expert agent when working with UI.
 To verify compilation during development, run:
 
 ```bash
-dotnet build Jott.slnx -p:Platform=x64
+dotnet build QuinSlate.slnx -p:Platform=x64
 ```
 
 ---
@@ -98,7 +101,7 @@ dotnet build Jott.slnx -p:Platform=x64
 After making significant changes, run the tests to verify correctness and catch regressions:
 
 ```bash
-dotnet test Jott.slnx -p:Platform=x64
+dotnet test QuinSlate.slnx -p:Platform=x64
 ```
 
 This must be done before considering any task complete.
@@ -110,7 +113,7 @@ This must be done before considering any task complete.
 After **every** task that writes, modifies, or generates any `.cs` file, run:
 
 ```bash
-dotnet format Jott.slnx
+dotnet format QuinSlate.slnx
 ```
 
 This applies to new files and edited files alike. Do not skip it for trivial changes.

@@ -32,7 +32,7 @@ Before dispatching, read the spec and determine whether the feature touches any 
 Call the `Agent` tool with the chosen type and a self-contained prompt that includes **all** of the following — the subagent has no session context:
 
 ```
-You are implementing feature N: <feature name> for the Jott WinUI 3 application.
+You are implementing feature N: <feature name> for the QuinSlate WinUI 3 application.
 
 ## Project context (from CLAUDE.md)
 <paste the full CLAUDE.md content here>
@@ -48,9 +48,9 @@ Implement everything described in the spec above. Follow all architecture rules 
 - No third-party NuGet packages
 - No regions, no magic numbers
 - XML doc comments on all public members in Interop/ and Services/
-- Run `dotnet build Jott.slnx -p:Platform=x64` to verify compilation
-- Run `dotnet test Jott.slnx -p:Platform=x64` to verify tests pass
-- Run `dotnet format Jott.slnx` after every .cs file change
+- Run `dotnet build QuinSlate.slnx -p:Platform=x64` to verify compilation
+- Run `dotnet test QuinSlate.slnx -p:Platform=x64` to verify tests pass
+- Run `dotnet format QuinSlate.slnx` after every .cs file change
 
 When done, report:
 STATUS: DONE
@@ -73,8 +73,8 @@ REASON: <specific blocker>
 
 Dispatch a second subagent (or run directly) to confirm:
 ```
-dotnet build Jott.slnx -p:Platform=x64
-dotnet test Jott.slnx -p:Platform=x64
+dotnet build QuinSlate.slnx -p:Platform=x64
+dotnet test QuinSlate.slnx -p:Platform=x64
 ```
 
 If either fails, dispatch a fix subagent with the error output and the original spec. Do not mark the feature done until both pass.

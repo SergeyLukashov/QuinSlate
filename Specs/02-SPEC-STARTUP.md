@@ -1,12 +1,12 @@
 # SPEC: Launch on startup
 
 ## What
-Register Jott to start automatically with Windows so the tray icon is
+Register QuinSlate to start automatically with Windows so the tray icon is
 always present without manual intervention.
 
 ## Behaviour
 
-- On first launch, Jott registers itself to run on startup. Default is on.
+- On first launch, QuinSlate registers itself to run on startup. Default is on.
 - The user can toggle this via the tray context menu (see SPEC_TRAY_MENU).
 - The current state of the toggle must reflect the actual registry value,
   not a cached preference — read the registry on each menu open.
@@ -16,8 +16,8 @@ always present without manual intervention.
 Write to the current user run key (no admin rights required):
 
     HKCU\Software\Microsoft\Windows\CurrentVersion\Run
-    Name  : "Jott"
-    Value : "<full absolute path to Jott.exe>"
+    Name  : "QuinSlate"
+    Value : "<full absolute path to QuinSlate.exe>"
 
 Enable:  create or overwrite the value.
 Disable: delete the value if it exists.

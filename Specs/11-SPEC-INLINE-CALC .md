@@ -2,7 +2,7 @@
 
 ## What
 When a line ends with `=` (with or without a preceding space) and the user
-types the `=` character, Jott evaluates the mathematical expression to the
+types the `=` character, QuinSlate evaluates the mathematical expression to the
 left of the `=` and appends the result on the same line — instantly,
 without pressing Enter.
 
@@ -57,7 +57,7 @@ This prevents firing on prose like `status =` or `name =`.
 ### Happy path
 
 1. User types `(450 + 38.50) * 1.21 =`.
-2. On the `=` keypress, Jott evaluates the expression to the left.
+2. On the `=` keypress, QuinSlate evaluates the expression to the left.
 3. The line is rewritten in place to:
 
        (450 + 38.50) * 1.21 = 594.785

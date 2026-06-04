@@ -51,7 +51,7 @@ Execute in this exact order:
 
 8. **Confirm with tray notification**: show a `NIF_INFO` balloon:
 
-       Title:   Jott
+       Title:   QuinSlate
        Body:    Captured to buffer N
        Timeout: 2000 ms
 

@@ -172,7 +172,7 @@ Buffer content remains in `buffer_1.json` … `buffer_5.json`, keyed by `id`.
 
 When the peek preview window is enabled, the system tray icon tooltip is set to an empty string to suppress it, preventing it from competing with the custom peek preview UI.
 
-When the peek preview window is disabled, the tray icon tooltip is set to the static application name `"Jott"`, and no tab content or preview tooltip is shown on hover.
+When the peek preview window is disabled, the tray icon tooltip is set to the static application name `"QuinSlate"`, and no tab content or preview tooltip is shown on hover.
 
 ---
 

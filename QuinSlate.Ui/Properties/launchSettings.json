@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "QuinSlate.Ui (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "QuinSlate.Ui (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

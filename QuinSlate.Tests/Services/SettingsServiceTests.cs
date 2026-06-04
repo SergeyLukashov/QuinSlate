@@ -135,6 +135,17 @@ public sealed class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task LoadAsync_FileWithoutTrayPeekEnabled_DefaultsToTrue()
+    {
+        var json = "{\"HasRegisteredStartup\":false}";
+        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json);
+
+        await settingsService.LoadAsync();
+
+        Assert.True(settingsService.TrayPeekEnabled);
+    }
+
+    [Fact]
     public void WindowLeft_Default_IsZero()
     {
         Assert.Equal(0, settingsService.WindowLeft);
@@ -233,5 +244,11 @@ public sealed class SettingsServiceTests : IDisposable
         Assert.Equal(2, recent.Count);
         Assert.Equal("⭐", recent[0]);
         Assert.Equal("🔥", recent[1]);
+    }
+
+    [Fact]
+    public void TrayPeekEnabled_Default_IsTrue()
+    {
+        Assert.True(settingsService.TrayPeekEnabled);
     }
 }

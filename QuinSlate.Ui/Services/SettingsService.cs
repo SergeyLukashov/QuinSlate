@@ -105,7 +105,7 @@ public sealed class SettingsService
     }
 
     /// <summary>
-    /// Whether the tray peek preview window is shown on hover. Disabled by default.
+    /// Whether the tray peek preview window is shown on hover. Enabled by default.
     /// </summary>
     public bool TrayPeekEnabled
     {
@@ -305,7 +305,7 @@ public sealed class SettingsService
         public bool HasSavedPosition { get; set; }
         public int WindowLeft { get; set; }
         public int WindowTop { get; set; }
-        public bool TrayPeekEnabled { get; set; }
+        public bool TrayPeekEnabled { get; set; } = true;
         public bool IsPinned { get; set; }
         public List<SettingsService.TabEntry> Tabs { get; set; }
         public List<string> RecentEmoji { get; set; }

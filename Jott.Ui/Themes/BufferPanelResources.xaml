@@ -130,8 +130,7 @@
                         </Grid>
 
                         <VisualStateManager.VisualStateGroups>
-                            <VisualStateGroup x:Name="CommonStates">
-                                <VisualState x:Name="Normal">
+                            <VisualStateGroup x:Name="CommonStates">                                <VisualState x:Name="Normal">
                                     <Storyboard>
                                         <DoubleAnimation Storyboard.TargetName="ActiveIndicator"
                                                          Storyboard.TargetProperty="Opacity"
@@ -149,26 +148,12 @@
                                                 <CubicEase EasingMode="EaseOut" />
                                             </DoubleAnimation.EasingFunction>
                                         </DoubleAnimation>
-                                        <ColorAnimation Storyboard.TargetName="ActiveIndicatorBrush"
-                                                        Storyboard.TargetProperty="Color"
-                                                        To="{ThemeResource TabViewItemHeaderHoverIndicatorColor}"
-                                                        Duration="{StaticResource HoverIndicatorAnimationDuration}">
-                                            <ColorAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </ColorAnimation.EasingFunction>
-                                        </ColorAnimation>
-                                        <ColorAnimation Storyboard.TargetName="TextForegroundBrush"
-                                                        Storyboard.TargetProperty="Color"
-                                                        To="{ThemeResource TabViewItemHeaderForegroundColor}"
-                                                        Duration="{StaticResource HoverIndicatorAnimationDuration}">
-                                            <ColorAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </ColorAnimation.EasingFunction>
-                                        </ColorAnimation>
                                     </Storyboard>
                                     <VisualState.Setters>
                                         <Setter Target="TabBackground.Background" Value="Transparent" />
                                         <Setter Target="ContentPresenter.FontWeight" Value="Normal" />
+                                        <Setter Target="TextForegroundBrush.Color" Value="{ThemeResource TabViewItemHeaderForegroundColor}" />
+                                        <Setter Target="ActiveIndicatorBrush.Color" Value="{ThemeResource TabViewItemHeaderHoverIndicatorColor}" />
                                     </VisualState.Setters>
                                 </VisualState>
                                 <VisualState x:Name="PointerOver">
@@ -189,25 +174,11 @@
                                                 <CubicEase EasingMode="EaseOut" />
                                             </DoubleAnimation.EasingFunction>
                                         </DoubleAnimation>
-                                        <ColorAnimation Storyboard.TargetName="ActiveIndicatorBrush"
-                                                        Storyboard.TargetProperty="Color"
-                                                        To="{ThemeResource TabViewItemHeaderHoverIndicatorColor}"
-                                                        Duration="{StaticResource HoverIndicatorAnimationDuration}">
-                                            <ColorAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </ColorAnimation.EasingFunction>
-                                        </ColorAnimation>
-                                        <ColorAnimation Storyboard.TargetName="TextForegroundBrush"
-                                                        Storyboard.TargetProperty="Color"
-                                                        To="{ThemeResource TabViewItemHeaderForegroundColor}"
-                                                        Duration="{StaticResource HoverIndicatorAnimationDuration}">
-                                            <ColorAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </ColorAnimation.EasingFunction>
-                                        </ColorAnimation>
                                     </Storyboard>
                                     <VisualState.Setters>
                                         <Setter Target="TabBackground.Background" Value="Transparent" />
+                                        <Setter Target="TextForegroundBrush.Color" Value="{ThemeResource TabViewItemHeaderForegroundColor}" />
+                                        <Setter Target="ActiveIndicatorBrush.Color" Value="{ThemeResource TabViewItemHeaderHoverIndicatorColor}" />
                                     </VisualState.Setters>
                                 </VisualState>
                                 <VisualState x:Name="Pressed">
@@ -228,25 +199,11 @@
                                                 <CubicEase EasingMode="EaseOut" />
                                             </DoubleAnimation.EasingFunction>
                                         </DoubleAnimation>
-                                        <ColorAnimation Storyboard.TargetName="ActiveIndicatorBrush"
-                                                         Storyboard.TargetProperty="Color"
-                                                         To="{ThemeResource TabViewItemHeaderHoverIndicatorColor}"
-                                                         Duration="{StaticResource HoverIndicatorAnimationDuration}">
-                                            <ColorAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </ColorAnimation.EasingFunction>
-                                        </ColorAnimation>
-                                        <ColorAnimation Storyboard.TargetName="TextForegroundBrush"
-                                                         Storyboard.TargetProperty="Color"
-                                                         To="{ThemeResource TabViewItemHeaderForegroundColor}"
-                                                         Duration="{StaticResource HoverIndicatorAnimationDuration}">
-                                            <ColorAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </ColorAnimation.EasingFunction>
-                                        </ColorAnimation>
                                     </Storyboard>
                                     <VisualState.Setters>
                                         <Setter Target="TabBackground.Background" Value="Transparent" />
+                                        <Setter Target="TextForegroundBrush.Color" Value="{ThemeResource TabViewItemHeaderForegroundColor}" />
+                                        <Setter Target="ActiveIndicatorBrush.Color" Value="{ThemeResource TabViewItemHeaderHoverIndicatorColor}" />
                                     </VisualState.Setters>
                                 </VisualState>
                                 <VisualState x:Name="Selected">
@@ -267,25 +224,11 @@
                                                 <CubicEase EasingMode="EaseOut" />
                                             </DoubleAnimation.EasingFunction>
                                         </DoubleAnimation>
-                                        <ColorAnimation Storyboard.TargetName="ActiveIndicatorBrush"
-                                                        Storyboard.TargetProperty="Color"
-                                                        To="{ThemeResource SystemAccentColor}"
-                                                        Duration="{StaticResource ActiveIndicatorAnimationDuration}">
-                                            <ColorAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </ColorAnimation.EasingFunction>
-                                        </ColorAnimation>
-                                        <ColorAnimation Storyboard.TargetName="TextForegroundBrush"
-                                                        Storyboard.TargetProperty="Color"
-                                                        To="{ThemeResource TabViewItemHeaderForegroundSelectedColor}"
-                                                        Duration="{StaticResource ActiveIndicatorAnimationDuration}">
-                                            <ColorAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </ColorAnimation.EasingFunction>
-                                        </ColorAnimation>
                                     </Storyboard>
                                     <VisualState.Setters>
                                         <Setter Target="TabBackground.Background" Value="Transparent" />
+                                        <Setter Target="TextForegroundBrush.Color" Value="{ThemeResource TabViewItemHeaderForegroundSelectedColor}" />
+                                        <Setter Target="ActiveIndicatorBrush.Color" Value="{ThemeResource SystemAccentColor}" />
                                     </VisualState.Setters>
                                 </VisualState>
                                 <VisualState x:Name="PointerOverSelected">
@@ -306,25 +249,11 @@
                                                 <CubicEase EasingMode="EaseOut" />
                                             </DoubleAnimation.EasingFunction>
                                         </DoubleAnimation>
-                                        <ColorAnimation Storyboard.TargetName="ActiveIndicatorBrush"
-                                                        Storyboard.TargetProperty="Color"
-                                                        To="{ThemeResource SystemAccentColor}"
-                                                        Duration="{StaticResource ActiveIndicatorAnimationDuration}">
-                                            <ColorAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </ColorAnimation.EasingFunction>
-                                        </ColorAnimation>
-                                        <ColorAnimation Storyboard.TargetName="TextForegroundBrush"
-                                                        Storyboard.TargetProperty="Color"
-                                                        To="{ThemeResource TabViewItemHeaderForegroundSelectedColor}"
-                                                        Duration="{StaticResource ActiveIndicatorAnimationDuration}">
-                                            <ColorAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </ColorAnimation.EasingFunction>
-                                        </ColorAnimation>
                                     </Storyboard>
                                     <VisualState.Setters>
                                         <Setter Target="TabBackground.Background" Value="Transparent" />
+                                        <Setter Target="TextForegroundBrush.Color" Value="{ThemeResource TabViewItemHeaderForegroundSelectedColor}" />
+                                        <Setter Target="ActiveIndicatorBrush.Color" Value="{ThemeResource SystemAccentColor}" />
                                     </VisualState.Setters>
                                 </VisualState>
                                 <VisualState x:Name="PressedSelected">
@@ -345,25 +274,11 @@
                                                 <CubicEase EasingMode="EaseOut" />
                                             </DoubleAnimation.EasingFunction>
                                         </DoubleAnimation>
-                                        <ColorAnimation Storyboard.TargetName="ActiveIndicatorBrush"
-                                                        Storyboard.TargetProperty="Color"
-                                                        To="{ThemeResource SystemAccentColor}"
-                                                        Duration="{StaticResource ActiveIndicatorAnimationDuration}">
-                                            <ColorAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </ColorAnimation.EasingFunction>
-                                        </ColorAnimation>
-                                        <ColorAnimation Storyboard.TargetName="TextForegroundBrush"
-                                                        Storyboard.TargetProperty="Color"
-                                                        To="{ThemeResource TabViewItemHeaderForegroundSelectedColor}"
-                                                        Duration="{StaticResource ActiveIndicatorAnimationDuration}">
-                                            <ColorAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </ColorAnimation.EasingFunction>
-                                        </ColorAnimation>
                                     </Storyboard>
                                     <VisualState.Setters>
                                         <Setter Target="TabBackground.Background" Value="Transparent" />
+                                        <Setter Target="TextForegroundBrush.Color" Value="{ThemeResource TabViewItemHeaderForegroundSelectedColor}" />
+                                        <Setter Target="ActiveIndicatorBrush.Color" Value="{ThemeResource SystemAccentColor}" />
                                     </VisualState.Setters>
                                 </VisualState>
                             </VisualStateGroup>

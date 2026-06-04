@@ -68,6 +68,7 @@ public sealed partial class MainWindow : Window
     private bool isAboutDialogOpen;
     private bool isPinned;
     private bool isInitialised;
+    private bool isContextMenuOpen;
 
     /// <summary>
     /// Constructs the window. Call <see cref="Initialise"/> immediately
@@ -424,6 +425,11 @@ public sealed partial class MainWindow : Window
 
     private void OnTrayMouseHovered(object sender, EventArgs e)
     {
+        if (isContextMenuOpen)
+        {
+            return;
+        }
+
         if (trayPeekWindow != null && settingsService != null && settingsService.TrayPeekEnabled)
         {
             trayPeekWindow.Show(bufferService, settingsService, windowHandle, TrayIconId);
@@ -444,6 +450,13 @@ public sealed partial class MainWindow : Window
         {
             return;
         }
+
+        if (trayPeekWindow != null)
+        {
+            trayPeekWindow.Hide();
+        }
+
+        isContextMenuOpen = true;
 
         bool startupEnabled = startupService.IsEnabled();
         bool peekEnabled = settingsService != null && settingsService.TrayPeekEnabled;
@@ -482,7 +495,11 @@ public sealed partial class MainWindow : Window
             },
             onExit: () => ExitApplication(),
             startupEnabled: startupEnabled,
-            peekEnabled: peekEnabled
+            peekEnabled: peekEnabled,
+            onClose: () =>
+            {
+                isContextMenuOpen = false;
+            }
         );
     }
 

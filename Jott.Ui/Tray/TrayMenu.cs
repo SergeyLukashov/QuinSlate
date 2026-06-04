@@ -39,6 +39,8 @@ public sealed class TrayMenu
     private const int OffscreenY = -32000;
 
     private Window menuWindow;
+    private Action onCloseAction;
+    private bool isTornDown;
 
     /// <summary>
     /// Displays the modernized tray context menu near the current cursor position.
@@ -50,6 +52,7 @@ public sealed class TrayMenu
     /// <param name="onExit">Action invoked when the Exit item is clicked.</param>
     /// <param name="startupEnabled">Whether the "Launch on startup" item is checked.</param>
     /// <param name="peekEnabled">Whether the "Peek preview" item is checked.</param>
+    /// <param name="onClose">Action invoked when the tray menu is closed.</param>
     public void Show(
         Action onOpen,
         Action onToggleStartup,
@@ -57,8 +60,12 @@ public sealed class TrayMenu
         Action onAbout,
         Action onExit,
         bool startupEnabled,
-        bool peekEnabled)
+        bool peekEnabled,
+        Action onClose = null)
     {
+        onCloseAction = onClose;
+        isTornDown = false;
+
         NativeMethods.POINT cursor;
         if (NativeMethods.GetCursorPos(out cursor) == false)
         {
@@ -294,10 +301,18 @@ public sealed class TrayMenu
 
     private void Teardown()
     {
+        if (isTornDown)
+        {
+            return;
+        }
+        isTornDown = true;
+
         if (menuWindow != null)
         {
             menuWindow.Close();
             menuWindow = null;
         }
+
+        onCloseAction?.Invoke();
     }
 }

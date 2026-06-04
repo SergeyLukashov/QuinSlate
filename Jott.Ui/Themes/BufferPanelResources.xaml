@@ -74,7 +74,7 @@
                                 CornerRadius="{TemplateBinding CornerRadius}"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Top"
-                                Margin="6,3,0,0">
+                                Margin="0,3,0,0">
                             <Grid>
                                 <!-- Header content (Emoji, title, edit button) -->
                                 <ContentPresenter x:Name="ContentPresenter"
@@ -92,10 +92,10 @@
                         </Border>
 
                         <!-- Indication bar under active tab, perfectly aligned at bottom of row.
-                             The grid is inset by the same left margin (6) as the TabBackground
+                             The grid is inset by the same left margin (0) as the TabBackground
                              pill so its bounds match the visible tab exactly; this keeps the
                              5%/90%/5% column split tracking the pill rather than the full row. -->
-                        <Grid VerticalAlignment="Bottom" Height="2" Margin="6,0,0,0">
+                        <Grid VerticalAlignment="Bottom" Height="2" Margin="0,0,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="5*" />
                                 <ColumnDefinition Width="90*" />

@@ -63,6 +63,90 @@
                 <Thickness x:Key="TabViewItemLeftScrollButtonContainerPadding">0,0,0,3</Thickness>
                 <Thickness x:Key="TabViewItemRightScrollButtonContainerPadding">0,0,0,3</Thickness>
 
+                <Style x:Key="TabViewScrollButtonStyle" TargetType="RepeatButton">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="Foreground" Value="{ThemeResource TabViewScrollButtonForeground}" />
+                    <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+                    <Setter Property="FontSize" Value="{ThemeResource TabViewItemScrollButonFontSize}" />
+                    <Setter Property="FontFamily" Value="{ThemeResource SymbolThemeFontFamily}" />
+                    <Setter Property="Width" Value="{ThemeResource TabViewItemScrollButtonWidth}" />
+                    <Setter Property="Height" Value="{ThemeResource TabViewItemScrollButtonHeight}" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="BorderBrush" Value="Transparent" />
+                    <Setter Property="FocusVisualMargin" Value="-3" />
+                    <Setter Property="ManipulationMode" Value="None" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="RepeatButton">
+                                <ContentPresenter x:Name="ContentPresenter"
+                                                  Background="{TemplateBinding Background}"
+                                                  BorderBrush="{TemplateBinding BorderBrush}"
+                                                  BorderThickness="{TemplateBinding BorderThickness}"
+                                                  BackgroundSizing="{TemplateBinding BackgroundSizing}"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  ContentTransitions="{TemplateBinding ContentTransitions}"
+                                                  CornerRadius="{TemplateBinding CornerRadius}"
+                                                  FontSize="{TemplateBinding FontSize}"
+                                                  FontFamily="{TemplateBinding FontFamily}"
+                                                  FontWeight="{TemplateBinding FontWeight}"
+                                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  AutomationProperties.AccessibilityView="Raw"
+                                                  Opacity="0.6">
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal" />
+                                            <VisualState x:Name="PointerOver">
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="ContentPresenter"
+                                                                     Storyboard.TargetProperty="Opacity"
+                                                                     To="1.0"
+                                                                     Duration="0:0:0.1" />
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Background">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="Transparent" />
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="BorderBrush">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="Transparent" />
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                </Storyboard>
+                                            </VisualState>
+                                            <VisualState x:Name="Pressed">
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="ContentPresenter"
+                                                                     Storyboard.TargetProperty="Opacity"
+                                                                     To="0.8"
+                                                                     Duration="0:0:0.1" />
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Background">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="Transparent" />
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="BorderBrush">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="Transparent" />
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                </Storyboard>
+                                            </VisualState>
+                                            <VisualState x:Name="Disabled">
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="ContentPresenter"
+                                                                     Storyboard.TargetProperty="Opacity"
+                                                                     To="0.3"
+                                                                     Duration="0:0:0.1" />
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Background">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="Transparent" />
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                    <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="BorderBrush">
+                                                        <DiscreteObjectKeyFrame KeyTime="0" Value="Transparent" />
+                                                    </ObjectAnimationUsingKeyFrames>
+                                                </Storyboard>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                </ContentPresenter>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+
                 <!-- Modern WinUI tooltip shared by the pin and close buttons -->
                 <Style TargetType="ToolTip">
                     <Setter Property="Background" Value="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}" />
@@ -79,7 +163,7 @@
             <TabView.TabStripHeader>
                 <Border
                     x:Name="TitleBarIconDragArea"
-                    Padding="9,3,12,0"
+                    Padding="9,3,6,0"
                     MinHeight="{StaticResource TitleBarRowHeight}"
                     VerticalAlignment="Stretch"
                     Background="Transparent">

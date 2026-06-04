@@ -12,12 +12,12 @@ internal static class TabStripCalculator
 
     /// <summary>
     /// Inter-tab gap baked into the left edge of each tab's <c>TabBackground</c> pill.
-    /// Must stay in sync with the pill's left <c>Margin</c> in BufferPanel.xaml (6).
+    /// Must stay in sync with the pill's left <c>Margin</c> in BufferPanelResources.xaml (0).
     /// </summary>
-    internal const double InterTabGapLeft = 6;
+    internal const double InterTabGapLeft = 0;
 
-    /// <summary>Fallback width of the title-bar icon area (TabStripHeader). Padding 10+12 + a 16px image = 38.</summary>
-    internal const double TitleBarHeaderFallbackWidth = 38;
+    /// <summary>Fallback width of the title-bar icon area (TabStripHeader). Padding 9+6 + a 20px image = 35.</summary>
+    internal const double TitleBarHeaderFallbackWidth = 35;
 
     /// <summary>Fallback width of the right-hand footer spacer (the <c>TitleBarButtonsClusterWidth</c> XAML resource).</summary>
     internal const double TitleBarFooterFallbackWidth = 92;
@@ -27,9 +27,9 @@ internal static class TabStripCalculator
 
     /// <summary>
     /// Horizontal chrome consumed by a tab around its header content in Equal mode:
-    /// the <c>TabViewItem</c> Padding (3 + 3) plus the <c>TabBackground</c> pill left Margin (6).
+    /// the <c>TabViewItem</c> Padding (3 + 3) plus the <c>TabBackground</c> pill left Margin (0).
     /// </summary>
-    internal const double TabHorizontalChrome = 12;
+    internal const double TabHorizontalChrome = 6;
 
     /// <summary>
     /// Fallback emoji width used when the emoji TextBlock has not yet been measured

@@ -30,8 +30,8 @@ public sealed partial class MainWindow : Window
 
     private const int PanelDefaultWidth = 660;
     private const int PanelDefaultHeight = 560;
-    private const int PanelMinWidth = 290;
-    private const int PanelMinHeight = 290;
+    private const int PanelMinWidth = 280;
+    private const int PanelMinHeight = 280;
     private const int PanelDefaultInset = 16;
     private const int SettingsDebounceMilliseconds = 500;
 

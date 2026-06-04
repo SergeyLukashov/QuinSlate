@@ -28,7 +28,7 @@
         Background="Transparent"
         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
         BorderThickness="1"
-        CornerRadius="12">
+        CornerRadius="{ThemeResource OverlayCornerRadius}">
 
         <Grid
             x:Name="RootGrid"
@@ -330,7 +330,7 @@
                     Margin="0,-3,0,0">
                     
                     <Border
-                        Background="#313131"
+                        Background="{ThemeResource ControlFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         CornerRadius="4"
@@ -344,7 +344,7 @@
                     </Border>
 
                     <Border
-                        Background="#313131"
+                        Background="{ThemeResource ControlFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         CornerRadius="4"
@@ -358,7 +358,7 @@
                     </Border>
 
                     <Border
-                        Background="#313131"
+                        Background="{ThemeResource ControlFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         CornerRadius="4"

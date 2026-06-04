@@ -14,7 +14,7 @@ namespace Jott.Ui;
 public partial class App : Application
 {
     private const string AppDataFolderName = AppConstants.AppName;
-    private const string TrayIconAssetRelativePath = "Assets\\Square44x44Logo.scale-200.png";
+    private const string TrayIconAssetRelativePath = "Assets\\TrayIcon.ico";
     private const string MutexName = "Local\\" + AppConstants.AppName + "SingleInstance";
     internal const int ExitCodeNormal = 0;
 

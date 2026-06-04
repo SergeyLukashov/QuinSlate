@@ -23,10 +23,10 @@ namespace Jott.Ui;
 public sealed partial class MainWindow : Window
 {
     /// <summary>
-    /// Title of the main window. Used by secondary instances to locate the
+    /// The visible window title, also used by secondary instances to locate the
     /// existing window via <c>FindWindow</c> when handing off activation.
     /// </summary>
-    public const string WindowTitle = AppConstants.AppName + "MainWindow";
+    public const string WindowTitle = AppConstants.AppName;
 
     private const int PanelDefaultWidth = 660;
     private const int PanelDefaultHeight = 560;
@@ -117,6 +117,7 @@ public sealed partial class MainWindow : Window
 
         windowHandle = WindowNative.GetWindowHandle(this);
         ConfigureWindowAppearance();
+        SetWindowIcon(trayIconFilePath);
         ConfigureTitleBar();
         SubclassWindowProc();
 
@@ -215,6 +216,21 @@ public sealed partial class MainWindow : Window
         }
 
         appWindow.Changed += OnAppWindowChanged;
+    }
+
+    private void SetWindowIcon(string iconFilePath)
+    {
+        if (appWindow == null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrEmpty(iconFilePath))
+        {
+            return;
+        }
+
+        appWindow.SetIcon(iconFilePath);
     }
 
     private NativeMethods.RECT GetPrimaryWorkArea()

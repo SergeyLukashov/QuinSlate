@@ -86,8 +86,8 @@
                     <Image
                         x:Name="TitleBarIconImage"
                         Source="ms-appx:///Assets/Square44x44Logo.scale-200.png"
-                        Width="16"
-                        Height="16"
+                        Width="20"
+                        Height="20"
                         VerticalAlignment="Center" />
                 </Border>
             </TabView.TabStripHeader>

@@ -6,6 +6,46 @@
     xmlns:local="using:QuinSlate.Ui">
     <Application.Resources>
         <ResourceDictionary>
+            <!-- ============================================================================
+                 SINGLE SOURCE OF TRUTH for the window/editor background gradient colours,
+                 warmed toward the logo palette (amber #F2900F and warm grey #98948D).
+
+                 Change the gradient HERE and nowhere else. Everything derives from these four
+                 colours: the XAML fallback brushes below reference them, and the C#
+                 DitheredGradientBrushFactory (the brush actually shown) plus MainWindow's
+                 flash-prevention fill READ them by key at runtime.
+                 ============================================================================ -->
+            <Color x:Key="AppGradientStartDark">#FF2B2B2B</Color>
+            <Color x:Key="AppGradientEndDark">#FF242424</Color>
+            <Color x:Key="AppGradientStartLight">#FFFDFDFB</Color>
+            <Color x:Key="AppGradientEndLight">#FFF5F5F3</Color>
+
+            <ResourceDictionary.ThemeDictionaries>
+                <!-- Fallback gradient brushes (shown only before the dithered brush is applied
+                     on load, or if it cannot be built). They reference the colours above so the
+                     palette stays single-sourced. The Default dictionary serves the dark theme. -->
+                <ResourceDictionary x:Key="Default">
+                    <LinearGradientBrush x:Key="AppBackgroundGradient" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="{ThemeResource AppGradientStartDark}" Offset="0" />
+                        <GradientStop Color="{ThemeResource AppGradientEndDark}" Offset="1" />
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <LinearGradientBrush x:Key="AppBackgroundGradient" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="{ThemeResource AppGradientStartLight}" Offset="0" />
+                        <GradientStop Color="{ThemeResource AppGradientEndLight}" Offset="1" />
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <LinearGradientBrush x:Key="AppBackgroundGradient" StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="{ThemeResource AppGradientStartDark}" Offset="0" />
+                        <GradientStop Color="{ThemeResource AppGradientEndDark}" Offset="1" />
+                    </LinearGradientBrush>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="AppBackgroundGradient" Color="{ThemeResource SystemColorWindowColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <ResourceDictionary Source="ms-appx:///Themes/TextBoxStyles.xaml" />

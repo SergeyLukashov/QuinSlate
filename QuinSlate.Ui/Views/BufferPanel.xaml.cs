@@ -90,6 +90,15 @@ public sealed partial class BufferPanel : UserControl
     private const int ClearConfirmCooldownMs = 500;
 
     /// <summary>
+    /// Debounces rebuilding the Win2D dithered background brushes while the window is being
+    /// resized. The dithered surfaces must be re-rendered at the new native pixel size (a
+    /// stretched dithered bitmap re-bands), but doing so on every <c>SizeChanged</c> tick
+    /// would thrash the GPU, so the rebuild is coalesced to the end of the resize.
+    /// </summary>
+    private DispatcherTimer ditheredRebuildTimer;
+    private const int DitheredRebuildDebounceMs = 90;
+
+    /// <summary>
     /// Raised when the user clicks the pin button. The caller should toggle
     /// the pinned state and call <see cref="SetPinned"/> to update the icon.
     /// </summary>
@@ -217,6 +226,13 @@ public sealed partial class BufferPanel : UserControl
         BufferTabView.SizeChanged += OnBufferTabViewSizeChanged;
         BufferTabView.Loaded += OnBufferTabViewLoaded;
         RootGrid.PreviewKeyDown += OnPanelPreviewKeyDown;
+
+        // The dithered background brushes are built once the panel is loaded (so ActualTheme,
+        // sizes and XamlRoot are resolved) and rebuilt on theme change and on resize. Until
+        // then the XAML gradient shows.
+        Loaded += OnPanelLoaded;
+        ActualThemeChanged += OnPanelActualThemeChanged;
+        RootGrid.SizeChanged += OnRootGridSizeChanged;
 
         UpdateEqualTabMaxWidth();
         RecomputeFirstTabLeadingGap();
@@ -516,6 +532,100 @@ public sealed partial class BufferPanel : UserControl
     private void ForceArrowCursor()
     {
         NativeMethods.SetCursor(NativeMethods.LoadCursor(IntPtr.Zero, NativeMethods.IDC_ARROW));
+    }
+
+    private void OnPanelLoaded(object sender, RoutedEventArgs e)
+    {
+        ApplyDitheredBackground();
+    }
+
+    private void OnPanelActualThemeChanged(FrameworkElement sender, object args)
+    {
+        ApplyDitheredBackground();
+    }
+
+    private void OnRootGridSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (ditheredRebuildTimer == null)
+        {
+            ditheredRebuildTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(DitheredRebuildDebounceMs),
+            };
+            ditheredRebuildTimer.Tick += OnDitheredRebuildTimerTick;
+        }
+
+        ditheredRebuildTimer.Stop();
+        ditheredRebuildTimer.Start();
+    }
+
+    private void OnDitheredRebuildTimerTick(object sender, object e)
+    {
+        ditheredRebuildTimer.Stop();
+        ApplyDitheredBackground();
+    }
+
+    /// <summary>
+    /// Builds the dithered gradient at each surface's native pixel size and applies it to the
+    /// window background and every editor (in all visual states). Rendering at native size is
+    /// required: a stretched dithered bitmap re-bands. When a brush cannot be built (the surface
+    /// is not yet laid out) the XAML gradient set in markup remains.
+    /// </summary>
+    private void ApplyDitheredBackground()
+    {
+        ImageBrush windowBrush = DitheredGradientBrushFactory.CreateForElement(RootGrid);
+        if (windowBrush != null)
+        {
+            RootGrid.Background = windowBrush;
+        }
+
+        // Every editor fills the same tab-content area, so one brush sized to the active editor
+        // is 1:1 for whichever tab is shown.
+        ImageBrush editorBrush = DitheredGradientBrushFactory.CreateForElement(GetActiveEditor());
+        if (editorBrush != null)
+        {
+            foreach (RichEditBox editor in editorsByBufferIndex.Values)
+            {
+                ApplyEditorDitheredBackground(editor, editorBrush);
+            }
+        }
+    }
+
+    private RichEditBox GetActiveEditor()
+    {
+        if (BufferTabView.SelectedItem is TabViewItem item && item.Tag is int index
+            && editorsByBufferIndex.TryGetValue(index, out RichEditBox editor))
+        {
+            return editor;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Paints a single editor with the dithered brush in every visual state. The default
+    /// <c>RichEditBox</c> template swaps its border background to the
+    /// <c>TextControlBackground*</c> theme resources on pointer-over/focus, so those keys are
+    /// overridden in the editor's own resource scope to keep the surface constant.
+    /// </summary>
+    private static void ApplyEditorDitheredBackground(RichEditBox editor, Brush brush)
+    {
+        editor.Background = brush;
+        editor.Resources["TextControlBackground"] = brush;
+        editor.Resources["TextControlBackgroundPointerOver"] = brush;
+        editor.Resources["TextControlBackgroundFocused"] = brush;
+
+        // The Focused/PointerOver visual states pin BorderElement.Background to the
+        // TextControlBackground* resources through ThemeResource, which is resolved when the
+        // state is entered — not when the resource is later swapped. The panel opens with the
+        // editor already focused, so re-enter the current state to force the setter to
+        // re-resolve to the freshly applied brush. Without this the focused editor keeps
+        // showing the stale (un-dithered) gradient.
+        if (editor.FocusState != FocusState.Unfocused)
+        {
+            VisualStateManager.GoToState(editor, "Normal", false);
+            VisualStateManager.GoToState(editor, "Focused", false);
+        }
     }
 
     private Brush GetThemeBrush(string key)

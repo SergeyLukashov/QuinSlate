@@ -9,6 +9,7 @@
 | Always-on-top | Win32 `SetWindowPos` via P/Invoke |
 | Single instance | Named Mutex (`Local\QuinSlateSingleInstance`) |
 | Clipboard capture | `SendInput` + `WM_CLIPBOARDUPDATE` + `OpenClipboard` |
+| Window/editor background | Per-pixel TPDF-dithered gradient into a `WriteableBitmap` (no external deps) |
 
 WinUI 3 has no native tray API. All tray behaviour is Win32 via P/Invoke.
 
@@ -17,13 +18,15 @@ WinUI 3 has no native tray API. All tray behaviour is Win32 via P/Invoke.
 
 ---
 
-## Sample project structure
+## Project structure
 
 ```
 QuinSlate/
-├── QuinSlate.Ui/       # WinUI 3 desktop application source code and assets
-├── QuinSlate.Tests/    # Unit tests for models and services
-├── Specs/         # Product specifications and feature queue
+├── QuinSlate.Ui/             # WinUI 3 desktop application source code and assets
+├── QuinSlate.Tests/          # Unit tests for models and services
+├── QuinSlate.AssetGenerator/ # Asset generator utility console app
+├── Specs/                    # Product specifications and feature queue
+├── Scratch/                  # Local-only scratchpad for temporary code/scripts
 ```
 
 ---
@@ -73,6 +76,49 @@ run first.
 
 Always use modern WinUI 3 controls. Some examples, documentation, and a comprehensive list of all available controls can be found in the [WinUI Gallery repository](https://github.com/microsoft/WinUI-Gallery).
 Always use the WinUI 3 Expert agent when working with UI.
+
+---
+
+## Background gradient (dithering)
+
+The window and editor surfaces are painted with a warm, logo-derived diagonal gradient (amber
+`#F2900F` / warm grey `#98948D`). A plain XAML `LinearGradientBrush` is **8-bit per channel and
+does not dither**, so on this dark, low-contrast ramp it shows visible "false-contour" banding
+lines. Acrylic/Mica hide this with their built-in noise layer, but those backdrops were removed.
+
+The fix is `DitheredGradientBrushFactory` (`Components/`). It computes the gradient **per pixel in
+floating point** and adds **triangular-PDF (TPDF) noise of ±1 quantization level before rounding**
+to 8-bit, then writes the pixels into a `WriteableBitmap` exposed as an opaque `ImageBrush`.
+Dithering *before* the quantization is the crucial part — it makes pixels near a band boundary
+round up/down at random in proportion to the sub-level fraction, smearing the boundary away. (Note
+what does **not** work: rendering an already-8-bit gradient and adding noise *on top* — the band
+edges are already baked in, so the contours stay and you just get grain. Direct2D's own gradient
+dithering via a high-precision stop collection was also too weak here. Both were tried.)
+
+Rules when touching this:
+
+- **Single source of truth for the colours: the `AppGradient{Start,End}{Dark,Light}` `Color`
+  resources in `App.xaml`.** Change the gradient there and nowhere else. Everything else derives
+  from them: `DitheredGradientBrushFactory` reads them by key at runtime (the brush actually shown),
+  the XAML fallback brushes (`AppBackgroundGradient` in `App.xaml`, `TextControlBackground*` in
+  `BufferPanelResources.xaml`) reference them via `ThemeResource`, and MainWindow's flash fill reads
+  them via `DitheredGradientBrushFactory.MidColor`. (XAML has no `x:Static` and code cannot reliably
+  read theme-keyed brushes, so the colours live in XAML resources and C# reads them by key.)
+- The brush is **opaque** — required so the native text caret stays visible and ClearType keeps
+  working (a transparent editor surface hides the caret).
+- The XAML `AppBackgroundGradient` / `TextControlBackground*` brushes are only a **fallback**, shown
+  before the dithered brush is applied on load (or if it cannot be built).
+- The dithered brush is applied in code on `Loaded`, and rebuilt on `ActualThemeChanged` and on
+  resize (`BufferPanel` debounces the resize rebuild; `TrayPeekPanel` is fixed-size). It overrides
+  `TextControlBackground*` in each editor's own resource scope so the focus/hover visual states
+  stay dithered, and re-enters the editor's visual state after applying (the focused state pins the
+  background via `ThemeResource` when entered and won't otherwise pick up the swapped brush).
+- **Render at native pixel size, never stretch.** Each surface's bitmap is built at that element's
+  DIP size × `XamlRoot.RasterizationScale` and shown 1:1. Dithering is a per-pixel pattern;
+  stretching the bitmap blurs it and the 8-bit output re-quantizes, which brings the banding
+  straight back — hence per-element sizing and rebuild on resize.
+- Gradient stops must be **collinear and monotonic** per channel; a non-monotonic or off-line
+  interior stop creates its own seam line independent of dithering.
 
 ---
 

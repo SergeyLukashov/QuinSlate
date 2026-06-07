@@ -16,7 +16,7 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid x:Name="RootGrid" Background="Transparent">
+    <Grid x:Name="RootGrid" Background="{ThemeResource AppBackgroundGradient}">
         <TabView
             x:Name="BufferTabView"
             IsAddTabButtonVisible="False"

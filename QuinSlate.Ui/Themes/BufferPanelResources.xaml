@@ -40,6 +40,7 @@
     <Duration x:Key="HoverIndicatorAnimationDuration">0:0:0.2</Duration>
     <Duration x:Key="ActiveIndicatorAnimationDuration">0:0:0.3</Duration>
 
+
     <Style TargetType="TabViewItem">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
@@ -384,9 +385,21 @@
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Default">
-            <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+            <!-- The editor/text-control surface reuses the warm app background gradient
+                 (defined globally as AppBackgroundGradient in App.xaml). Opaque keeps the
+                 native caret visible (it inverts the painted surface). -->
+            <LinearGradientBrush x:Key="TextControlBackground" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="{ThemeResource AppGradientStartDark}" Offset="0" />
+                <GradientStop Color="{ThemeResource AppGradientEndDark}" Offset="1" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="TextControlBackgroundPointerOver" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="{ThemeResource AppGradientStartDark}" Offset="0" />
+                <GradientStop Color="{ThemeResource AppGradientEndDark}" Offset="1" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="TextControlBackgroundFocused" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="{ThemeResource AppGradientStartDark}" Offset="0" />
+                <GradientStop Color="{ThemeResource AppGradientEndDark}" Offset="1" />
+            </LinearGradientBrush>
             <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
             <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
             <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
@@ -416,9 +429,21 @@
             <SolidColorBrush x:Key="TabViewItemHeaderHoverIndicatorBrush" Color="{ThemeResource TabViewItemHeaderHoverIndicatorColor}" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Light">
-            <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+            <!-- The editor/text-control surface reuses the warm app background gradient
+                 (defined globally as AppBackgroundGradient in App.xaml). Opaque keeps the
+                 native caret visible (it inverts the painted surface). -->
+            <LinearGradientBrush x:Key="TextControlBackground" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="{ThemeResource AppGradientStartLight}" Offset="0" />
+                <GradientStop Color="{ThemeResource AppGradientEndLight}" Offset="1" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="TextControlBackgroundPointerOver" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="{ThemeResource AppGradientStartLight}" Offset="0" />
+                <GradientStop Color="{ThemeResource AppGradientEndLight}" Offset="1" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="TextControlBackgroundFocused" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="{ThemeResource AppGradientStartLight}" Offset="0" />
+                <GradientStop Color="{ThemeResource AppGradientEndLight}" Offset="1" />
+            </LinearGradientBrush>
             <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
             <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
             <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
@@ -448,9 +473,20 @@
             <SolidColorBrush x:Key="TabViewItemHeaderHoverIndicatorBrush" Color="{ThemeResource TabViewItemHeaderHoverIndicatorColor}" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
-            <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+            <!-- The editor/text-control surface reuses the warm app background gradient
+                 (defined globally as AppBackgroundGradient in App.xaml). -->
+            <LinearGradientBrush x:Key="TextControlBackground" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="{ThemeResource AppGradientStartDark}" Offset="0" />
+                <GradientStop Color="{ThemeResource AppGradientEndDark}" Offset="1" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="TextControlBackgroundPointerOver" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="{ThemeResource AppGradientStartDark}" Offset="0" />
+                <GradientStop Color="{ThemeResource AppGradientEndDark}" Offset="1" />
+            </LinearGradientBrush>
+            <LinearGradientBrush x:Key="TextControlBackgroundFocused" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="{ThemeResource AppGradientStartDark}" Offset="0" />
+                <GradientStop Color="{ThemeResource AppGradientEndDark}" Offset="1" />
+            </LinearGradientBrush>
             <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
             <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
             <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
@@ -480,9 +516,10 @@
             <SolidColorBrush x:Key="TabViewItemHeaderHoverIndicatorBrush" Color="{ThemeResource TabViewItemHeaderHoverIndicatorColor}" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
-            <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
-            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+            <!-- High contrast: a flat system window colour, not a gradient, so contrast rules are respected. -->
+            <SolidColorBrush x:Key="TextControlBackground" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
             <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
             <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />

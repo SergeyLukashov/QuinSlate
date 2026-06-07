@@ -2,6 +2,7 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using QuinSlate.Ui.Components;
 using QuinSlate.Ui.Interop;
 using QuinSlate.Ui.Services;
 using QuinSlate.Ui.Tray;
@@ -51,6 +52,11 @@ public sealed partial class MainWindow : Window
     private IntPtr originalWndProc;
     private IntPtr windowHandle;
     private AppWindow appWindow;
+
+    // Fills the bare Win32 window surface during WM_ERASEBKGND so it never flashes white/black
+    // before the WinUI compositor presents its first frame. The fill is the mid-tone of the
+    // per-theme background gradient, read from the single colour source (see App.xaml).
+    private WindowBackgroundBrush backgroundBrush;
 
     private const uint TrayIconId = 1;
 
@@ -121,6 +127,15 @@ public sealed partial class MainWindow : Window
         SetWindowIcon(trayIconFilePath);
         ConfigureTitleBar();
         SubclassWindowProc();
+
+        backgroundBrush = new WindowBackgroundBrush(
+            DitheredGradientBrushFactory.MidColor(false),
+            DitheredGradientBrushFactory.MidColor(true));
+        backgroundBrush.SetTheme(IsDarkTheme());
+        if (Content is FrameworkElement contentRoot)
+        {
+            contentRoot.ActualThemeChanged += OnContentActualThemeChanged;
+        }
 
         hotkeyManager = new HotkeyManager(windowHandle);
         hotkeyManager.RegisterDefaultHotkey();
@@ -333,8 +348,37 @@ public sealed partial class MainWindow : Window
         originalWndProc = NativeMethods.SetWindowLongPtr(windowHandle, NativeMethods.GWLP_WNDPROC, newWndProcPtr);
     }
 
+    private bool IsDarkTheme()
+    {
+        if (Content is FrameworkElement contentRoot)
+        {
+            return contentRoot.ActualTheme == ElementTheme.Dark;
+        }
+        return true;
+    }
+
+    private void OnContentActualThemeChanged(FrameworkElement sender, object args)
+    {
+        if (backgroundBrush != null)
+        {
+            backgroundBrush.SetTheme(IsDarkTheme());
+        }
+    }
+
     private IntPtr WindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
+        if (msg == NativeMethods.WM_ERASEBKGND)
+        {
+            // Paint the bare window surface with the theme-matched background instead of letting
+            // DefWindowProc erase it white. This is the surface that shows between the window
+            // becoming visible and the WinUI compositor presenting its first frame — the blank
+            // flash. wParam is the device context to erase into.
+            if (backgroundBrush != null && backgroundBrush.Erase(hWnd, wParam))
+            {
+                return new IntPtr(1);
+            }
+        }
+
         if (msg == NativeMethods.WM_GETMINMAXINFO)
         {
             float scale = NativeMethods.GetDpiForWindow(hWnd) / 96.0f;
@@ -546,6 +590,12 @@ public sealed partial class MainWindow : Window
         }
 
         newWndProc = null;
+
+        if (backgroundBrush != null)
+        {
+            backgroundBrush.Dispose();
+            backgroundBrush = null;
+        }
 
         if (trayPeekWindow != null)
         {

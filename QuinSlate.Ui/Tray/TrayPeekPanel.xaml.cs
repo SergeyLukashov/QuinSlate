@@ -1,5 +1,7 @@
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using QuinSlate.Ui.Components;
 using Windows.UI;
 using Windows.UI.Text;
 
@@ -23,6 +25,11 @@ public sealed partial class TrayPeekPanel : UserControl
     {
         InitializeComponent();
         AppNameTextBlock.Text = AppConstants.AppName;
+
+        // The dithered background is applied on load (so ActualTheme is resolved) and rebuilt
+        // on theme change; until then the XAML gradient on RootBorder shows.
+        Loaded += OnPanelLoaded;
+        ActualThemeChanged += OnPanelActualThemeChanged;
 
         numbers = new TextBlock[] { Number0, Number1, Number2, Number3, Number4 };
         emojis = new TextBlock[] { Emoji0, Emoji1, Emoji2, Emoji3, Emoji4 };
@@ -85,6 +92,31 @@ public sealed partial class TrayPeekPanel : UserControl
         ShowStoryboard.Begin();
     }
 
+
+    private void OnPanelLoaded(object sender, RoutedEventArgs e)
+    {
+        ApplyDitheredBackground();
+    }
+
+    private void OnPanelActualThemeChanged(FrameworkElement sender, object args)
+    {
+        ApplyDitheredBackground();
+    }
+
+    /// <summary>
+    /// Replaces the peek window's XAML gradient with the dithered gradient for the current theme
+    /// so it matches the main panel and does not band. Rendered at the panel's native pixel size
+    /// (a stretched dithered bitmap re-bands). When a brush cannot be built the XAML gradient on
+    /// RootBorder remains.
+    /// </summary>
+    private void ApplyDitheredBackground()
+    {
+        ImageBrush brush = DitheredGradientBrushFactory.CreateForElement(RootBorder);
+        if (brush != null)
+        {
+            RootBorder.Background = brush;
+        }
+    }
 
     private static Brush GetThemeBrush(string resourceKey, Color fallbackColor)
     {

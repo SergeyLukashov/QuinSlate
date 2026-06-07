@@ -25,9 +25,7 @@
 
     <Border
         x:Name="RootBorder"
-        Background="Transparent"
-        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-        BorderThickness="1"
+        Background="{ThemeResource AppBackgroundGradient}"
         CornerRadius="{ThemeResource OverlayCornerRadius}">
 
         <Grid

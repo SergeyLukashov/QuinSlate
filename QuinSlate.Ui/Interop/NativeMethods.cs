@@ -80,6 +80,8 @@ internal static class NativeMethods
     public const uint WM_SYSCOMMAND = 0x0112;
     public const int SC_MINIMIZE = 0xF020;
 
+    public const uint WM_ERASEBKGND = 0x0014;
+
     public static readonly IntPtr IDI_APPLICATION = new IntPtr(32512);
 
     public static readonly IntPtr IDC_ARROW = new IntPtr(32512);
@@ -262,6 +264,36 @@ internal static class NativeMethods
     /// </summary>
     [DllImport("user32.dll")]
     public static extern uint GetDpiForWindow(IntPtr hWnd);
+
+    /// <summary>
+    /// Retrieves the coordinates of a window's client area, in client-area pixels
+    /// (the top-left corner is always (0, 0)).
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool GetClientRect(IntPtr hWnd, out RECT lpRect);
+
+    /// <summary>
+    /// Fills the rectangle <paramref name="lprc"/> on device context <paramref name="hDC"/>
+    /// using the GDI brush <paramref name="hbr"/>. Used to paint the window background during
+    /// <see cref="WM_ERASEBKGND"/> so the bare Win32 surface never shows white before the WinUI
+    /// compositor presents its first frame.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern int FillRect(IntPtr hDC, ref RECT lprc, IntPtr hbr);
+
+    /// <summary>
+    /// Creates a solid GDI brush of the given color. <paramref name="color"/> is a COLORREF
+    /// (<c>0x00BBGGRR</c>). The brush must be released with <see cref="DeleteObject"/>.
+    /// </summary>
+    [DllImport("gdi32.dll")]
+    public static extern IntPtr CreateSolidBrush(uint color);
+
+    /// <summary>
+    /// Deletes a GDI object (such as a brush created by <see cref="CreateSolidBrush"/>),
+    /// freeing the resources it uses.
+    /// </summary>
+    [DllImport("gdi32.dll")]
+    public static extern bool DeleteObject(IntPtr hObject);
 
     /// <summary>
     /// Enumerates display monitors that intersect the given clipping rectangle,

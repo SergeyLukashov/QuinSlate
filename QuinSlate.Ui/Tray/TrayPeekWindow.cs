@@ -1,5 +1,3 @@
-using Microsoft.UI.Composition;
-using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using QuinSlate.Ui.Interop;
@@ -7,7 +5,6 @@ using QuinSlate.Ui.Services;
 using System;
 using System.Runtime.InteropServices;
 using Windows.Graphics;
-using WinRT;
 using WinRT.Interop;
 using Buffer = QuinSlate.Ui.Models.Buffer;
 
@@ -39,9 +36,6 @@ public sealed class TrayPeekWindow : IDisposable
     private Window peekWindow;
     private TrayPeekPanel panel;
     private AppWindow appWindow;
-    private MicaController micaController;
-    private SystemBackdropConfiguration backdropConfiguration;
-    private FrameworkElement backdropThemeElement;
     private IntPtr peekHwnd;
     private NativeMethods.WndProcDelegate subclassDelegate;
     private IntPtr originalWndProc;
@@ -140,21 +134,6 @@ public sealed class TrayPeekWindow : IDisposable
         storedBufferService = null;
         storedSettingsService = null;
 
-        if (backdropThemeElement != null)
-        {
-            backdropThemeElement.Loaded -= OnBackdropElementLoaded;
-            backdropThemeElement.ActualThemeChanged -= OnBackdropThemeChanged;
-            backdropThemeElement = null;
-        }
-
-        if (micaController != null)
-        {
-            micaController.Dispose();
-            micaController = null;
-        }
-
-        backdropConfiguration = null;
-
         if (peekWindow != null)
         {
             if (originalWndProc != IntPtr.Zero && peekHwnd != IntPtr.Zero)
@@ -193,93 +172,9 @@ public sealed class TrayPeekWindow : IDisposable
         ApplyNonActivatingStyles();
         ConfigurePresenter();
         SubclassWndProc();
-        SetupActiveMicaBackdrop();
 
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(peekHwnd);
         appWindow = AppWindow.GetFromWindowId(windowId);
-    }
-
-    /// <summary>
-    /// Drives Mica through a manually managed <see cref="MicaController"/> instead of
-    /// the auto-managed <see cref="Microsoft.UI.Xaml.Media.MicaBackdrop"/>. The peek
-    /// window is a non-activating tool window, so it never receives focus and the
-    /// auto-managed backdrop would keep <c>IsInputActive = false</c> forever, causing
-    /// <see cref="MicaController"/> to paint its flat inactive fallback color. By owning
-    /// the <see cref="SystemBackdropConfiguration"/> we force <c>IsInputActive = true</c>
-    /// permanently so Mica samples the desktop wallpaper in its active, non-uniform state.
-    /// </summary>
-    private void SetupActiveMicaBackdrop()
-    {
-        if (MicaController.IsSupported() == false)
-        {
-            return;
-        }
-
-        backdropConfiguration = new SystemBackdropConfiguration();
-        backdropConfiguration.IsInputActive = true;
-
-        backdropThemeElement = peekWindow.Content as FrameworkElement;
-        if (backdropThemeElement != null)
-        {
-            // ActualTheme is read again on Loaded because, at setup time, the panel's
-            // visual tree is not yet attached and ActualTheme returns the framework
-            // default (Light) rather than the resolved system/app theme. Reading the
-            // stale value here would make MicaController paint its Light-theme tint
-            // (visibly warmer/brownish) while the main window's MicaBackdrop paints the
-            // real system theme, producing the tone mismatch. ActualThemeChanged alone
-            // is insufficient: it only fires on a change, not on the initial resolve.
-            ApplyResolvedBackdropTheme();
-            backdropThemeElement.Loaded += OnBackdropElementLoaded;
-            backdropThemeElement.ActualThemeChanged += OnBackdropThemeChanged;
-        }
-
-        micaController = new MicaController();
-        micaController.Kind = MicaKind.Base;
-        micaController.SetSystemBackdropConfiguration(backdropConfiguration);
-        micaController.AddSystemBackdropTarget(peekWindow.As<ICompositionSupportsSystemBackdrop>());
-    }
-
-    private void OnBackdropElementLoaded(object sender, RoutedEventArgs args)
-    {
-        ApplyResolvedBackdropTheme();
-    }
-
-    private void OnBackdropThemeChanged(FrameworkElement sender, object args)
-    {
-        ApplyResolvedBackdropTheme();
-    }
-
-    /// <summary>
-    /// Copies the backdrop theme element's currently resolved <see cref="FrameworkElement.ActualTheme"/>
-    /// into the <see cref="SystemBackdropConfiguration"/> so the manually managed
-    /// <see cref="MicaController"/> computes the same Light/Dark tint defaults the main
-    /// window's auto-managed <see cref="Microsoft.UI.Xaml.Media.MicaBackdrop"/> uses. No
-    /// explicit tint, luminosity, or fallback values are set, so the controller keeps its
-    /// system defaults and matches the main window's tone exactly.
-    /// </summary>
-    private void ApplyResolvedBackdropTheme()
-    {
-        if (backdropConfiguration == null || backdropThemeElement == null)
-        {
-            return;
-        }
-
-        backdropConfiguration.Theme = MapTheme(backdropThemeElement.ActualTheme);
-    }
-
-    private static SystemBackdropTheme MapTheme(ElementTheme theme)
-    {
-        if (theme == ElementTheme.Dark)
-        {
-            return SystemBackdropTheme.Dark;
-        }
-
-        if (theme == ElementTheme.Light)
-        {
-            return SystemBackdropTheme.Light;
-        }
-
-        return SystemBackdropTheme.Default;
     }
 
     private void ApplyNonActivatingStyles()

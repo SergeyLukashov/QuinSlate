@@ -419,7 +419,7 @@
             <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#22FFFFFF" />
             <Color x:Key="TabViewItemHeaderForegroundColor">#99FFFFFF</Color>
             <Color x:Key="TabViewItemHeaderForegroundPointerOverColor">#E6FFFFFF</Color>
-            <Color x:Key="TabViewItemHeaderForegroundPressedColor">#E6FFFFFF</Color>
+            <Color x:Key="TabViewItemHeaderForegroundPressedColor">White</Color>
             <Color x:Key="TabViewItemHeaderForegroundSelectedColor">White</Color>
             <SolidColorBrush x:Key="TabViewItemHeaderForeground" Color="{ThemeResource TabViewItemHeaderForegroundColor}" />
             <SolidColorBrush x:Key="TabViewItemHeaderForegroundPointerOver" Color="{ThemeResource TabViewItemHeaderForegroundPointerOverColor}" />
@@ -461,9 +461,9 @@
             <SolidColorBrush x:Key="TabViewItemHeaderBackgroundInactivePointerOver" Color="#22000000" />
             <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="#22000000" />
             <SolidColorBrush x:Key="TabViewItemHeaderBackgroundPressed" Color="#22000000" />
-            <Color x:Key="TabViewItemHeaderForegroundColor">#66000000</Color>
+            <Color x:Key="TabViewItemHeaderForegroundColor">#B0000000</Color>
             <Color x:Key="TabViewItemHeaderForegroundPointerOverColor">#E6000000</Color>
-            <Color x:Key="TabViewItemHeaderForegroundPressedColor">#E6000000</Color>
+            <Color x:Key="TabViewItemHeaderForegroundPressedColor">Black</Color>
             <Color x:Key="TabViewItemHeaderForegroundSelectedColor">Black</Color>
             <SolidColorBrush x:Key="TabViewItemHeaderForeground" Color="{ThemeResource TabViewItemHeaderForegroundColor}" />
             <SolidColorBrush x:Key="TabViewItemHeaderForegroundPointerOver" Color="{ThemeResource TabViewItemHeaderForegroundPointerOverColor}" />

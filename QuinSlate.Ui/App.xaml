@@ -10,15 +10,26 @@
                  SINGLE SOURCE OF TRUTH for the window/editor background gradient colours,
                  warmed toward the logo palette (amber #F2900F and warm grey #98948D).
 
-                 Change the gradient HERE and nowhere else. Everything derives from these four
-                 colours: the XAML fallback brushes below reference them, and the C#
+                 The background is a four-corner BILINEAR MESH, not a straight ramp. Each
+                 corner of the surface has its own colour and every pixel is a smooth blend of
+                 the four (see DitheredGradientBrushFactory). The Start/End colours are the
+                 diagonal endpoints (top-left / bottom-right); CornerTR/CornerBL are the other
+                 two corners. The top-right corner carries a faint "whisper of amber" warmth;
+                 the rest stay near-neutral so the field reads as dim, organic depth.
+
+                 Change the gradient HERE and nowhere else. Everything derives from these
+                 colours: the XAML fallback brushes below reference Start/End, and the C#
                  DitheredGradientBrushFactory (the brush actually shown) plus MainWindow's
                  flash-prevention fill READ them by key at runtime.
                  ============================================================================ -->
             <Color x:Key="AppGradientStartDark">#FF2B2B2B</Color>
             <Color x:Key="AppGradientEndDark">#FF242424</Color>
+            <Color x:Key="AppGradientCornerTRDark">#FF302B23</Color>
+            <Color x:Key="AppGradientCornerBLDark">#FF262626</Color>
             <Color x:Key="AppGradientStartLight">#FFFDFDFB</Color>
             <Color x:Key="AppGradientEndLight">#FFF5F5F3</Color>
+            <Color x:Key="AppGradientCornerTRLight">#FFFCF7EF</Color>
+            <Color x:Key="AppGradientCornerBLLight">#FFF8F8F6</Color>
 
             <ResourceDictionary.ThemeDictionaries>
                 <!-- Fallback gradient brushes (shown only before the dithered brush is applied

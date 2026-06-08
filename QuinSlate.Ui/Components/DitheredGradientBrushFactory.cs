@@ -9,19 +9,25 @@ using Windows.UI;
 namespace QuinSlate.Ui.Components;
 
 /// <summary>
-/// Builds an opaque <see cref="ImageBrush"/> containing a diagonal two-colour gradient that is
-/// dithered so it does not show 8-bit colour banding ("false contouring") on a dark,
+/// Builds an opaque <see cref="ImageBrush"/> containing a four-corner bilinear gradient mesh that
+/// is dithered so it does not show 8-bit colour banding ("false contouring") on a dark,
 /// low-contrast ramp.
 /// </summary>
 /// <remarks>
-/// The gradient is computed per pixel in floating point and a symmetric triangular-PDF (TPDF)
-/// noise of +/- 1 quantization level is added <b>before</b> rounding to 8-bit. Dithering the
-/// value before it is quantized is what removes the banding: near a band boundary, pixels round
-/// up or down at random in proportion to the sub-level fraction, smearing the boundary away. (A
-/// plain XAML <see cref="LinearGradientBrush"/> quantizes with no dither, and adding noise on top
-/// of an already-quantized gradient does not help — the band edges are already baked in.) TPDF of
-/// 1 level is the minimum that fully decorrelates the quantization error, so the grain is far
-/// below what an additive overlay would need.
+/// Each corner of the surface has its own colour (top-left, top-right, bottom-left, bottom-right);
+/// every pixel is a smooth bilinear blend of the four. This gives an organic, non-linear colour
+/// field with subtle directional depth rather than a flat ramp, while staying dim. Bilinear
+/// interpolation is C0-continuous with no interior creases, so it introduces no banding seams of
+/// its own; the low contrast still requires dithering.
+///
+/// The colour is computed per pixel in floating point and a symmetric triangular-PDF (TPDF) noise
+/// of +/- 1 quantization level is added <b>before</b> rounding to 8-bit. Dithering the value
+/// before it is quantized is what removes the banding: near a band boundary, pixels round up or
+/// down at random in proportion to the sub-level fraction, smearing the boundary away. (A plain
+/// XAML <see cref="LinearGradientBrush"/> quantizes with no dither, and adding noise on top of an
+/// already-quantized gradient does not help — the band edges are already baked in.) TPDF of 1
+/// level is the minimum that fully decorrelates the quantization error, so the grain is far below
+/// what an additive overlay would need.
 ///
 /// The bitmap MUST be rendered at the consuming element's native pixel size and shown 1:1
 /// (<see cref="Stretch.Fill"/> onto an element of the matching DIP size). Scaling a dithered
@@ -31,13 +37,18 @@ namespace QuinSlate.Ui.Components;
 /// </remarks>
 internal static class DitheredGradientBrushFactory
 {
-    // The gradient endpoint colours are the single source of truth and live in App.xaml as the
+    // The four mesh corner colours are the single source of truth and live in App.xaml as the
     // AppGradient* Color resources (see that file). They are read by key here so the dithered
-    // brush, the XAML fallback brushes, and MainWindow's flash fill all stay in sync.
-    private const string StartColorKeyDark = "AppGradientStartDark";
-    private const string EndColorKeyDark = "AppGradientEndDark";
-    private const string StartColorKeyLight = "AppGradientStartLight";
-    private const string EndColorKeyLight = "AppGradientEndLight";
+    // brush, the XAML fallback brushes, and MainWindow's flash fill all stay in sync. Start/End
+    // are the diagonal endpoints (top-left / bottom-right); CornerTR/CornerBL are the other two.
+    private const string TopLeftColorKeyDark = "AppGradientStartDark";
+    private const string BottomRightColorKeyDark = "AppGradientEndDark";
+    private const string TopRightColorKeyDark = "AppGradientCornerTRDark";
+    private const string BottomLeftColorKeyDark = "AppGradientCornerBLDark";
+    private const string TopLeftColorKeyLight = "AppGradientStartLight";
+    private const string BottomRightColorKeyLight = "AppGradientEndLight";
+    private const string TopRightColorKeyLight = "AppGradientCornerTRLight";
+    private const string BottomLeftColorKeyLight = "AppGradientCornerBLLight";
 
     private const int BytesPerPixel = 4;
 
@@ -59,7 +70,14 @@ internal static class DitheredGradientBrushFactory
 
         try
         {
-            return Create(StartColor(isDark), EndColor(isDark), element.ActualWidth, element.ActualHeight, scale);
+            return Create(
+                TopLeftColor(isDark),
+                TopRightColor(isDark),
+                BottomLeftColor(isDark),
+                BottomRightColor(isDark),
+                element.ActualWidth,
+                element.ActualHeight,
+                scale);
         }
         catch (Exception)
         {
@@ -68,28 +86,41 @@ internal static class DitheredGradientBrushFactory
     }
 
     /// <summary>
-    /// The flat mid-tone of the gradient for the given theme, used as the bare-window erase fill
-    /// that prevents a flash before the dithered brush is painted.
+    /// The flat mid-tone of the gradient mesh for the given theme (the average of the four corner
+    /// colours), used as the bare-window erase fill that prevents a flash before the dithered
+    /// brush is painted.
     /// </summary>
     public static Color MidColor(bool isDark)
     {
-        Color start = StartColor(isDark);
-        Color end = EndColor(isDark);
+        Color topLeft = TopLeftColor(isDark);
+        Color topRight = TopRightColor(isDark);
+        Color bottomLeft = BottomLeftColor(isDark);
+        Color bottomRight = BottomRightColor(isDark);
         return Color.FromArgb(
             0xFF,
-            (byte)((start.R + end.R) / 2),
-            (byte)((start.G + end.G) / 2),
-            (byte)((start.B + end.B) / 2));
+            (byte)((topLeft.R + topRight.R + bottomLeft.R + bottomRight.R) / 4),
+            (byte)((topLeft.G + topRight.G + bottomLeft.G + bottomRight.G) / 4),
+            (byte)((topLeft.B + topRight.B + bottomLeft.B + bottomRight.B) / 4));
     }
 
-    private static Color StartColor(bool isDark)
+    private static Color TopLeftColor(bool isDark)
     {
-        return ReadColor(isDark ? StartColorKeyDark : StartColorKeyLight);
+        return ReadColor(isDark ? TopLeftColorKeyDark : TopLeftColorKeyLight);
     }
 
-    private static Color EndColor(bool isDark)
+    private static Color TopRightColor(bool isDark)
     {
-        return ReadColor(isDark ? EndColorKeyDark : EndColorKeyLight);
+        return ReadColor(isDark ? TopRightColorKeyDark : TopRightColorKeyLight);
+    }
+
+    private static Color BottomLeftColor(bool isDark)
+    {
+        return ReadColor(isDark ? BottomLeftColorKeyDark : BottomLeftColorKeyLight);
+    }
+
+    private static Color BottomRightColor(bool isDark)
+    {
+        return ReadColor(isDark ? BottomRightColorKeyDark : BottomRightColorKeyLight);
     }
 
     private static Color ReadColor(string key)
@@ -105,16 +136,25 @@ internal static class DitheredGradientBrushFactory
         return Color.FromArgb(0xFF, 0x00, 0x00, 0x00);
     }
 
-    private static ImageBrush Create(Color startColor, Color endColor, double widthDips, double heightDips, double rasterizationScale)
+    private static ImageBrush Create(
+        Color topLeft,
+        Color topRight,
+        Color bottomLeft,
+        Color bottomRight,
+        double widthDips,
+        double heightDips,
+        double rasterizationScale)
     {
         int width = Math.Max(1, (int)Math.Round(widthDips * rasterizationScale));
         int height = Math.Max(1, (int)Math.Round(heightDips * rasterizationScale));
 
         byte[] pixels = new byte[width * height * BytesPerPixel];
 
-        // Gradient runs corner-to-corner (StartPoint 0,0 -> EndPoint width,height), matching the
-        // XAML fallback. t is the projection of the pixel onto that diagonal, normalised to 0..1.
-        double diagonalLengthSquared = ((double)width * width) + ((double)height * height);
+        // u/v are the pixel's normalised position across the surface (0..1). The colour at each
+        // pixel is the bilinear blend of the four corner colours: interpolate the top and bottom
+        // edges horizontally by u, then blend those by v.
+        double uDenominator = width > 1 ? width - 1 : 1;
+        double vDenominator = height > 1 ? height - 1 : 1;
 
         uint rngState = 0x9E3779B9u ^ (uint)(width * 73856093) ^ (uint)(height * 19349663);
         if (rngState == 0)
@@ -125,23 +165,16 @@ internal static class DitheredGradientBrushFactory
         int index = 0;
         for (int y = 0; y < height; y++)
         {
+            double v = y / vDenominator;
             for (int x = 0; x < width; x++)
             {
-                double t = (((double)x * width) + ((double)y * height)) / diagonalLengthSquared;
-                if (t < 0.0)
-                {
-                    t = 0.0;
-                }
-                else if (t > 1.0)
-                {
-                    t = 1.0;
-                }
+                double u = x / uDenominator;
 
                 // BGRA order, opaque. Each channel is dithered independently because the channels
-                // band at different positions (their endpoint deltas differ).
-                pixels[index] = DitherChannel(startColor.B + (t * (endColor.B - startColor.B)), ref rngState);
-                pixels[index + 1] = DitherChannel(startColor.G + (t * (endColor.G - startColor.G)), ref rngState);
-                pixels[index + 2] = DitherChannel(startColor.R + (t * (endColor.R - startColor.R)), ref rngState);
+                // band at different positions (their corner deltas differ).
+                pixels[index] = DitherChannel(BilinearChannel(topLeft.B, topRight.B, bottomLeft.B, bottomRight.B, u, v), ref rngState);
+                pixels[index + 1] = DitherChannel(BilinearChannel(topLeft.G, topRight.G, bottomLeft.G, bottomRight.G, u, v), ref rngState);
+                pixels[index + 2] = DitherChannel(BilinearChannel(topLeft.R, topRight.R, bottomLeft.R, bottomRight.R, u, v), ref rngState);
                 pixels[index + 3] = 0xFF;
                 index += BytesPerPixel;
             }
@@ -159,6 +192,19 @@ internal static class DitheredGradientBrushFactory
             ImageSource = bitmap,
             Stretch = Stretch.Fill,
         };
+    }
+
+    /// <summary>
+    /// Bilinearly blends a single channel across the four corners: interpolates the top edge
+    /// (<paramref name="topLeft"/> to <paramref name="topRight"/>) and bottom edge
+    /// (<paramref name="bottomLeft"/> to <paramref name="bottomRight"/>) horizontally by
+    /// <paramref name="u"/>, then blends those vertically by <paramref name="v"/>.
+    /// </summary>
+    private static double BilinearChannel(byte topLeft, byte topRight, byte bottomLeft, byte bottomRight, double u, double v)
+    {
+        double top = topLeft + (u * (topRight - topLeft));
+        double bottom = bottomLeft + (u * (bottomRight - bottomLeft));
+        return top + (v * (bottom - top));
     }
 
     /// <summary>

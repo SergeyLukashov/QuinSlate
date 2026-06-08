@@ -53,7 +53,7 @@
                 <ColumnDefinition Width="8" />
                 <ColumnDefinition Width="10" />
                 <ColumnDefinition Width="20" />
-                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="4" />
                 <ColumnDefinition Width="65" />
                 <ColumnDefinition Width="12" />
                 <ColumnDefinition Width="*" />
@@ -114,15 +114,14 @@
                 FontSize="14"
                 FontFamily="Segoe UI Emoji"
                 VerticalAlignment="Center"
-                HorizontalAlignment="Center"
-                Margin="0,-2,0,0" />
+                HorizontalAlignment="Right"
+                Margin="0,-3,0,0" />
             <TextBlock
                 x:Name="Title0"
                 Grid.Row="2"
                 Grid.Column="5"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                FontWeight="SemiBold"
                 FontSize="13"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
@@ -154,15 +153,14 @@
                 FontSize="14"
                 FontFamily="Segoe UI Emoji"
                 VerticalAlignment="Center"
-                HorizontalAlignment="Center"
-                Margin="0,-2,0,0" />
+                HorizontalAlignment="Right"
+                Margin="0,-3,0,0" />
             <TextBlock
                 x:Name="Title1"
                 Grid.Row="3"
                 Grid.Column="5"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                FontWeight="SemiBold"
                 FontSize="13"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
@@ -194,15 +192,14 @@
                 FontSize="14"
                 FontFamily="Segoe UI Emoji"
                 VerticalAlignment="Center"
-                HorizontalAlignment="Center"
-                Margin="0,-2,0,0" />
+                HorizontalAlignment="Right"
+                Margin="0,-3,0,0" />
             <TextBlock
                 x:Name="Title2"
                 Grid.Row="4"
                 Grid.Column="5"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                FontWeight="SemiBold"
                 FontSize="13"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
@@ -234,15 +231,14 @@
                 FontSize="14"
                 FontFamily="Segoe UI Emoji"
                 VerticalAlignment="Center"
-                HorizontalAlignment="Center"
-                Margin="0,-2,0,0" />
+                HorizontalAlignment="Right"
+                Margin="0,-3,0,0" />
             <TextBlock
                 x:Name="Title3"
                 Grid.Row="5"
                 Grid.Column="5"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                FontWeight="SemiBold"
                 FontSize="13"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock
@@ -274,15 +270,14 @@
                 FontSize="14"
                 FontFamily="Segoe UI Emoji"
                 VerticalAlignment="Center"
-                HorizontalAlignment="Center"
-                Margin="0,-2,0,0" />
+                HorizontalAlignment="Right"
+                Margin="0,-3,0,0" />
             <TextBlock
                 x:Name="Title4"
                 Grid.Row="6"
                 Grid.Column="5"
                 VerticalAlignment="Center"
                 TextTrimming="CharacterEllipsis"
-                FontWeight="SemiBold"
                 FontSize="13"
                 FontFamily="Segoe UI Variable Text" />
             <TextBlock

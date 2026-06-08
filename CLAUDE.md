@@ -81,14 +81,18 @@ Always use the WinUI 3 Expert agent when working with UI.
 
 ## Background gradient (dithering)
 
-The window and editor surfaces are painted with a warm, logo-derived diagonal gradient (amber
-`#F2900F` / warm grey `#98948D`). A plain XAML `LinearGradientBrush` is **8-bit per channel and
-does not dither**, so on this dark, low-contrast ramp it shows visible "false-contour" banding
-lines. Acrylic/Mica hide this with their built-in noise layer, but those backdrops were removed.
+The window and editor surfaces are painted with a warm, logo-derived **four-corner bilinear
+gradient mesh** (amber `#F2900F` / warm grey `#98948D`). Each corner of the surface has its own
+colour and every pixel is the bilinear blend of the four; the top-right corner carries a faint
+"whisper of amber" warmth while the rest stay near-neutral, giving dim, organic, non-linear depth
+rather than a flat ramp. A plain XAML `LinearGradientBrush` is **8-bit per channel and does not
+dither**, so on this dark, low-contrast field it shows visible "false-contour" banding lines.
+Acrylic/Mica hide this with their built-in noise layer, but those backdrops were removed.
 
-The fix is `DitheredGradientBrushFactory` (`Components/`). It computes the gradient **per pixel in
-floating point** and adds **triangular-PDF (TPDF) noise of ±1 quantization level before rounding**
-to 8-bit, then writes the pixels into a `WriteableBitmap` exposed as an opaque `ImageBrush`.
+The fix is `DitheredGradientBrushFactory` (`Components/`). It computes the mesh colour **per pixel
+in floating point** (bilinear across the four corners) and adds **triangular-PDF (TPDF) noise of ±1
+quantization level before rounding** to 8-bit, then writes the pixels into a `WriteableBitmap`
+exposed as an opaque `ImageBrush`.
 Dithering *before* the quantization is the crucial part — it makes pixels near a band boundary
 round up/down at random in proportion to the sub-level fraction, smearing the boundary away. (Note
 what does **not** work: rendering an already-8-bit gradient and adding noise *on top* — the band
@@ -97,13 +101,16 @@ dithering via a high-precision stop collection was also too weak here. Both were
 
 Rules when touching this:
 
-- **Single source of truth for the colours: the `AppGradient{Start,End}{Dark,Light}` `Color`
-  resources in `App.xaml`.** Change the gradient there and nowhere else. Everything else derives
-  from them: `DitheredGradientBrushFactory` reads them by key at runtime (the brush actually shown),
-  the XAML fallback brushes (`AppBackgroundGradient` in `App.xaml`, `TextControlBackground*` in
-  `BufferPanelResources.xaml`) reference them via `ThemeResource`, and MainWindow's flash fill reads
-  them via `DitheredGradientBrushFactory.MidColor`. (XAML has no `x:Static` and code cannot reliably
-  read theme-keyed brushes, so the colours live in XAML resources and C# reads them by key.)
+- **Single source of truth for the colours: the `AppGradient{Start,End,CornerTR,CornerBL}{Dark,Light}`
+  `Color` resources in `App.xaml`.** `Start`/`End` are the diagonal endpoints (top-left /
+  bottom-right corners); `CornerTR`/`CornerBL` are the other two mesh corners. Change the gradient
+  there and nowhere else. Everything else derives from them: `DitheredGradientBrushFactory` reads all
+  four corners by key at runtime (the brush actually shown), the XAML fallback brushes
+  (`AppBackgroundGradient` in `App.xaml`, `TextControlBackground*` in `BufferPanelResources.xaml`)
+  reference `Start`/`End` via `ThemeResource`, and MainWindow's flash fill reads them via
+  `DitheredGradientBrushFactory.MidColor` (the average of the four corners). (XAML has no `x:Static`
+  and code cannot reliably read theme-keyed brushes, so the colours live in XAML resources and C#
+  reads them by key.)
 - The brush is **opaque** — required so the native text caret stays visible and ClearType keeps
   working (a transparent editor surface hides the caret).
 - The XAML `AppBackgroundGradient` / `TextControlBackground*` brushes are only a **fallback**, shown
@@ -117,8 +124,11 @@ Rules when touching this:
   DIP size × `XamlRoot.RasterizationScale` and shown 1:1. Dithering is a per-pixel pattern;
   stretching the bitmap blurs it and the 8-bit output re-quantizes, which brings the banding
   straight back — hence per-element sizing and rebuild on resize.
-- Gradient stops must be **collinear and monotonic** per channel; a non-monotonic or off-line
-  interior stop creates its own seam line independent of dithering.
+- The mesh is **bilinear** (C0-continuous, no interior creases), so the corner colours can differ
+  freely without creating seam lines — the smoothness comes from the interpolation, not from the
+  corners being collinear. Keep the per-corner deltas small so the field stays dim and barely
+  visible; the dithering removes the banding that the resulting low-contrast ramp would otherwise
+  show.
 
 ---
 

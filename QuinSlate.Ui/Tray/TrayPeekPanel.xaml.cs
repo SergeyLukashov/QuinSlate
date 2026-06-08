@@ -65,7 +65,7 @@ public sealed partial class TrayPeekPanel : UserControl
             emojis[i].Text = row.Emoji;
             titles[i].Text = row.Title;
             titles[i].FontStyle = FontStyle.Normal;
-            titles[i].Foreground = GetThemeBrush("TabViewItemHeaderForeground", Color.FromArgb(255, 153, 153, 153));
+            titles[i].Foreground = GetThemeBrush("TextFillColorPrimaryBrush", Color.FromArgb(255, 0, 0, 0));
 
             if (row.IsEmpty)
             {

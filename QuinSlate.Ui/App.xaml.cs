@@ -13,7 +13,6 @@ namespace QuinSlate.Ui;
 /// </summary>
 public partial class App : Application
 {
-    private const string AppDataFolderName = AppConstants.AppName;
     private const string TrayIconAssetRelativePath = "Assets\\TrayIcon.ico";
     private const string MutexName = "Local\\" + AppConstants.AppName + "SingleInstance";
     internal const int ExitCodeNormal = 0;
@@ -94,8 +93,7 @@ public partial class App : Application
 
     private static string ResolveAppDataDirectory()
     {
-        var roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var directory = Path.Combine(roaming, AppDataFolderName);
+        var directory = AppDataPathResolver.Resolve();
         if (Directory.Exists(directory) == false)
         {
             Directory.CreateDirectory(directory);

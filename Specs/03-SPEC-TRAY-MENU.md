@@ -27,9 +27,12 @@ Launch on startup
 - Toggling writes or removes the registry key immediately (see SPEC_STARTUP).
 
 About
-- Show a small modal or flyout with: app name, version number, and the
-  active hotkeys (show/hide and capture shortcuts).
-- No links, no update check, no telemetry notice.
+- Show a rich modal component (`AboutDialog`) styled with the app's dithered gradient background.
+- Displays the app name ("QuinSlate"), version ("v1.0.0"), and description.
+- Includes a data location card that shows the dynamic local AppData path with "Open folder" and "Copy path" actions.
+- Displays a visual keyboard hotkey mapping for the global toggle shortcut (`Ctrl`+`Shift`+`Q`).
+- Illustrates a "Quick math" row to demo the inline evaluation feature.
+- Displays link buttons to "Report an issue" (GitHub repository) and "MIT license" in the footer.
 
 Exit
 - Flush any pending debounced buffer writes synchronously.

@@ -4,6 +4,7 @@
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>QuinSlate.Ui</RootNamespace>
+    <Version>0.9.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
@@ -63,4 +64,36 @@
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
   </PropertyGroup>
+
+  <!--
+    Single source of truth for the version is <Version> above. The MSIX package
+    identity (Package.appxmanifest) requires a 4-part Major.Minor.Build.Revision
+    value, so it is derived from <Version> on every build: any prerelease suffix
+    is stripped, the numeric core is padded to four parts (Store requires a
+    trailing 0), and the manifest is rewritten only when the value actually
+    changed so an already-synced tree stays clean.
+  -->
+  <Target Name="SyncAppxManifestVersion" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <_AppxManifestPath>$(MSBuildProjectDirectory)\Package.appxmanifest</_AppxManifestPath>
+      <_VersionCore>$([System.Text.RegularExpressions.Regex]::Match($(Version), '^\d+(\.\d+){0,3}'))</_VersionCore>
+      <_PackageVersion>$([System.Text.RegularExpressions.Regex]::Match($(_VersionCore).0.0.0, '^\d+\.\d+\.\d+\.\d+'))</_PackageVersion>
+    </PropertyGroup>
+
+    <XmlPeek XmlInputPath="$(_AppxManifestPath)"
+             Query="/x:Package/x:Identity/@Version"
+             Namespaces="&lt;Namespace Prefix='x' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;">
+      <Output TaskParameter="Result" PropertyName="_CurrentPackageVersion" />
+    </XmlPeek>
+
+    <XmlPoke XmlInputPath="$(_AppxManifestPath)"
+             Query="/x:Package/x:Identity/@Version"
+             Value="$(_PackageVersion)"
+             Namespaces="&lt;Namespace Prefix='x' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;"
+             Condition="'$(_CurrentPackageVersion)' != '$(_PackageVersion)'" />
+
+    <Message Condition="'$(_CurrentPackageVersion)' != '$(_PackageVersion)'"
+             Importance="high"
+             Text="Synced Package.appxmanifest identity version to $(_PackageVersion) (from project Version '$(Version)')." />
+  </Target>
 </Project>

@@ -1,7 +1,6 @@
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using QuinSlate.Ui.Components;
 using QuinSlate.Ui.Interop;
 using QuinSlate.Ui.Services;
@@ -44,9 +43,6 @@ public sealed partial class MainWindow : Window
     private int pendingPositionY;
     private volatile bool isTornDown;
 
-    private const string AboutDialogTitle = AppConstants.AppName;
-    private const string AboutDialogContent = "Version 1.0.0\n\nHotkeys:\nShow / Hide: Ctrl+Shift+Q";
-    private const string AboutDialogCloseButton = "OK";
 
     private NativeMethods.WndProcDelegate newWndProc;
     private IntPtr originalWndProc;
@@ -559,11 +555,12 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        var dialog = new ContentDialog();
-        dialog.Title = AboutDialogTitle;
-        dialog.Content = AboutDialogContent;
-        dialog.CloseButtonText = AboutDialogCloseButton;
+        var dialog = new AboutDialog();
         dialog.XamlRoot = Content.XamlRoot;
+        if (bufferService != null)
+        {
+            dialog.StorageDirectory = bufferService.AppDataDirectory;
+        }
 
         isAboutDialogOpen = true;
         try

@@ -45,6 +45,13 @@ public sealed class BufferService
     }
 
     /// <summary>
+    /// The absolute directory the service reads and writes buffer files in
+    /// (typically <c>%AppData%\QuinSlate\</c>). Exposed so the UI can display
+    /// the real, live storage location rather than recomputing it.
+    /// </summary>
+    public string AppDataDirectory => appDataDirectory;
+
+    /// <summary>
     /// Loads all five buffers from disk. Missing files become empty buffers
     /// (this is not an error). Read errors are swallowed and the buffer is
     /// initialised to empty so the UI is always usable.

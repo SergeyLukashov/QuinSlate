@@ -148,6 +148,20 @@ internal static class NativeMethods
 
     public delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
+    /// <summary>
+    /// Error returned by <see cref="GetCurrentPackageFullName"/> when the calling
+    /// process has no package identity (i.e. the app is running unpackaged).
+    /// </summary>
+    public const int APPMODEL_ERROR_NO_PACKAGE = 15700;
+
+    /// <summary>
+    /// Retrieves the full package name of the calling process. Returns
+    /// <see cref="APPMODEL_ERROR_NO_PACKAGE"/> when the process has no package
+    /// identity, which is how an unpackaged launch is detected at runtime.
+    /// </summary>
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    public static extern int GetCurrentPackageFullName(ref int packageFullNameLength, System.Text.StringBuilder packageFullName);
+
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
 

@@ -406,7 +406,7 @@
             <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
             <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="Transparent" />
             <SolidColorBrush x:Key="TitleBarButtonBackgroundPointerOver" Color="#363636" />
-            <SolidColorBrush x:Key="TitleBarButtonBackgroundPressed" Color="#30FFFFFF" />
+            <SolidColorBrush x:Key="TitleBarButtonBackgroundPressed" Color="#363636" />
             <SolidColorBrush x:Key="TitleBarButtonForegroundPointerOver" Color="White" />
             <SolidColorBrush x:Key="TitleBarButtonForegroundPressed" Color="White" />
             <SolidColorBrush x:Key="CloseButtonBackgroundPointerOver" Color="#C42B1C" />
@@ -450,7 +450,7 @@
             <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
             <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="Transparent" />
             <SolidColorBrush x:Key="TitleBarButtonBackgroundPointerOver" Color="#10000000" />
-            <SolidColorBrush x:Key="TitleBarButtonBackgroundPressed" Color="#20000000" />
+            <SolidColorBrush x:Key="TitleBarButtonBackgroundPressed" Color="#10000000" />
             <SolidColorBrush x:Key="TitleBarButtonForegroundPointerOver" Color="Black" />
             <SolidColorBrush x:Key="TitleBarButtonForegroundPressed" Color="Black" />
             <SolidColorBrush x:Key="CloseButtonBackgroundPointerOver" Color="#C42B1C" />
@@ -493,7 +493,7 @@
             <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
             <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="Transparent" />
             <SolidColorBrush x:Key="TitleBarButtonBackgroundPointerOver" Color="#363636" />
-            <SolidColorBrush x:Key="TitleBarButtonBackgroundPressed" Color="#30FFFFFF" />
+            <SolidColorBrush x:Key="TitleBarButtonBackgroundPressed" Color="#363636" />
             <SolidColorBrush x:Key="TitleBarButtonForegroundPointerOver" Color="White" />
             <SolidColorBrush x:Key="TitleBarButtonForegroundPressed" Color="White" />
             <SolidColorBrush x:Key="CloseButtonBackgroundPointerOver" Color="#C42B1C" />

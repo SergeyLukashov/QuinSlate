@@ -27,10 +27,19 @@ namespace QuinSlate.Ui.Components;
 public sealed class AboutWindow : Window
 {
     /// <summary>
-    /// Initial height guess used before the card has laid out; the window snaps to the card's
-    /// exact measured height on the first <see cref="AboutView.ContentSized"/> report.
+    /// The card's fixed size in DIPs. The card lays out to exactly this size — a single-line
+    /// data path keeps its height constant — so the window sizes itself to these constants
+    /// instead of measuring the content. The body row absorbs any sub-pixel slack, keeping the
+    /// footer flush at the bottom.
     /// </summary>
-    private const int EstimatedLogicalHeight = 490;
+    private const double CardWidthLogical = 480;
+    private const double CardHeightLogical = 440;
+
+    /// <summary>
+    /// Height in DIPs of the card's draggable header bar. Must match the <c>AboutBarHeight</c>
+    /// resource in <c>AboutResources.xaml</c>.
+    /// </summary>
+    private const double HeaderBarHeightLogical = 44;
 
     private const int AnimationSteps = 8;
     private const int AnimationIntervalMs = 16;
@@ -72,7 +81,7 @@ public sealed class AboutWindow : Window
         view = new AboutView();
         view.StorageDirectory = storageDirectory;
         view.CloseRequested += OnCloseRequested;
-        view.ContentSized += OnContentSized;
+        view.Loaded += OnViewLoaded;
         AddEscapeAccelerator();
         Content = view;
 
@@ -92,7 +101,8 @@ public sealed class AboutWindow : Window
         ApplyOwnedToolWindowStyles();
         NativeMethods.SetRoundedCornerPreference(hwnd);
         BeginHiddenForFade();
-        ApplyInitialSizeAndPosition();
+        ApplySizeAndPosition();
+        UpdateDragRegion();
         DisableOwner();
 
         Closed += OnClosed;
@@ -157,8 +167,8 @@ public sealed class AboutWindow : Window
             nonClientPointerSource = InputNonClientPointerSource.GetForWindowId(appWindow.Id);
         }
 
-        int headerHeight = (int)Math.Round(view.HeaderHeight * scale);
-        int captionWidth = (int)Math.Round((view.NaturalCardWidth - CloseButtonZoneLogical) * scale);
+        int headerHeight = (int)Math.Round(HeaderBarHeightLogical * scale);
+        int captionWidth = (int)Math.Round((CardWidthLogical - CloseButtonZoneLogical) * scale);
         if (headerHeight <= 0 || captionWidth <= 0)
         {
             return;
@@ -215,10 +225,10 @@ public sealed class AboutWindow : Window
         NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(bits));
     }
 
-    private void ApplyInitialSizeAndPosition()
+    private void ApplySizeAndPosition()
     {
-        int width = (int)Math.Round(view.NaturalCardWidth * scale);
-        int height = (int)Math.Round(EstimatedLogicalHeight * scale);
+        int width = (int)Math.Round(CardWidthLogical * scale);
+        int height = (int)Math.Round(CardHeightLogical * scale);
         MoveCenteredOnOwner(width, height);
     }
 
@@ -233,28 +243,14 @@ public sealed class AboutWindow : Window
         ownerDisabled = true;
     }
 
-    private void OnContentSized(object sender, EventArgs e)
+    private void OnViewLoaded(object sender, RoutedEventArgs e)
     {
-        // Size the window exactly once, from the content's desired height, then fade in. The
-        // card populates its text before first layout, so the first report is already final;
-        // sizing only once avoids any chance of a resize-driven feedback loop.
-        if (appWindow == null || fadeStarted)
+        // The window is already sized and positioned (the card is a fixed size); fade it in once
+        // the content has laid out so the first painted frame is the finished card.
+        if (fadeStarted)
         {
             return;
         }
-
-        double measuredHeight = view.NaturalCardHeight;
-        if (measuredHeight <= 0)
-        {
-            return;
-        }
-
-        // Ceiling, not rounding: a fractional content height rounded down would clip the last
-        // pixel row of the footer. A possible extra sub-pixel row just shows background.
-        int width = (int)Math.Round(view.NaturalCardWidth * scale);
-        int height = (int)Math.Ceiling(measuredHeight * scale);
-        MoveCenteredOnOwner(width, height);
-        UpdateDragRegion();
 
         fadeStarted = true;
         StartFadeIn();
@@ -340,7 +336,7 @@ public sealed class AboutWindow : Window
         StopFadeTimer();
 
         view.CloseRequested -= OnCloseRequested;
-        view.ContentSized -= OnContentSized;
+        view.Loaded -= OnViewLoaded;
 
         if (ownerDisabled && ownerHwnd != IntPtr.Zero)
         {

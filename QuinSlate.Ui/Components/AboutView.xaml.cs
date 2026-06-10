@@ -9,7 +9,7 @@ using System.Reflection;
 namespace QuinSlate.Ui.Components;
 
 /// <summary>
-/// The About card: a fixed-width panel that displays application details, the live
+/// The About card: a fixed-size panel that displays application details, the live
 /// data storage path, hotkey mappings, and helper actions. Hosted by
 /// <see cref="AboutWindow"/> in its own top-level window so it always renders at its
 /// natural size regardless of how small the main window has been resized.
@@ -25,53 +25,29 @@ public sealed partial class AboutView : UserControl
     private const string DarkLogoAsset = "ms-appx:///Assets/Logo-dark.png";
     private const string LightLogoAsset = "ms-appx:///Assets/Logo-light.png";
 
+    private const string MiddleEllipsis = "…";
+
+    /// <summary>Point size of the monospaced path text (matches <c>PathText</c> in XAML).</summary>
+    private const double PathFontSize = 13.0;
+
+    /// <summary>
+    /// Consolas advances every glyph by ~0.55 em, so the on-screen width of the path is simply
+    /// <c>characters × PathFontSize × this ratio</c>. Being monospaced is what lets the
+    /// middle-ellipsis fit be computed exactly instead of measured.
+    /// </summary>
+    private const double ConsolasAdvanceEmRatio = 0.55;
+
+    /// <summary>
+    /// Width in DIPs available to the path text inside the data card, derived from the fixed
+    /// card layout: 480 window − 40 body padding − 32 card padding − 2 card border = 406.
+    /// </summary>
+    private const double PathAvailableWidth = 406.0;
+
     /// <summary>
     /// Raised when the user activates the close affordance. The hosting
     /// <see cref="AboutWindow"/> closes the window in response.
     /// </summary>
     public event EventHandler CloseRequested;
-
-    /// <summary>
-    /// Raised whenever the card's layout size changes. The hosting <see cref="AboutWindow"/>
-    /// reads <see cref="NaturalCardHeight"/> in response to size its window exactly to the
-    /// content (the view itself stretches to fill the window, so its own <c>ActualHeight</c>
-    /// cannot be used to discover the content height).
-    /// </summary>
-    public event EventHandler ContentSized;
-
-    /// <summary>
-    /// The card's fixed width in DIPs, as declared in XAML — the single source of truth the
-    /// hosting <see cref="AboutWindow"/> sizes itself from.
-    /// </summary>
-    public double NaturalCardWidth
-    {
-        get { return RootGrid.Width; }
-    }
-
-    /// <summary>
-    /// The card's natural height in DIPs, independent of the hosting window size. The card is
-    /// re-measured with an unconstrained height because a plain <c>DesiredSize</c> read is
-    /// clamped by the current window height — if the window starts shorter than the content
-    /// (e.g. the estimated initial size), the clamped value would lock the window in too short
-    /// and clip the footer.
-    /// </summary>
-    public double NaturalCardHeight
-    {
-        get
-        {
-            RootGrid.Measure(new Windows.Foundation.Size(NaturalCardWidth, double.PositiveInfinity));
-            return RootGrid.DesiredSize.Height;
-        }
-    }
-
-    /// <summary>
-    /// The height in DIPs of the draggable header bar, used by <see cref="AboutWindow"/> to map
-    /// out the caption (drag) region of the borderless window.
-    /// </summary>
-    public double HeaderHeight
-    {
-        get { return HeaderBar.ActualHeight; }
-    }
 
     /// <summary>
     /// The absolute directory the running services read and write data in. Set by
@@ -83,30 +59,17 @@ public sealed partial class AboutView : UserControl
     private string dataDirectory;
 
     /// <summary>
-    /// Constructs the view and wires basic layout and theme listeners.
+    /// Constructs the view and wires basic content and theme listeners.
     /// </summary>
     public AboutView()
     {
         InitializeComponent();
 
-        // Populate the text-bearing fields before the first layout pass so the card measures
-        // at its final height immediately (the data path wraps to two lines, which the hosting
-        // window must account for when sizing itself). Theme-dependent visuals stay in OnLoaded.
         PopulateAppInfo();
         PopulateAppDataPath();
 
         Loaded += OnLoaded;
         ActualThemeChanged += OnActualThemeChanged;
-        RootGrid.SizeChanged += OnRootGridSizeChanged;
-    }
-
-    private void OnRootGridSizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        EventHandler handler = ContentSized;
-        if (handler != null)
-        {
-            handler(this, EventArgs.Empty);
-        }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -176,7 +139,30 @@ public sealed partial class AboutView : UserControl
     private void PopulateAppDataPath()
     {
         dataDirectory = ResolveDataDirectory();
-        PathText.Text = dataDirectory.EndsWith("\\") ? dataDirectory : dataDirectory + "\\";
+
+        string fullPath = dataDirectory.EndsWith("\\") ? dataDirectory : dataDirectory + "\\";
+        PathText.Text = MiddleEllipsize(fullPath);
+        ToolTipService.SetToolTip(PathText, fullPath);
+    }
+
+    /// <summary>
+    /// Returns <paramref name="path"/> with its middle replaced by an ellipsis if it would not
+    /// fit the data card on one line, keeping the leading drive/root and the trailing folder
+    /// visible. Exact (not measured) because the path font is monospaced.
+    /// </summary>
+    private static string MiddleEllipsize(string path)
+    {
+        double advance = PathFontSize * ConsolasAdvanceEmRatio;
+        int maxChars = (int)(PathAvailableWidth / advance);
+        if (path.Length <= maxChars)
+        {
+            return path;
+        }
+
+        int keep = maxChars - MiddleEllipsis.Length;
+        int head = (keep + 1) / 2;
+        int tail = keep - head;
+        return path.Substring(0, head) + MiddleEllipsis + path.Substring(path.Length - tail);
     }
 
     /// <summary>

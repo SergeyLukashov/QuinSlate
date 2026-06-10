@@ -8,168 +8,34 @@
     mc:Ignorable="d">
 
     <UserControl.Resources>
-        <!-- Single source of truth for the header/footer bar height so they always match. -->
-        <x:Double x:Key="AboutBarHeight">44</x:Double>
-
-        <!-- Self-contained button styles -->
-        <Style x:Key="CloseButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Width" Value="32" />
-            <Setter Property="Height" Value="32" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid x:Name="ButtonGrid" Background="Transparent" CornerRadius="4">
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CommonStates">
-                                    <VisualState x:Name="Normal" />
-                                    <VisualState x:Name="PointerOver">
-                                        <VisualState.Setters>
-                                            <Setter Target="ButtonGrid.Background" Value="#C42B1C" />
-                                            <Setter Target="ContentPresenter.Foreground" Value="White" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                    <VisualState x:Name="Pressed">
-                                        <VisualState.Setters>
-                                            <Setter Target="ButtonGrid.Background" Value="#B0271A" />
-                                            <Setter Target="ContentPresenter.Foreground" Value="White" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                            <ContentPresenter x:Name="ContentPresenter"
-                                              Content="{TemplateBinding Content}"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="FlatLinkButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderBrush" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="8,4,8,4" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid x:Name="ButtonGrid" Background="Transparent" CornerRadius="4">
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CommonStates">
-                                    <VisualState x:Name="Normal" />
-                                    <VisualState x:Name="PointerOver">
-                                        <VisualState.Setters>
-                                            <Setter Target="ButtonGrid.Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
-                                            <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                    <VisualState x:Name="Pressed">
-                                        <VisualState.Setters>
-                                            <Setter Target="ButtonGrid.Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
-                                            <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                            <ContentPresenter x:Name="ContentPresenter"
-                                              Content="{TemplateBinding Content}"
-                                              Padding="{TemplateBinding Padding}"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="ActionButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="12,6,12,6" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Grid x:Name="ButtonGrid" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}">
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CommonStates">
-                                    <VisualState x:Name="Normal" />
-                                    <VisualState x:Name="PointerOver">
-                                        <VisualState.Setters>
-                                            <Setter Target="ButtonGrid.Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                    <VisualState x:Name="Pressed">
-                                        <VisualState.Setters>
-                                            <Setter Target="ButtonGrid.Background" Value="{ThemeResource ControlFillColorTertiaryBrush}" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-                            <ContentPresenter x:Name="ContentPresenter"
-                                              Content="{TemplateBinding Content}"
-                                              Padding="{TemplateBinding Padding}"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center" />
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- The exact Windows accent colour as a brush (the raw SystemAccentColor is a Color,
-             not a Brush). Matches the inline calculator result colour used in the editor. -->
-        <SolidColorBrush x:Key="AccentColorBrush" Color="{ThemeResource SystemAccentColor}" />
-
-        <!-- Key-cap "pill" identical to the tray peek view's hotkey pills (Border + text). -->
-        <Style x:Key="PillBorderStyle" TargetType="Border">
-            <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
-            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Padding" Value="8,3,8,3" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-
-        <Style x:Key="PillTextStyle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontFamily" Value="Segoe UI Variable Text" />
-            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///Themes/AboutResources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </UserControl.Resources>
 
-    <!-- No corner radius or border here: the hosting window owns the single rounded outline
-         (see AboutWindow's DWM corner preference). A second rounded border drawn by this card
-         would not align with the window's corners and would read as a detached edge. -->
-    <Grid x:Name="RootGrid"
-          Width="480"
-          VerticalAlignment="Top"
-          Background="{ThemeResource AppBackgroundGradient}">
+    <!-- The card fills its hosting window (AboutWindow sizes the window to a fixed card size).
+         Header, body and footer are the three rows: the body row absorbs any slack so the
+         footer always sits flush at the bottom. No corner radius or border here — the hosting
+         window owns the single rounded outline (see AboutWindow's DWM corner preference). -->
+    <Grid x:Name="RootGrid" Background="{ThemeResource AppBackgroundGradient}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
 
-        <StackPanel Spacing="0">
-            <!-- Title Bar (draggable region; see AboutWindow's WM_NCHITTEST handling) -->
+        <!-- Header: title bar (draggable region; see AboutWindow's caption handling) + separator -->
+        <StackPanel Grid.Row="0" Spacing="0">
             <Grid x:Name="HeaderBar" Height="{StaticResource AboutBarHeight}" Padding="20,0,12,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Orientation="Horizontal" Grid.Column="0" Spacing="8" VerticalAlignment="Center">
-                    <Image Source="ms-appx:///Assets/Square44x44Logo.scale-200.png"
-                           Width="18"
-                           Height="18"
-                           VerticalAlignment="Center" />
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Image Source="ms-appx:///Assets/Square44x44Logo.scale-200.png" Width="18" Height="18" VerticalAlignment="Center" />
                     <TextBlock x:Name="TitleBarText"
                                FontSize="12"
                                FontWeight="SemiBold"
@@ -186,140 +52,124 @@
                 </Button>
             </Grid>
 
-            <!-- Full-width separator between the title bar and the content -->
             <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+        </StackPanel>
 
-            <!-- Content -->
-            <Border Padding="20,20,20,20">
-            <StackPanel Spacing="0">
-            <!-- Logo & tagline -->
-            <StackPanel Margin="0,0,0,16" Spacing="10">
-                <Image x:Name="LogoImage"
-                       Height="40"
-                       Stretch="Uniform"
-                       HorizontalAlignment="Left"
-                       VerticalAlignment="Center" />
-                <TextBlock Text="Five slates. Open, type, done."
-                           FontSize="13"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            </StackPanel>
-
-            <!-- Main Description -->
-            <TextBlock Text="The fastest place to dump a thought — without ever opening, naming, or saving a thing."
-                       TextWrapping="Wrap"
-                       FontSize="13"
-                       LineHeight="18"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       Margin="0,0,0,16" />
-
-            <!-- Path Location Card -->
-            <Border CornerRadius="8"
-                    BorderThickness="1"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    Background="{ThemeResource ControlFillColorDefaultBrush}"
-                    Padding="16"
-                    Margin="0,0,0,16">
-                <StackPanel Spacing="10">
-                    <StackPanel Orientation="Horizontal" Spacing="6">
-                        <FontIcon Glyph="&#xED25;" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
-                        <TextBlock Text="Your data lives here"
-                                   FontSize="11"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   VerticalAlignment="Center" />
-                    </StackPanel>
-
-                    <TextBlock x:Name="PathText"
-                               FontFamily="Consolas"
-                               FontSize="13"
-                               FontWeight="SemiBold"
-                               TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
-
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Style="{StaticResource ActionButtonStyle}" Click="OnOpenFolderClicked">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8B7;" FontSize="12" VerticalAlignment="Center" />
-                                <TextBlock Text="Open folder" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                        <Button Style="{StaticResource ActionButtonStyle}" Click="OnCopyPathClicked">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE8C8;" FontSize="12" VerticalAlignment="Center" />
-                                <TextBlock Text="Copy path" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
+        <!-- Body -->
+        <Border Grid.Row="1" Padding="20">
+            <StackPanel Spacing="16">
+                <!-- Logo  -->
+                <StackPanel Spacing="18">
+                    <Image x:Name="LogoImage" Height="40" Stretch="Uniform" HorizontalAlignment="Left" />
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Five slates. Open, type, done. Five by design. The limit is the point."
+                                   TextWrapping="Wrap"
+                                   FontSize="13"
+                                   LineHeight="18"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Everything saves as plain text on your machine. Your words never leave it."
+                                   TextWrapping="Wrap"
+                                   FontSize="13"
+                                   LineHeight="18"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
                 </StackPanel>
-            </Border>
 
-            <!-- Global Hotkey Row -->
-            <Grid Height="32">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+                <!-- Data path card -->
+                <Border CornerRadius="8"
+                        BorderThickness="1"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        Background="{ThemeResource ControlFillColorDefaultBrush}"
+                        Padding="16">
+                    <StackPanel Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xED25;" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="Your data lives here" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
 
-                <TextBlock Text="Global hotkey"
-                           Grid.Column="0"
-                           FontSize="12"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           VerticalAlignment="Center" />
+                        <!-- Path is middle-ellipsized in code (WinUI has no middle TextTrimming);
+                             the full path is carried in the tooltip and on the Copy-path button. -->
+                        <TextBlock x:Name="PathText"
+                                   FontFamily="Consolas"
+                                   FontSize="13"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="NoWrap"
+                                   TextTrimming="None"
+                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                    <Border Style="{StaticResource PillBorderStyle}">
-                        <TextBlock Style="{StaticResource PillTextStyle}" Text="Ctrl" />
-                    </Border>
-                    <Border Style="{StaticResource PillBorderStyle}">
-                        <TextBlock Style="{StaticResource PillTextStyle}" Text="Shift" />
-                    </Border>
-                    <Border Style="{StaticResource PillBorderStyle}">
-                        <TextBlock Style="{StaticResource PillTextStyle}" Text="Q" />
-                    </Border>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Style="{StaticResource ActionButtonStyle}" Click="OnOpenFolderClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE8B7;" FontSize="12" VerticalAlignment="Center" />
+                                    <TextBlock Text="Open folder" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ActionButtonStyle}" Click="OnCopyPathClicked">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE8C8;" FontSize="12" VerticalAlignment="Center" />
+                                    <TextBlock Text="Copy path" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Hotkey and quick-math sit as a tight pair, closer to each other than to the
+                     card above (the outer StackPanel's 16px spacing). -->
+                <StackPanel Spacing="6">
+                    <!-- Global hotkey -->
+                    <Grid Height="28">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" Text="Global hotkey" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <Border Style="{StaticResource PillBorderStyle}"><TextBlock Style="{StaticResource PillTextStyle}" Text="Ctrl" /></Border>
+                            <Border Style="{StaticResource PillBorderStyle}"><TextBlock Style="{StaticResource PillTextStyle}" Text="Shift" /></Border>
+                            <Border Style="{StaticResource PillBorderStyle}"><TextBlock Style="{StaticResource PillTextStyle}" Text="Q" /></Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Quick math -->
+                    <Grid Height="28">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" Text="Quick math" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="56 * 3" FontSize="12" FontFamily="Cascadia Code" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
+                            <Border Style="{StaticResource PillBorderStyle}"><TextBlock Style="{StaticResource PillTextStyle}" Text="=" /></Border>
+                            <TextBlock Text="168" FontSize="12" FontFamily="Cascadia Code" Foreground="{StaticResource AccentColorBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
-            </Grid>
-
-            <!-- Quick Math Row -->
-            <Grid Height="32">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <TextBlock Text="Quick math"
-                           Grid.Column="0"
-                           FontSize="12"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           VerticalAlignment="Center" />
-
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <TextBlock Text="56 * 3" FontSize="12" FontFamily="Cascadia Code" Foreground="{ThemeResource TextFillColorSecondaryBrush}" VerticalAlignment="Center" />
-                    <Border Style="{StaticResource PillBorderStyle}">
-                        <TextBlock Style="{StaticResource PillTextStyle}" Text="=" />
-                    </Border>
-                    <TextBlock Text="168" FontSize="12" FontFamily="Cascadia Code" Foreground="{StaticResource AccentColorBrush}" VerticalAlignment="Center" />
-                </StackPanel>
-            </Grid>
             </StackPanel>
-            </Border>
+        </Border>
 
-            <!-- Full-width separator above the footer -->
+        <!-- Footer: separator + links + version -->
+        <StackPanel Grid.Row="2" Spacing="0">
             <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
-            <!-- Footer (height matches the title bar via the shared AboutBarHeight resource) -->
-            <Grid Height="{StaticResource AboutBarHeight}" Margin="0, -2, 0, 0" Padding="12,0,18,0">
+            <Grid Height="{StaticResource AboutBarHeight}" Padding="12,0,18,1">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
-                    <Button Style="{StaticResource FlatLinkButtonStyle}" VerticalAlignment="Center" Click="OnReportIssueClicked">
+                    <Button Style="{StaticResource FlatLinkButtonStyle}" Click="OnReportIssueClicked">
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <FontIcon Glyph="&#xE8A1;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="Report an issue" FontSize="12" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource FlatLinkButtonStyle}" VerticalAlignment="Center" Click="OnMitLicenseClicked">
+                    <Button Style="{StaticResource FlatLinkButtonStyle}" Click="OnMitLicenseClicked">
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <FontIcon Glyph="&#xE8A5;" FontSize="12" VerticalAlignment="Center" />
                             <TextBlock Text="MIT license" FontSize="12" VerticalAlignment="Center" />

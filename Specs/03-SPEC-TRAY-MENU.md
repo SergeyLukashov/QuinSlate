@@ -27,7 +27,7 @@ Launch on startup
 - Toggling writes or removes the registry key immediately (see SPEC_STARTUP).
 
 About
-- Show a rich modal component (`AboutDialog`) styled with the app's dithered gradient background.
+- Show a rich About card (`AboutView`) styled with the app's dithered gradient background, hosted in its own borderless, owned top-level window (`AboutWindow`) centred over the main window. Using a dedicated window rather than an in-window `ContentDialog` keeps the card at its natural size and fully visible even when the main window has been resized smaller than the card.
 - Displays the app name ("QuinSlate"), version ("v1.0.0"), and description.
 - Includes a data location card that shows the dynamic local AppData path with "Open folder" and "Copy path" actions.
 - Displays a visual keyboard hotkey mapping for the global toggle shortcut (`Ctrl`+`Shift`+`Q`).

@@ -10,6 +10,16 @@
     mc:Ignorable="d"
     Title="QuinSlate">
 
-    <views:BufferPanel x:Name="Panel" />
+    <Grid>
+        <views:BufferPanel x:Name="Panel" />
+
+        <!-- Dimming scrim shown beneath the modal About window, mirroring the smoke layer a
+             ContentDialog draws over its parent. Faded in/out from code in sync with the dialog. -->
+        <Border x:Name="ModalScrim"
+                Background="Black"
+                Opacity="0"
+                Visibility="Collapsed"
+                IsHitTestVisible="False" />
+    </Grid>
 
 </Window>

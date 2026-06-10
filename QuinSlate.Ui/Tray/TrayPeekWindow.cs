@@ -171,6 +171,7 @@ public sealed class TrayPeekWindow : IDisposable
 
         ApplyNonActivatingStyles();
         ConfigurePresenter();
+        NativeMethods.SetRoundedCornerPreference(peekHwnd);
         SubclassWndProc();
 
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(peekHwnd);

@@ -1,6 +1,7 @@
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media.Animation;
 using QuinSlate.Ui.Components;
 using QuinSlate.Ui.Interop;
 using QuinSlate.Ui.Services;
@@ -9,7 +10,6 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
 using WinRT.Interop;
 using Buffer = QuinSlate.Ui.Models.Buffer;
 
@@ -34,6 +34,8 @@ public sealed partial class MainWindow : Window
     private const int PanelMinHeight = 280;
     private const int PanelDefaultInset = 16;
     private const int SettingsDebounceMilliseconds = 500;
+    private const double ModalScrimOpacity = 0.45;
+    private const int ModalScrimFadeMilliseconds = 130;
 
     private Timer settingsDebounceTimer;
     private readonly object pendingStateLock = new object();
@@ -62,12 +64,12 @@ public sealed partial class MainWindow : Window
     private HotkeyManager hotkeyManager;
     private TrayIcon trayIcon;
     private TrayPeekWindow trayPeekWindow;
+    private AboutWindow aboutWindow;
 
     private bool isPanelVisible;
     private bool isWindowActive;
     private long lastDeactivatedTick;
     private const long RecentDeactivationThresholdMs = 800;
-    private bool isAboutDialogOpen;
     private bool isPinned;
     private bool isInitialised;
     private bool isContextMenuOpen;
@@ -531,7 +533,7 @@ public sealed partial class MainWindow : Window
             onAbout: () =>
             {
                 ShowPanel();
-                _ = ShowAboutDialog();
+                ShowAboutDialog();
             },
             onExit: () => ExitApplication(),
             startupEnabled: startupEnabled,
@@ -543,38 +545,67 @@ public sealed partial class MainWindow : Window
         );
     }
 
-    private async Task ShowAboutDialog()
+    private void ShowAboutDialog()
     {
-        if (isAboutDialogOpen)
+        if (aboutWindow != null)
+        {
+            aboutWindow.Activate();
+            return;
+        }
+
+        if (windowHandle == IntPtr.Zero)
         {
             return;
         }
 
-        if (Content == null || Content.XamlRoot == null)
+        string storageDirectory = bufferService != null ? bufferService.AppDataDirectory : null;
+
+        aboutWindow = new AboutWindow(windowHandle, storageDirectory);
+        aboutWindow.Closed += OnAboutWindowClosed;
+        ShowModalScrim();
+        aboutWindow.Activate();
+    }
+
+    private void OnAboutWindowClosed(object sender, WindowEventArgs args)
+    {
+        if (aboutWindow != null)
         {
-            return;
+            aboutWindow.Closed -= OnAboutWindowClosed;
+            aboutWindow = null;
         }
 
-        var dialog = new AboutDialog();
-        dialog.XamlRoot = Content.XamlRoot;
-        if (bufferService != null)
+        HideModalScrim();
+    }
+
+    private void ShowModalScrim()
+    {
+        ModalScrim.Visibility = Visibility.Visible;
+        FadeScrim(ModalScrimOpacity, null);
+    }
+
+    private void HideModalScrim()
+    {
+        FadeScrim(0, () => ModalScrim.Visibility = Visibility.Collapsed);
+    }
+
+    private void FadeScrim(double toOpacity, Action onCompleted)
+    {
+        var animation = new DoubleAnimation
         {
-            dialog.StorageDirectory = bufferService.AppDataDirectory;
+            To = toOpacity,
+            Duration = new Duration(TimeSpan.FromMilliseconds(ModalScrimFadeMilliseconds))
+        };
+        Storyboard.SetTarget(animation, ModalScrim);
+        Storyboard.SetTargetProperty(animation, "Opacity");
+
+        var storyboard = new Storyboard();
+        storyboard.Children.Add(animation);
+        if (onCompleted != null)
+        {
+            storyboard.Completed += (sender, args) => onCompleted();
         }
 
-        isAboutDialogOpen = true;
-        try
-        {
-            await dialog.ShowAsync();
-        }
-        catch (Exception)
-        {
-            // Dialog dismissed by the OS or XamlRoot invalidated; no user action needed.
-        }
-        finally
-        {
-            isAboutDialogOpen = false;
-        }
+        storyboard.Begin();
     }
 
     private void Teardown()
@@ -587,6 +618,13 @@ public sealed partial class MainWindow : Window
         }
 
         newWndProc = null;
+
+        if (aboutWindow != null)
+        {
+            aboutWindow.Closed -= OnAboutWindowClosed;
+            aboutWindow.Close();
+            aboutWindow = null;
+        }
 
         if (backgroundBrush != null)
         {

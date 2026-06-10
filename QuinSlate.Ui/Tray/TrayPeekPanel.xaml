@@ -23,10 +23,12 @@
         </Storyboard>
     </UserControl.Resources>
 
+    <!-- No corner radius here: the hosting window owns the single rounded outline (see
+         TrayPeekWindow's DWM corner preference). A second rounded border drawn by this panel
+         would not align with the window's corners and would read as a detached edge. -->
     <Border
         x:Name="RootBorder"
-        Background="{ThemeResource AppBackgroundGradient}"
-        CornerRadius="{ThemeResource OverlayCornerRadius}">
+        Background="{ThemeResource AppBackgroundGradient}">
 
         <Grid
             x:Name="RootGrid"

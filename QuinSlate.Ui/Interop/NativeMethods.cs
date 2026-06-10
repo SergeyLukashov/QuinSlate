@@ -23,7 +23,11 @@ internal static class NativeMethods
     public const uint MOD_NOREPEAT = 0x4000;
 
     public const int GWLP_WNDPROC = -4;
+    public const int GWLP_HWNDPARENT = -8;
     public const int GWL_EXSTYLE = -20;
+
+    private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    private const int DWMWCP_ROUND = 2;
 
     public const uint NIM_ADD = 0x00000000;
     public const uint NIM_MODIFY = 0x00000001;
@@ -241,6 +245,15 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 
+    /// <summary>
+    /// Enables or disables mouse and keyboard input to the given window. Disabling the
+    /// owner window while a dialog is open gives classic Win32 modal behaviour: clicks on
+    /// the owner are rejected and the dialog stays in front. Returns the window's previous
+    /// enabled state.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool EnableWindow(IntPtr hWnd, bool bEnable);
+
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
@@ -374,6 +387,24 @@ internal static class NativeMethods
     /// </summary>
     [DllImport("user32.dll")]
     public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
+    /// <summary>
+    /// Sets a Desktop Window Manager attribute. See <see cref="SetRoundedCornerPreference"/>
+    /// for the rounded-corner use case.
+    /// </summary>
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+    /// <summary>
+    /// Forces Windows 11 rounded corners on a borderless window so the window itself owns the
+    /// single rounded outline. The hosted content must not draw its own rounded border: a second
+    /// rounded contour never aligns exactly with the window's and reads as a detached edge.
+    /// </summary>
+    public static void SetRoundedCornerPreference(IntPtr hwnd)
+    {
+        int preference = DWMWCP_ROUND;
+        DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
+    }
 
     /// <summary>
     /// Returns the system DPI, which equals the DPI of the primary monitor.

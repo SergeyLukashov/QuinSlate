@@ -113,13 +113,28 @@ Rules when touching this:
   reads them by key.)
 - The brush is **opaque** — required so the native text caret stays visible and ClearType keeps
   working (a transparent editor surface hides the caret).
-- The XAML `AppBackgroundGradient` / `TextControlBackground*` brushes are only a **fallback**, shown
-  before the dithered brush is applied on load (or if it cannot be built).
+- The XAML `AppBackgroundGradient` / `TextControlBackground*` brushes are only a deep **fallback**
+  (used if even the code path below cannot run). They are linear gradients and **must never be the
+  surface actually presented**: on this dark, low-contrast field they band, and the window vs.
+  editor gradients meet in a visible seam. To avoid a banded flash before the dithered mesh is
+  ready, `BufferPanel.ApplyFallbackBackground` paints the window and editors with the flat
+  `DitheredGradientBrushFactory.MidColor` **synchronously in `Initialise`, before the window is
+  first shown**, so the first composited frame is a uniform flat tone. The dithered mesh swaps in
+  on load; flat-to-mesh is imperceptible because the mesh barely deviates from its mid-tone.
 - The dithered brush is applied in code on `Loaded`, and rebuilt on `ActualThemeChanged` and on
   resize (`BufferPanel` debounces the resize rebuild; `TrayPeekPanel` is fixed-size). It overrides
   `TextControlBackground*` in each editor's own resource scope so the focus/hover visual states
   stay dithered, and re-enters the editor's visual state after applying (the focused state pins the
   background via `ThemeResource` when entered and won't otherwise pick up the swapped brush).
+- **The window and editor meshes must swap in together (all-or-nothing), never the window alone.**
+  At startup the panel's `Loaded` fires before the TabView has realized the selected tab's content,
+  so the active editor has no size and its brush cannot be built yet. Applying the window mesh at
+  that point flashes the full-window gradient through the still-unpainted editor area for a few
+  frames and then visibly snaps when the editor paints its flat fallback over it (this was the
+  "broken gradient on startup" artifact, captured frame-by-frame and fixed). When the editor brush
+  cannot be built, `ApplyDitheredBackground` keeps the flat fallback on every surface and schedules
+  a one-shot retry for when the editor is laid out (`ScheduleDitheredRetry`). Do not reorder this
+  back to "window first, editors when ready".
 - **Render at native pixel size, never stretch.** Each surface's bitmap is built at that element's
   DIP size × `XamlRoot.RasterizationScale` and shown 1:1. Dithering is a per-pixel pattern;
   stretching the bitmap blurs it and the 8-bit output re-quantizes, which brings the banding

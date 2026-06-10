@@ -99,6 +99,12 @@ public sealed partial class BufferPanel : UserControl
     private const int DitheredRebuildDebounceMs = 90;
 
     /// <summary>
+    /// True while a one-shot retry of <see cref="ApplyDitheredBackground"/> is pending because
+    /// the active editor was not laid out yet (see <see cref="ScheduleDitheredRetry"/>).
+    /// </summary>
+    private bool isDitheredRetryScheduled;
+
+    /// <summary>
     /// Raised when the user clicks the pin button. The caller should toggle
     /// the pinned state and call <see cref="SetPinned"/> to update the icon.
     /// </summary>
@@ -229,7 +235,10 @@ public sealed partial class BufferPanel : UserControl
 
         // The dithered background brushes are built once the panel is loaded (so ActualTheme,
         // sizes and XamlRoot are resolved) and rebuilt on theme change and on resize. Until
-        // then the XAML gradient shows.
+        // then a flat mid-tone fill stands in (applied synchronously here, before the window is
+        // first shown) — never the XAML linear gradient, which would show 8-bit banding and a
+        // window/editor seam for the frames before the dithered mesh is ready.
+        ApplyFallbackBackground();
         Loaded += OnPanelLoaded;
         ActualThemeChanged += OnPanelActualThemeChanged;
         RootGrid.SizeChanged += OnRootGridSizeChanged;
@@ -567,27 +576,97 @@ public sealed partial class BufferPanel : UserControl
 
     /// <summary>
     /// Builds the dithered gradient at each surface's native pixel size and applies it to the
-    /// window background and every editor (in all visual states). Rendering at native size is
-    /// required: a stretched dithered bitmap re-bands. When a brush cannot be built (the surface
-    /// is not yet laid out) the XAML gradient set in markup remains.
+    /// window background and every editor (in all visual states) in the same pass. Rendering at
+    /// native size is required: a stretched dithered bitmap re-bands.
+    ///
+    /// The swap is all-or-nothing. At startup the panel's <c>Loaded</c> fires before the TabView
+    /// has realized the selected tab's content, so the active editor has no size yet and its brush
+    /// cannot be built. Applying the window mesh alone at that point flashes the full-window
+    /// gradient through the still-unpainted editor area for a few frames, which then visibly
+    /// snaps when the editor paints its flat fallback over it. Instead the uniform flat fallback
+    /// stays on every surface and the whole swap is retried once the editor is laid out.
     /// </summary>
     private void ApplyDitheredBackground()
     {
+        // Every editor fills the same tab-content area, so one brush sized to the active editor
+        // is 1:1 for whichever tab is shown.
+        RichEditBox activeEditor = GetActiveEditor();
+        ImageBrush editorBrush = DitheredGradientBrushFactory.CreateForElement(activeEditor);
+        if (editorBrush == null && editorsByBufferIndex.Count > 0)
+        {
+            ScheduleDitheredRetry(activeEditor);
+            return;
+        }
+
         ImageBrush windowBrush = DitheredGradientBrushFactory.CreateForElement(RootGrid);
         if (windowBrush != null)
         {
             RootGrid.Background = windowBrush;
         }
 
-        // Every editor fills the same tab-content area, so one brush sized to the active editor
-        // is 1:1 for whichever tab is shown.
-        ImageBrush editorBrush = DitheredGradientBrushFactory.CreateForElement(GetActiveEditor());
         if (editorBrush != null)
         {
             foreach (RichEditBox editor in editorsByBufferIndex.Values)
             {
                 ApplyEditorDitheredBackground(editor, editorBrush);
             }
+        }
+    }
+
+    /// <summary>
+    /// Re-runs <see cref="ApplyDitheredBackground"/> once the active editor can provide a size:
+    /// on its next <c>SizeChanged</c> when the editor element exists, or on the next layout pass
+    /// when the TabView has not yet realized it (the retry then repeats until it has).
+    /// </summary>
+    private void ScheduleDitheredRetry(RichEditBox activeEditor)
+    {
+        if (isDitheredRetryScheduled)
+        {
+            return;
+        }
+
+        isDitheredRetryScheduled = true;
+
+        if (activeEditor != null)
+        {
+            SizeChangedEventHandler onEditorSized = null;
+            onEditorSized = (s, e) =>
+            {
+                activeEditor.SizeChanged -= onEditorSized;
+                isDitheredRetryScheduled = false;
+                ApplyDitheredBackground();
+            };
+            activeEditor.SizeChanged += onEditorSized;
+            return;
+        }
+
+        EventHandler<object> onLayoutUpdated = null;
+        onLayoutUpdated = (s, e) =>
+        {
+            LayoutUpdated -= onLayoutUpdated;
+            isDitheredRetryScheduled = false;
+            ApplyDitheredBackground();
+        };
+        LayoutUpdated += onLayoutUpdated;
+    }
+
+    /// <summary>
+    /// Paints the window and every editor with the flat mid-tone of the gradient mesh (the same
+    /// colour the bare-window erase fill uses). This is applied synchronously before the panel is
+    /// first shown, so the very first composited frame is a uniform flat tone rather than the XAML
+    /// linear-gradient fallback — which bands on this dark, low-contrast field and shows a seam
+    /// where the window and editor gradients meet. The dithered mesh swaps in on load; a
+    /// flat-to-mesh transition is imperceptible because the mesh barely deviates from its mid-tone.
+    /// </summary>
+    private void ApplyFallbackBackground()
+    {
+        bool isDark = ActualTheme == ElementTheme.Dark;
+        var flat = new SolidColorBrush(DitheredGradientBrushFactory.MidColor(isDark));
+
+        RootGrid.Background = flat;
+        foreach (RichEditBox editor in editorsByBufferIndex.Values)
+        {
+            ApplyEditorDitheredBackground(editor, flat);
         }
     }
 

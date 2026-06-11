@@ -1,3 +1,4 @@
+using Microsoft.UI.Dispatching;
 using QuinSlate.Ui.Interop;
 using System;
 using System.Diagnostics;
@@ -13,11 +14,19 @@ namespace QuinSlate.Ui.Tray;
 public sealed class TrayIcon : IDisposable
 {
     private const uint TrayIconId = 1;
+    private const int HoverPollIntervalMs = 150;
+    private const int RearmQuietTicks = 10;
 
     private readonly IntPtr windowHandle;
+    private readonly DispatcherQueue dispatcherQueue;
     private IntPtr iconHandle;
+    private string tooltipText = string.Empty;
     private bool added;
     private bool disposed;
+    private bool hovering;
+    private bool tooltipDisarmed;
+    private int ticksOutsideIcon;
+    private DispatcherQueueTimer hoverPollTimer;
 
     /// <summary>
     /// Raised when the user left-clicks the tray icon.
@@ -31,20 +40,37 @@ public sealed class TrayIcon : IDisposable
     public event EventHandler RightClicked;
 
     /// <summary>
-    /// Raised when the mouse pointer enters the tray icon area
-    /// (<c>NIN_POPUPOPEN</c>).
+    /// Raised when the mouse pointer enters the tray icon area. Detected via
+    /// the first <c>WM_MOUSEMOVE</c> callback of a hover rather than
+    /// <c>NIN_POPUPOPEN</c>: explorer does not send <c>NIN_POPUPOPEN</c> while
+    /// the standard tooltip is armed (<c>NIF_SHOWTIP</c> set), and the tooltip
+    /// must stay armed between hovers — see <see cref="SuppressTooltipOnHover"/>.
     /// </summary>
     public event EventHandler MouseHovered;
 
     /// <summary>
-    /// Raised when the mouse pointer leaves the tray icon area
-    /// (<c>NIN_POPUPCLOSE</c>).
+    /// Raised when the mouse pointer leaves the tray icon area, detected by
+    /// polling the cursor position against the icon rectangle.
     /// </summary>
     public event EventHandler MouseLeft;
 
     /// <summary>
+    /// When <c>true</c>, the standard tooltip is withdrawn (<c>NIM_MODIFY</c>
+    /// without <c>NIF_SHOWTIP</c>) at hover begin and restored once the pointer
+    /// leaves, so a custom hover popup can be shown instead. The tooltip stays
+    /// registered with non-empty text the rest of the time. This dynamic arming
+    /// exists because statically suppressing the tooltip triggers a Windows 11
+    /// explorer bug: after a system flyout (Quick Settings, calendar) is
+    /// dismissed, hovering a suppressed-tooltip icon shows an empty tooltip
+    /// box. The hover-time withdrawal cancels explorer's pending tooltip before
+    /// it is displayed, in both the normal and the post-flyout glitched state.
+    /// </summary>
+    public bool SuppressTooltipOnHover { get; set; }
+
+    /// <summary>
     /// Creates a tray icon bound to <paramref name="windowHandle"/>. The window
     /// receives notification messages on <see cref="NativeMethods.WM_TRAYICON"/>.
+    /// Must be constructed on the UI thread so the hover poll timer can run.
     /// </summary>
     /// <param name="windowHandle">The HWND that hosts the icon's callback messages.</param>
     public TrayIcon(IntPtr windowHandle)
@@ -55,6 +81,7 @@ public sealed class TrayIcon : IDisposable
         }
 
         this.windowHandle = windowHandle;
+        dispatcherQueue = DispatcherQueue.GetForCurrentThread();
     }
 
     /// <summary>
@@ -63,7 +90,7 @@ public sealed class TrayIcon : IDisposable
     /// system application icon is used.
     /// </summary>
     /// <param name="iconFilePath">Optional path to a <c>.ico</c> file.</param>
-    /// <param name="tooltip">Optional tooltip text shown on hover.</param>
+    /// <param name="tooltip">Tooltip text shown on hover.</param>
     /// <returns><c>true</c> if the icon was added.</returns>
     public bool Add(string iconFilePath, string tooltip)
     {
@@ -73,10 +100,11 @@ public sealed class TrayIcon : IDisposable
         }
 
         iconHandle = LoadIcon(iconFilePath);
+        tooltipText = tooltip ?? string.Empty;
 
-        var data = BuildData(tooltip);
+        var data = BuildData(tooltipText);
         data.uFlags = NativeMethods.NIF_MESSAGE | NativeMethods.NIF_ICON | NativeMethods.NIF_TIP;
-        if (!string.IsNullOrEmpty(tooltip))
+        if (tooltipText.Length > 0)
         {
             data.uFlags |= NativeMethods.NIF_SHOWTIP;
         }
@@ -113,7 +141,11 @@ public sealed class TrayIcon : IDisposable
         }
 
         var loWord = (uint)(lParam.ToInt64() & 0xFFFF);
-        if (loWord == NativeMethods.NIN_SELECT)
+        if (loWord == NativeMethods.WM_MOUSEMOVE)
+        {
+            OnHoverBegin();
+        }
+        else if (loWord == NativeMethods.NIN_SELECT)
         {
             LeftClicked?.Invoke(this, EventArgs.Empty);
         }
@@ -121,38 +153,8 @@ public sealed class TrayIcon : IDisposable
         {
             RightClicked?.Invoke(this, EventArgs.Empty);
         }
-        else if (loWord == NativeMethods.NIN_POPUPOPEN)
-        {
-            MouseHovered?.Invoke(this, EventArgs.Empty);
-        }
-        else if (loWord == NativeMethods.NIN_POPUPCLOSE)
-        {
-            MouseLeft?.Invoke(this, EventArgs.Empty);
-        }
 
         return true;
-    }
-
-    /// <summary>
-    /// Updates the tooltip text shown on hover. Pass an empty string to suppress
-    /// the tooltip (e.g. when the peek preview window is enabled instead).
-    /// </summary>
-    /// <param name="tooltip">The new tooltip text, or empty to disable.</param>
-    public void SetTooltip(string tooltip)
-    {
-        if (!added)
-        {
-            return;
-        }
-
-        var data = BuildData(tooltip);
-        data.uFlags = NativeMethods.NIF_TIP;
-        if (!string.IsNullOrEmpty(tooltip))
-        {
-            data.uFlags |= NativeMethods.NIF_SHOWTIP;
-        }
-
-        NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
     }
 
     /// <summary>
@@ -165,6 +167,11 @@ public sealed class TrayIcon : IDisposable
         {
             return;
         }
+
+        StopHoverPollTimer();
+        hovering = false;
+        tooltipDisarmed = false;
+        ticksOutsideIcon = 0;
 
         var data = BuildData(null);
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_DELETE, ref data);
@@ -187,6 +194,120 @@ public sealed class TrayIcon : IDisposable
 
         Remove();
         disposed = true;
+    }
+
+    private void OnHoverBegin()
+    {
+        if (hovering || !added || dispatcherQueue == null)
+        {
+            return;
+        }
+
+        hovering = true;
+        ticksOutsideIcon = 0;
+        if (SuppressTooltipOnHover)
+        {
+            DisarmTooltip();
+        }
+
+        StartHoverPollTimer();
+        MouseHovered?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnHoverEnd()
+    {
+        hovering = false;
+        MouseLeft?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void DisarmTooltip()
+    {
+        var data = BuildData(tooltipText);
+        data.uFlags = NativeMethods.NIF_TIP;
+        NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
+        tooltipDisarmed = true;
+    }
+
+    private void RearmTooltip()
+    {
+        if (!tooltipDisarmed || !added)
+        {
+            return;
+        }
+
+        var data = BuildData(tooltipText);
+        data.uFlags = NativeMethods.NIF_TIP | NativeMethods.NIF_SHOWTIP;
+        NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
+        tooltipDisarmed = false;
+    }
+
+    private void StartHoverPollTimer()
+    {
+        if (hoverPollTimer == null)
+        {
+            hoverPollTimer = dispatcherQueue.CreateTimer();
+            hoverPollTimer.Interval = TimeSpan.FromMilliseconds(HoverPollIntervalMs);
+            hoverPollTimer.Tick += OnHoverPollTimerTick;
+        }
+
+        hoverPollTimer.Start();
+    }
+
+    private void StopHoverPollTimer()
+    {
+        if (hoverPollTimer != null)
+        {
+            hoverPollTimer.Stop();
+        }
+    }
+
+    private void OnHoverPollTimerTick(DispatcherQueueTimer sender, object args)
+    {
+        if (NativeMethods.GetCursorPos(out NativeMethods.POINT cursor) && IsCursorOverIcon(cursor))
+        {
+            ticksOutsideIcon = 0;
+            // Keep re-sending the withdrawal while hovering: after some flyout
+            // interactions a single withdrawal at hover begin is not enough and
+            // explorer still queues its (empty) tooltip; a repeated NIM_MODIFY
+            // keeps cancelling it.
+            if (SuppressTooltipOnHover && tooltipDisarmed)
+            {
+                DisarmTooltip();
+            }
+
+            return;
+        }
+
+        if (hovering)
+        {
+            OnHoverEnd();
+        }
+
+        // Re-arm only after the pointer has stayed away for a quiet period:
+        // re-arming immediately after hover end makes explorer pop the now
+        // available tooltip for the just-left icon.
+        ticksOutsideIcon++;
+        if (ticksOutsideIcon < RearmQuietTicks)
+        {
+            return;
+        }
+
+        RearmTooltip();
+        StopHoverPollTimer();
+        ticksOutsideIcon = 0;
+    }
+
+    private bool IsCursorOverIcon(NativeMethods.POINT cursor)
+    {
+        var identifier = new NativeMethods.NOTIFYICONIDENTIFIER();
+        identifier.cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf(typeof(NativeMethods.NOTIFYICONIDENTIFIER));
+        identifier.hWnd = windowHandle;
+        identifier.uID = TrayIconId;
+        identifier.guidItem = Guid.Empty;
+
+        NativeMethods.Shell_NotifyIconGetRect(ref identifier, out NativeMethods.RECT iconRect);
+        return cursor.X >= iconRect.Left && cursor.X <= iconRect.Right
+            && cursor.Y >= iconRect.Top && cursor.Y <= iconRect.Bottom;
     }
 
     private NativeMethods.NOTIFYICONDATA BuildData(string tooltip)

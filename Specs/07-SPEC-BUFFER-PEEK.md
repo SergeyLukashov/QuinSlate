@@ -23,12 +23,27 @@ so the user can find content without opening the panel.
 
 ## Implementation
 
-Do not use `NIF_TIP` (the built-in Shell_NotifyIcon tooltip). It has a
-128-character limit and no line-break support.
+The preview itself is never rendered with `NIF_TIP` (the built-in
+Shell_NotifyIcon tooltip) — it has a 128-character limit and no
+line-break support. It is a borderless, non-interactive window that
+appears on the first `WM_MOUSEMOVE` tray callback of a hover and
+disappears once a cursor-position poll detects the pointer has left
+the icon.
 
-Instead, create a borderless, non-interactive tooltip window that appears
-on `NIN_BALLOONSHOW` / `WM_MOUSEMOVE` over the tray icon area and
-disappears on `WM_MOUSELEAVE`.
+The icon nevertheless keeps a standard `NIF_TIP` tooltip ("QuinSlate",
+`NIF_SHOWTIP`) registered while the pointer is away, and withdraws it
+via `NIM_MODIFY` at hover begin, re-sending the withdrawal on every
+poll tick while the pointer stays on the icon (re-arming ~1.5 s after
+the pointer leaves). Statically suppressing the tooltip triggers a
+Windows 11 explorer bug — after dismissing a system flyout (Quick
+Settings, calendar), hovering a suppressed-tooltip icon shows an empty
+tooltip box. The hover-time withdrawal cancels explorer's pending
+tooltip in both the normal and the glitched state; the repeat is
+required because after some flyout interactions (e.g. dismissing Quick
+Settings by clicking the taskbar after a recent hover) a single
+withdrawal at hover begin is not honoured.
+`NIN_POPUPOPEN`/`NIN_POPUPCLOSE` cannot be used as hover triggers:
+explorer does not send `NIN_POPUPOPEN` while `NIF_SHOWTIP` is armed.
 
 The window reads the current in-memory buffer state (not from disk) so
 the preview is always up to date with unsaved changes.

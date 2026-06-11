@@ -11,6 +11,7 @@ internal static class NativeMethods
 {
     public const int WM_GETMINMAXINFO = 0x0024;
     public const int WM_HOTKEY = 0x0312;
+    public const int WM_MOUSEMOVE = 0x0200;
     public const int WM_RBUTTONUP = 0x0205;
     private const int WM_APP = 0x8000;
     public const int WM_TRAYICON = WM_APP + 1;
@@ -50,8 +51,6 @@ internal static class NativeMethods
     public const uint SPI_GETWORKAREA = 0x0030;
 
     public const uint NIN_SELECT = 0x0400;
-    public const uint NIN_POPUPOPEN = 0x0406;
-    public const uint NIN_POPUPCLOSE = 0x0407;
 
     public const uint SWP_NOSIZE = 0x0001;
     public const uint SWP_NOMOVE = 0x0002;

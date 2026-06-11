@@ -146,10 +146,8 @@ public sealed partial class MainWindow : Window
         trayIcon.MouseHovered += OnTrayMouseHovered;
         trayIcon.MouseLeft += OnTrayMouseLeft;
 
-        string trayTooltip = settingsService.TrayPeekEnabled
-            ? string.Empty
-            : AppConstants.AppName;
-        trayIcon.Add(trayIconFilePath, trayTooltip);
+        trayIcon.Add(trayIconFilePath, AppConstants.AppName);
+        trayIcon.SuppressTooltipOnHover = settingsService.TrayPeekEnabled;
 
         Closed += OnWindowClosed;
         Panel.PinToggleRequested += OnPanelPinToggleRequested;
@@ -521,12 +519,9 @@ public sealed partial class MainWindow : Window
             {
                 bool newPeekEnabled = !settingsService.TrayPeekEnabled;
                 settingsService.TrayPeekEnabled = newPeekEnabled;
-                string tooltip = newPeekEnabled
-                    ? string.Empty
-                    : AppConstants.AppName;
                 if (trayIcon != null)
                 {
-                    trayIcon.SetTooltip(tooltip);
+                    trayIcon.SuppressTooltipOnHover = newPeekEnabled;
                 }
                 _ = settingsService.SaveAsync();
             },

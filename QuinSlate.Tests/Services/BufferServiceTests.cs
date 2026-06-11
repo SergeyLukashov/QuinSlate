@@ -1,3 +1,4 @@
+using QuinSlate.Ui.Constants;
 using QuinSlate.Ui.Services;
 
 namespace QuinSlate.Tests.Services;
@@ -45,7 +46,7 @@ public sealed class BufferServiceTests : IDisposable
     }
 
     [Fact]
-    public void LoadAll_InitialisesFiveEmptyBuffers()
+    public void LoadAll_InitialisesFiveBuffersWithDefaultContent()
     {
         var buffers = bufferService.LoadAll();
 
@@ -53,12 +54,12 @@ public sealed class BufferServiceTests : IDisposable
         for (var i = 0; i < 5; i++)
         {
             Assert.Equal(i + 1, buffers[i].Index);
-            Assert.Equal(string.Empty, buffers[i].Content);
+            Assert.Equal(DefaultBuffers.GetDefaultContent(i + 1), buffers[i].Content);
         }
     }
 
     [Fact]
-    public void LoadAll_ReadsExistingFiles()
+    public void LoadAll_ReadsExistingFilesAndInitialisesMissingWithDefaults()
     {
         Directory.CreateDirectory(tempDirectory);
         var expectedContent = "existing content";
@@ -66,7 +67,26 @@ public sealed class BufferServiceTests : IDisposable
 
         var buffers = bufferService.LoadAll();
 
+        // Buffer 3 has existing file with content, should read that content
         Assert.Equal(expectedContent, buffers[2].Content);
+
+        // Buffer 1 does not exist, should load default content
+        Assert.Equal(DefaultBuffers.GetDefaultContent(1), buffers[0].Content);
+    }
+
+    [Fact]
+    public void LoadAll_ExistingEmptyFile_LoadsAsEmpty()
+    {
+        Directory.CreateDirectory(tempDirectory);
+        File.WriteAllText(Path.Combine(tempDirectory, "buffer-2.txt"), string.Empty);
+
+        var buffers = bufferService.LoadAll();
+
+        // Buffer 2 exists but is empty, should remain empty and not load default content
+        Assert.Equal(string.Empty, buffers[1].Content);
+
+        // Buffer 1 does not exist, should load default content
+        Assert.Equal(DefaultBuffers.GetDefaultContent(1), buffers[0].Content);
     }
 
     [Fact]

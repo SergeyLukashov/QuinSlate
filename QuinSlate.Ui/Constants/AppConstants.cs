@@ -1,4 +1,4 @@
-namespace QuinSlate.Ui;
+namespace QuinSlate.Ui.Constants;
 
 /// <summary>
 /// Contains application-wide constant values used across the codebase.

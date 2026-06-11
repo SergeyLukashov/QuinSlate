@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using QuinSlate.Ui.Components;
+using QuinSlate.Ui.Constants;
 using QuinSlate.Ui.Helpers;
 using QuinSlate.Ui.Interop;
 using QuinSlate.Ui.Layout;

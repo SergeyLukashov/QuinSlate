@@ -3,6 +3,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
 using QuinSlate.Ui.Components;
+using QuinSlate.Ui.Constants;
 using QuinSlate.Ui.Interop;
 using QuinSlate.Ui.Services;
 using QuinSlate.Ui.Tray;

@@ -1,3 +1,4 @@
+using QuinSlate.Ui.Constants;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -67,7 +68,15 @@ public sealed class BufferService
         for (var index = Buffer.MinIndex; index <= Buffer.MaxIndex; index++)
         {
             var path = GetBufferFilePath(index);
-            var content = ReadFileSafe(path);
+            string content;
+            if (File.Exists(path) == false)
+            {
+                content = DefaultBuffers.GetDefaultContent(index);
+            }
+            else
+            {
+                content = ReadFileSafe(path);
+            }
             var buffer = new Buffer(index, path, content);
             buffersByIndex[index] = buffer;
             ordered.Add(buffer);

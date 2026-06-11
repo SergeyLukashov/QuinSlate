@@ -25,7 +25,10 @@ QuinSlate/
 ├── QuinSlate.Ui/             # WinUI 3 desktop application source code and assets
 ├── QuinSlate.Tests/          # Unit tests for models and services
 ├── QuinSlate.AssetGenerator/ # Asset generator utility console app
-├── Specs/                    # Product specifications and feature queue
+├── Docs/
+│   ├── Specs/                # Product specifications and feature queue
+│   ├── Investigations/       # Deep-dives into platform bugs, dead-end archaeology
+│   └── Decisions/            # Architecture decision records (ADRs)
 ├── Scratch/                  # Local-only scratchpad for temporary code/scripts
 ```
 
@@ -193,7 +196,7 @@ This applies to new files and edited files alike. Do not skip it for trivial cha
 
 ## Specs
 
-If it is decided during implementation to drift away from the initial requirements, agents should modify the corresponding `Specs/` `.md` files to reflect the new direction.
+If it is decided during implementation to drift away from the initial requirements, agents should modify the corresponding `Docs/Specs/` `.md` files to reflect the new direction.
 
 ---
 

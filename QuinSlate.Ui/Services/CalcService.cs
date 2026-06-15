@@ -14,6 +14,8 @@ internal static class CalcService
 
     private static readonly char[] AdjacentBlockChars = { '>', '<', '!', '=' };
 
+    private const int MaxRecursionDepth = 64;
+
     /// <summary>
     /// Attempts to evaluate the mathematical expression on the current line.
     /// </summary>
@@ -88,7 +90,7 @@ internal static class CalcService
     private static double Evaluate(string expr)
     {
         int pos = 0;
-        double result = ParseAdditive(expr, ref pos);
+        double result = ParseAdditive(expr, ref pos, 0);
         SkipWhitespace(expr, ref pos);
         if (pos < expr.Length)
         {
@@ -98,9 +100,10 @@ internal static class CalcService
         return result;
     }
 
-    private static double ParseAdditive(string expr, ref int pos)
+    private static double ParseAdditive(string expr, ref int pos, int depth)
     {
-        double left = ParseMultiplicative(expr, ref pos);
+        EnsureDepth(depth);
+        double left = ParseMultiplicative(expr, ref pos, depth);
         while (true)
         {
             SkipWhitespace(expr, ref pos);
@@ -116,16 +119,16 @@ internal static class CalcService
             }
 
             pos++;
-            double right = ParseMultiplicative(expr, ref pos);
+            double right = ParseMultiplicative(expr, ref pos, depth);
             left = op == '+' ? left + right : left - right;
         }
 
         return left;
     }
 
-    private static double ParseMultiplicative(string expr, ref int pos)
+    private static double ParseMultiplicative(string expr, ref int pos, int depth)
     {
-        double left = ParseUnary(expr, ref pos);
+        double left = ParseUnary(expr, ref pos, depth);
         while (true)
         {
             SkipWhitespace(expr, ref pos);
@@ -141,7 +144,7 @@ internal static class CalcService
             }
 
             pos++;
-            double right = ParseUnary(expr, ref pos);
+            double right = ParseUnary(expr, ref pos, depth);
             if (op == '*')
             {
                 left *= right;
@@ -159,8 +162,9 @@ internal static class CalcService
         return left;
     }
 
-    private static double ParseUnary(string expr, ref int pos)
+    private static double ParseUnary(string expr, ref int pos, int depth)
     {
+        EnsureDepth(depth);
         SkipWhitespace(expr, ref pos);
         if (pos >= expr.Length)
         {
@@ -170,34 +174,35 @@ internal static class CalcService
         if (expr[pos] == '-')
         {
             pos++;
-            return -ParseUnary(expr, ref pos);
+            return -ParseUnary(expr, ref pos, depth + 1);
         }
 
         if (expr[pos] == '+')
         {
             pos++;
-            return ParseUnary(expr, ref pos);
+            return ParseUnary(expr, ref pos, depth + 1);
         }
 
-        return ParseExponential(expr, ref pos);
+        return ParseExponential(expr, ref pos, depth);
     }
 
-    private static double ParseExponential(string expr, ref int pos)
+    private static double ParseExponential(string expr, ref int pos, int depth)
     {
-        double left = ParsePrimary(expr, ref pos);
+        double left = ParsePrimary(expr, ref pos, depth);
         SkipWhitespace(expr, ref pos);
         if (pos < expr.Length && expr[pos] == '^')
         {
             pos++;
-            double right = ParseUnary(expr, ref pos);
+            double right = ParseUnary(expr, ref pos, depth + 1);
             return Math.Pow(left, right);
         }
 
         return left;
     }
 
-    private static double ParsePrimary(string expr, ref int pos)
+    private static double ParsePrimary(string expr, ref int pos, int depth)
     {
+        EnsureDepth(depth);
         SkipWhitespace(expr, ref pos);
         if (pos >= expr.Length)
         {
@@ -207,7 +212,7 @@ internal static class CalcService
         if (expr[pos] == '(')
         {
             pos++;
-            double value = ParseAdditive(expr, ref pos);
+            double value = ParseAdditive(expr, ref pos, depth + 1);
             SkipWhitespace(expr, ref pos);
             if (pos >= expr.Length || expr[pos] != ')')
             {
@@ -236,6 +241,14 @@ internal static class CalcService
         }
 
         return num;
+    }
+
+    private static void EnsureDepth(int depth)
+    {
+        if (depth > MaxRecursionDepth)
+        {
+            throw new FormatException("Expression nesting too deep");
+        }
     }
 
     private static void SkipWhitespace(string expr, ref int pos)

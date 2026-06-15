@@ -185,4 +185,13 @@ public sealed class CalcServiceTests
         Assert.True(CalcService.TryEvaluate("2^50 =", out string result));
         Assert.Equal("1.13E+15", result);
     }
+
+    [Fact]
+    public void DeeplyNestedParentheses_ReturnsFalse_DoesNotCrash()
+    {
+        // A pathological run of opening parentheses must fail gracefully rather than
+        // recurse until the stack overflows (StackOverflowException is uncatchable).
+        var expr = new string('(', 5000) + "1" + new string(')', 5000) + "=";
+        Assert.False(CalcService.TryEvaluate(expr, out _));
+    }
 }

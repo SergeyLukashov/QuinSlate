@@ -1,7 +1,7 @@
 using QuinSlate.Ui.Models;
+using Serilog;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Text.Json;
@@ -245,7 +245,7 @@ public sealed class SettingsService
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"SettingsService: failed to load settings — {ex.Message}");
+            Log.ForContext<SettingsService>().Warning(ex, "Failed to load settings; using defaults.");
         }
     }
 
@@ -261,7 +261,7 @@ public sealed class SettingsService
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"SettingsService: failed to save settings — {ex.Message}");
+            Log.ForContext<SettingsService>().Warning(ex, "Failed to save settings.");
         }
     }
 
@@ -278,7 +278,7 @@ public sealed class SettingsService
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"SettingsService: failed to save settings — {ex.Message}");
+            Log.ForContext<SettingsService>().Warning(ex, "Failed to save settings.");
         }
     }
 

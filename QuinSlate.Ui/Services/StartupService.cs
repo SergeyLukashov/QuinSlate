@@ -1,7 +1,7 @@
 using Microsoft.Win32;
 using QuinSlate.Ui.Constants;
+using Serilog;
 using System;
-using System.Diagnostics;
 using System.Threading.Tasks;
 
 namespace QuinSlate.Ui.Services;
@@ -58,7 +58,7 @@ public sealed class StartupService
         var executablePath = Environment.ProcessPath;
         if (string.IsNullOrEmpty(executablePath))
         {
-            Debug.WriteLine("StartupService: cannot enable startup — executable path is unavailable.");
+            Log.ForContext<StartupService>().Warning("Cannot enable startup — executable path is unavailable.");
             return;
         }
 
@@ -68,16 +68,17 @@ public sealed class StartupService
             {
                 if (key == null)
                 {
-                    Debug.WriteLine($"StartupService: cannot enable startup — registry key '{RunKeyPath}' could not be opened for writing.");
+                    Log.ForContext<StartupService>().Warning("Cannot enable startup — run key '{RunKey}' could not be opened for writing.", RunKeyPath);
                     return;
                 }
 
                 key.SetValue(AppRegistryValueName, executablePath, RegistryValueKind.String);
+                Log.ForContext<StartupService>().Information("Startup registration enabled.");
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"StartupService: failed to enable startup registration — {ex.Message}");
+            Log.ForContext<StartupService>().Error(ex, "Failed to enable startup registration.");
         }
     }
 
@@ -104,7 +105,7 @@ public sealed class StartupService
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"StartupService: failed to disable startup registration — {ex.Message}");
+            Log.ForContext<StartupService>().Error(ex, "Failed to disable startup registration.");
         }
     }
 

@@ -1,6 +1,5 @@
-using QuinSlate.Ui.Constants;
+using Serilog;
 using System;
-using System.Diagnostics;
 
 namespace QuinSlate.Ui.Interop;
 
@@ -53,11 +52,12 @@ public sealed class HotkeyManager : IDisposable
         if (result == false)
         {
             var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
-            Debug.WriteLine($"[{AppConstants.AppName}] RegisterHotKey failed for Ctrl+Shift+Q. Win32 error: {error}");
+            Log.ForContext<HotkeyManager>().Warning("RegisterHotKey failed for Ctrl+Shift+Q. Win32 error: {Win32Error}", error);
             return false;
         }
 
         registered = true;
+        Log.ForContext<HotkeyManager>().Information("Global hotkey Ctrl+Shift+Q registered.");
         return true;
     }
 

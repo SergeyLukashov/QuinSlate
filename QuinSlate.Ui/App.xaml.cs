@@ -1,7 +1,9 @@
 using Microsoft.UI.Xaml;
 using QuinSlate.Ui.Constants;
 using QuinSlate.Ui.Interop;
+using QuinSlate.Ui.Logging;
 using QuinSlate.Ui.Services;
+using Serilog;
 using System;
 using System.IO;
 using System.Threading;
@@ -30,6 +32,7 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        GlobalExceptionHandlers.Register(this);
     }
 
     /// <summary>
@@ -50,7 +53,7 @@ public partial class App : Application
         }
         catch (SynchronizationLockException ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[{AppConstants.AppName}] ReleaseSingleInstanceMutex: {ex.Message}");
+            Log.ForContext<App>().Warning(ex, "Failed to release single-instance mutex.");
         }
 
         singleInstanceMutex.Dispose();
@@ -75,11 +78,15 @@ public partial class App : Application
 
             singleInstanceMutex.Dispose();
             singleInstanceMutex = null;
+            LogBootstrapper.Shutdown();
             Environment.Exit(ExitCodeNormal);
             return;
         }
 
         var appDataDirectory = ResolveAppDataDirectory();
+        LogBootstrapper.Initialize(appDataDirectory);
+        LogBootstrapper.LogStartupBanner();
+
         bufferService = new BufferService(appDataDirectory);
 
         settingsService = new SettingsService(appDataDirectory);

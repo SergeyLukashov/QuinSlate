@@ -243,6 +243,42 @@ internal static class NativeMethods
     [DllImport("user32.dll")]
     public static extern int GetSystemMetrics(int nIndex);
 
+    /// <summary>System metric index: primary screen width in pixels.</summary>
+    public const int SM_CXSCREEN = 0;
+
+    /// <summary>System metric index: primary screen height in pixels.</summary>
+    public const int SM_CYSCREEN = 1;
+
+    /// <summary>System metric index: number of display monitors.</summary>
+    public const int SM_CMONITORS = 80;
+
+    /// <summary>
+    /// Memory status returned by <see cref="GlobalMemoryStatusEx"/>. Only
+    /// <see cref="ullTotalPhys"/> is consumed; the remaining fields are required
+    /// for the correct struct layout.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MEMORYSTATUSEX
+    {
+        public uint dwLength;
+        public uint dwMemoryLoad;
+        public ulong ullTotalPhys;
+        public ulong ullAvailPhys;
+        public ulong ullTotalPageFile;
+        public ulong ullAvailPageFile;
+        public ulong ullTotalVirtual;
+        public ulong ullAvailVirtual;
+        public ulong ullAvailExtendedVirtual;
+    }
+
+    /// <summary>
+    /// Retrieves information about the system's physical and virtual memory.
+    /// <see cref="MEMORYSTATUSEX.dwLength"/> must be set to the struct size before the call.
+    /// </summary>
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
     [DllImport("user32.dll")]
     public static extern bool SetForegroundWindow(IntPtr hWnd);
 

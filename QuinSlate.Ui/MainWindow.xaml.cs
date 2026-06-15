@@ -5,8 +5,10 @@ using Microsoft.UI.Xaml.Media.Animation;
 using QuinSlate.Ui.Components;
 using QuinSlate.Ui.Constants;
 using QuinSlate.Ui.Interop;
+using QuinSlate.Ui.Logging;
 using QuinSlate.Ui.Services;
 using QuinSlate.Ui.Tray;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -142,7 +144,10 @@ public sealed partial class MainWindow : Window
         }
 
         hotkeyManager = new HotkeyManager(windowHandle);
-        hotkeyManager.RegisterDefaultHotkey();
+        if (hotkeyManager.RegisterDefaultHotkey() == false)
+        {
+            Log.ForContext<MainWindow>().Warning("Global hotkey registration failed; the panel can still be opened from the tray.");
+        }
 
         trayPeekWindow = new TrayPeekWindow();
 
@@ -752,6 +757,9 @@ public sealed partial class MainWindow : Window
         }
 
         ((App)Application.Current).ReleaseSingleInstanceMutex();
+
+        Log.ForContext<MainWindow>().Information("Shutdown complete.");
+        LogBootstrapper.Shutdown();
     }
 
     private void ExitApplication()

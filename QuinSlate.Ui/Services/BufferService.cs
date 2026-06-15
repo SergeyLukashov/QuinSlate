@@ -1,4 +1,5 @@
 using QuinSlate.Ui.Constants;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -192,12 +193,14 @@ public sealed class BufferService
         {
             return File.ReadAllText(path, Utf8WithBom);
         }
-        catch (IOException)
+        catch (IOException ex)
         {
+            Log.ForContext<BufferService>().Warning(ex, "Failed to read buffer file {Path}; treating as empty.", path);
             return string.Empty;
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
+            Log.ForContext<BufferService>().Warning(ex, "Access denied reading buffer file {Path}; treating as empty.", path);
             return string.Empty;
         }
     }
@@ -212,11 +215,13 @@ public sealed class BufferService
                 await writer.WriteAsync(content ?? string.Empty);
             }
         }
-        catch (IOException)
+        catch (IOException ex)
         {
+            Log.ForContext<BufferService>().Warning(ex, "Failed to write buffer file {Path}.", path);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
+            Log.ForContext<BufferService>().Warning(ex, "Access denied writing buffer file {Path}.", path);
         }
     }
 
@@ -226,11 +231,13 @@ public sealed class BufferService
         {
             File.WriteAllText(path, content ?? string.Empty, Utf8WithBom);
         }
-        catch (IOException)
+        catch (IOException ex)
         {
+            Log.ForContext<BufferService>().Warning(ex, "Failed to write buffer file {Path}.", path);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
+            Log.ForContext<BufferService>().Warning(ex, "Access denied writing buffer file {Path}.", path);
         }
     }
 }

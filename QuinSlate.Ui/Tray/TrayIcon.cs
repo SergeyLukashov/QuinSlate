@@ -1,8 +1,7 @@
 using Microsoft.UI.Dispatching;
-using QuinSlate.Ui.Constants;
 using QuinSlate.Ui.Interop;
+using Serilog;
 using System;
-using System.Diagnostics;
 
 namespace QuinSlate.Ui.Tray;
 
@@ -116,7 +115,7 @@ public sealed class TrayIcon : IDisposable
         if (addResult == false)
         {
             var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
-            Debug.WriteLine($"[{AppConstants.AppName}] Shell_NotifyIcon NIM_ADD failed. Win32 error: {error}");
+            Log.ForContext<TrayIcon>().Warning("Shell_NotifyIcon NIM_ADD failed. Win32 error: {Win32Error}", error);
             return false;
         }
 
@@ -124,6 +123,7 @@ public sealed class TrayIcon : IDisposable
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_SETVERSION, ref data);
 
         added = true;
+        Log.ForContext<TrayIcon>().Information("Tray icon added.");
         return true;
     }
 
@@ -177,6 +177,7 @@ public sealed class TrayIcon : IDisposable
         var data = BuildData(null);
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_DELETE, ref data);
         added = false;
+        Log.ForContext<TrayIcon>().Debug("Tray icon removed.");
 
         if (iconHandle != IntPtr.Zero)
         {

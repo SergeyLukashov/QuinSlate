@@ -39,6 +39,11 @@ QuinSlate/
 Do not enable nullable reference types. Do not use `?` annotations on reference
 types or `!` null-forgiving operators. Null checks are explicit `if (x == null)` guards.
 
+Serilog is an accepted dependency for application logging (the one sanctioned
+exception to "no third-party NuGet packages") — see `Docs/Decisions/0001-logging-with-serilog.md`
+and `Docs/Specs/16-SPEC-LOGGING.md`. Logs roll daily into the `Logs/` subfolder
+of the app-data directory. Never log buffer/note contents.
+
 ---
 
 ## Code style

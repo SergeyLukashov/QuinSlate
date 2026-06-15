@@ -29,7 +29,7 @@ public static class AppDataPathResolver
     /// </summary>
     public static string Resolve()
     {
-        if (HasPackageIdentity())
+        if (IsPackaged())
         {
             return Windows.Storage.ApplicationData.Current.LocalFolder.Path;
         }
@@ -42,7 +42,7 @@ public static class AppDataPathResolver
     /// Detects whether the process is running with package identity (i.e. it was
     /// installed as an MSIX package) by asking Win32 for the current package name.
     /// </summary>
-    private static bool HasPackageIdentity()
+    public static bool IsPackaged()
     {
         var length = 0;
         var result = NativeMethods.GetCurrentPackageFullName(ref length, null);

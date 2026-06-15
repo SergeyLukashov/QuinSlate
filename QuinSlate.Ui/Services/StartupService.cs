@@ -1,20 +1,22 @@
-using Microsoft.Win32;
-using QuinSlate.Ui.Constants;
 using Serilog;
 using System;
 using System.Threading.Tasks;
+using Windows.ApplicationModel;
 
 namespace QuinSlate.Ui.Services;
 
 /// <summary>
-/// Manages QuinSlate's Windows startup registration via the current-user run key
-/// (<c>HKCU\Software\Microsoft\Windows\CurrentVersion\Run</c>).
-/// No elevated privileges are required.
+/// Manages QuinSlate's "launch at login" registration via the packaged-app
+/// <see cref="StartupTask"/> API. QuinSlate ships as an MSIX-packaged desktop app,
+/// so the legacy <c>HKCU\...\Run</c> registry key cannot be used: package registry
+/// virtualization redirects the write into a private hive that Windows never reads at
+/// login, and the bare packaged executable cannot be activated without package identity.
+/// The startup task itself is declared as a <c>windows.startupTask</c> extension in
+/// <c>Package.appxmanifest</c> (TaskId <c>QuinSlateStartupTask</c>).
 /// </summary>
 public sealed class StartupService
 {
-    private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string AppRegistryValueName = AppConstants.AppName;
+    private const string StartupTaskId = "QuinSlateStartupTask";
 
     private readonly SettingsService settingsService;
 
@@ -33,47 +35,46 @@ public sealed class StartupService
     }
 
     /// <summary>
-    /// Returns <c>true</c> when the "QuinSlate" value exists in the current-user run
-    /// key. Reads the registry on every call — no caching.
+    /// Returns <c>true</c> when the startup task is currently enabled. Reads the live
+    /// task state on every call — no caching — so it always reflects changes the user
+    /// made through Task Manager or the Settings Startup page.
     /// </summary>
-    public bool IsEnabled()
+    public async Task<bool> IsEnabledAsync()
     {
-        using (var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: false))
+        var task = await GetStartupTaskAsync();
+        if (task == null)
         {
-            if (key == null)
-            {
-                return false;
-            }
-
-            return key.GetValue(AppRegistryValueName) != null;
+            return false;
         }
+
+        return task.State == StartupTaskState.Enabled
+            || task.State == StartupTaskState.EnabledByPolicy;
     }
 
     /// <summary>
-    /// Writes the current executable path to the run key so QuinSlate starts with
-    /// Windows. Logs and does not mask failures.
+    /// Requests that QuinSlate start with Windows. For a packaged desktop app this
+    /// shows no consent dialog. Windows will not override a choice the user made in
+    /// Task Manager (<see cref="StartupTaskState.DisabledByUser"/>); in that case the
+    /// request is a no-op and the resulting state is logged.
     /// </summary>
-    public void Enable()
+    public async Task EnableAsync()
     {
-        var executablePath = Environment.ProcessPath;
-        if (string.IsNullOrEmpty(executablePath))
+        var task = await GetStartupTaskAsync();
+        if (task == null)
         {
-            Log.ForContext<StartupService>().Warning("Cannot enable startup — executable path is unavailable.");
             return;
         }
 
         try
         {
-            using (var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true))
+            StartupTaskState newState = await task.RequestEnableAsync();
+            if (newState == StartupTaskState.Enabled || newState == StartupTaskState.EnabledByPolicy)
             {
-                if (key == null)
-                {
-                    Log.ForContext<StartupService>().Warning("Cannot enable startup — run key '{RunKey}' could not be opened for writing.", RunKeyPath);
-                    return;
-                }
-
-                key.SetValue(AppRegistryValueName, executablePath, RegistryValueKind.String);
                 Log.ForContext<StartupService>().Information("Startup registration enabled.");
+            }
+            else
+            {
+                Log.ForContext<StartupService>().Warning("Startup enable request did not take effect; task state is {State}.", newState);
             }
         }
         catch (Exception ex)
@@ -83,25 +84,21 @@ public sealed class StartupService
     }
 
     /// <summary>
-    /// Removes the "QuinSlate" value from the run key if it exists. Logs and does
-    /// not mask failures.
+    /// Disables the startup task if it is currently enabled. Logs and does not mask
+    /// failures.
     /// </summary>
-    public void Disable()
+    public async Task DisableAsync()
     {
+        var task = await GetStartupTaskAsync();
+        if (task == null)
+        {
+            return;
+        }
+
         try
         {
-            using (var key = Registry.CurrentUser.OpenSubKey(RunKeyPath, writable: true))
-            {
-                if (key == null)
-                {
-                    return;
-                }
-
-                if (key.GetValue(AppRegistryValueName) != null)
-                {
-                    key.DeleteValue(AppRegistryValueName);
-                }
-            }
+            task.Disable();
+            Log.ForContext<StartupService>().Information("Startup registration disabled.");
         }
         catch (Exception ex)
         {
@@ -110,9 +107,9 @@ public sealed class StartupService
     }
 
     /// <summary>
-    /// Registers QuinSlate for startup on the very first launch. Subsequent launches
-    /// leave the registry value as the user left it, allowing opt-out via the
-    /// tray menu to persist.
+    /// Enables startup on the very first launch so QuinSlate is on by default.
+    /// Subsequent launches leave the task state as the user left it, allowing an
+    /// opt-out through the tray menu to persist.
     /// </summary>
     public async Task EnsureRegisteredOnFirstLaunchAsync()
     {
@@ -121,8 +118,26 @@ public sealed class StartupService
             return;
         }
 
-        Enable();
+        await EnableAsync();
         settingsService.HasRegisteredStartup = true;
         await settingsService.SaveAsync();
+    }
+
+    /// <summary>
+    /// Resolves the manifest-declared startup task. Returns <c>null</c> when the task
+    /// cannot be retrieved — for example when running without package identity — so
+    /// callers degrade gracefully instead of throwing.
+    /// </summary>
+    private static async Task<StartupTask> GetStartupTaskAsync()
+    {
+        try
+        {
+            return await StartupTask.GetAsync(StartupTaskId);
+        }
+        catch (Exception ex)
+        {
+            Log.ForContext<StartupService>().Error(ex, "Failed to resolve startup task '{TaskId}'.", StartupTaskId);
+            return null;
+        }
     }
 }

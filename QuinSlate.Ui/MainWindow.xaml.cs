@@ -495,7 +495,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void ShowContextMenu()
+    private async void ShowContextMenu()
     {
         if (startupService == null)
         {
@@ -509,21 +509,21 @@ public sealed partial class MainWindow : Window
 
         isContextMenuOpen = true;
 
-        bool startupEnabled = startupService.IsEnabled();
+        bool startupEnabled = await startupService.IsEnabledAsync();
         bool peekEnabled = settingsService != null && settingsService.TrayPeekEnabled;
 
         var menu = new TrayMenu();
         menu.Show(
             onOpen: () => ShowPanel(),
-            onToggleStartup: () =>
+            onToggleStartup: async () =>
             {
-                if (startupService.IsEnabled())
+                if (await startupService.IsEnabledAsync())
                 {
-                    startupService.Disable();
+                    await startupService.DisableAsync();
                 }
                 else
                 {
-                    startupService.Enable();
+                    await startupService.EnableAsync();
                 }
             },
             onTogglePeek: () =>

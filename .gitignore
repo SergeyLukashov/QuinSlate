@@ -72,3 +72,13 @@ x86/
 
 # Temporary code
 Scratch/
+
+# MSIX packaging output
+AppPackages/
+BundleArtifacts/
+*.appx
+*.msix
+*.msixbundle
+*.appxbundle
+*.appxupload
+*.appxsym

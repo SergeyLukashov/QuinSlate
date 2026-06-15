@@ -71,7 +71,7 @@ of the app-data directory. Never log buffer/note contents.
 
 **Persistence** — Buffer files use UTF-8 with BOM (`new UTF8Encoding(true)`). Writes are debounced 300 ms after the last keystroke; never write on every keystroke. On exit, flush any pending debounced write synchronously before the process ends. A missing file on startup is an empty buffer — do not throw.
 
-**Settings** — Non-buffer state lives in a single `settings.json`. Do not use the registry for anything except the startup run key.
+**Settings** — Non-buffer state lives in a single `settings.json`. Do not use the registry. "Launch on startup" is **not** a registry run-key — QuinSlate is MSIX-packaged, so it uses the `windows.startupTask` manifest extension plus the `Windows.ApplicationModel.StartupTask` API (registry run-key writes get virtualized and never run; see `Docs/Specs/02-SPEC-STARTUP.md`).
 
 **Single instance** — Enforce via named mutex before hotkey registration. The existing instance must respond to a second launch by surfacing the panel.
 

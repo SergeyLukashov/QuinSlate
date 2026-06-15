@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" xmlns:systemai="http://schemas.microsoft.com/appx/manifest/systemai/windows10" IgnorableNamespaces="uap rescap systemai">
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" xmlns:systemai="http://schemas.microsoft.com/appx/manifest/systemai/windows10" xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10" IgnorableNamespaces="uap rescap systemai">
   <Identity Name="b3d78fa0-da1c-4798-b2c5-9fe10a893aad" Publisher="CN=lukas" Version="0.9.0.0" />
   <mp:PhoneIdentity PhoneProductId="b3d78fa0-da1c-4798-b2c5-9fe10a893aad" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
@@ -20,6 +20,11 @@
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>
+      <Extensions>
+        <desktop:Extension Category="windows.startupTask" Executable="QuinSlate.Ui.exe" EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="QuinSlateStartupTask" Enabled="false" DisplayName="QuinSlate" />
+        </desktop:Extension>
+      </Extensions>
     </Application>
   </Applications>
   <Capabilities>

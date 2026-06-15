@@ -2,9 +2,20 @@
 
 ## Status
 
-**FIXED** (2026-06-12). `ShowAboutDialog` prepares the panel via `EnsureModalBackdrop`, which never
-re-activates or refocuses an already-visible panel. A first fix attempt also rebuilt the scrim
-mechanism and regressed three other behaviours; see "First fix attempt and its regressions" below.
+**FIXED** (2026-06-14, panel-frame flash; 2026-06-15, foreign-app flash). `ShowAboutDialog` prepares
+the panel via `PrepareModalBackdrop`, which never re-activates or refocuses an already-visible panel.
+A first fix attempt (2026-06-11) rebuilt the scrim mechanism and regressed three other behaviours
+(see "First fix attempt and its regressions" below); a 2026-06-12 refinement — the
+`EnsureModalBackdrop` version this doc originally described — was **lost before it was ever committed**
+(`git log -S EnsureModalBackdrop` finds nothing), so the committed code had silently regressed to the
+original flash. The current fix re-implements the same idea minimally as `PrepareModalBackdrop`,
+retaining every dead end and regression lesson below.
+
+A **second, distinct flash** was reported and fixed 2026-06-15: with the panel *active* before the
+tray click, another application would intermittently flash *above* the panel for one frame before the
+About card appeared. This was a separate root cause (a disabled owner being skipped by the tray
+menu's foreground reshuffle), not a regression of the above — see "Second flash: an unrelated app
+appears above the panel" below.
 
 ---
 
@@ -57,27 +68,99 @@ The branch taken was identified by adding a temporary `File.AppendAllText` log a
 
 **File:** [QuinSlate.Ui/MainWindow.xaml.cs](../../QuinSlate.Ui/MainWindow.xaml.cs)
 
-`onAbout` calls only `ShowAboutDialog()`, which calls `EnsureModalBackdrop()` before creating the
-About window (and also when About is re-requested while already open, in case the backdrop was
-hidden in the meantime):
+`onAbout` calls only `ShowAboutDialog()`, which calls `PrepareModalBackdrop()` before creating the
+About window. (On a re-request while About is already open, `ShowAboutDialog` re-activates the
+existing window and returns without re-preparing the backdrop.) `PrepareModalBackdrop` branches on
+`isPanelVisible`:
 
 - **Panel visible:** raise it in z-order only — `SetWindowPos` with `HWND_TOP` (or `HWND_TOPMOST`
   when pinned) and `SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE`. The panel is inactive at this point
   and **stays** inactive; nothing repaints its frame, so there is nothing to flash. Raising matters
   when the panel is buried under other apps' windows: without it, the About card opens floating
   over whatever is on top while its dimmed backdrop stays buried.
-- **Panel hidden:** show it activated (`appWindow.Show()` + `SetForegroundWindow`), exactly like
-  `ShowPanel()` but **without** `Panel.FocusActiveEditor()` — the modal takes keyboard focus and
-  disables the panel anyway, so focusing the editor would only flash its caret.
+- **Panel hidden:** show it via `ShowPanel(focusEditor: false)` — the same show/activate/raise as a
+  normal panel reveal but **without** `Panel.FocusActiveEditor()`, because the modal takes keyboard
+  focus and disables the panel anyway, so focusing the editor would only flash its caret. (The
+  `focusEditor` overload is the only structural change to `ShowPanel`; its normal callers still pass
+  `true`.)
 
 The scrim choreography is the original one: create the About window, fade the black scrim to 0.45
 over 130 ms (`ShowModalScrim`), activate About. On close, fade the scrim back to 0 and collapse it.
 
-One hardening change to `FadeScrim`: a superseded fade's clock still runs out and raises
-`Completed`, so the completion callback (which collapses the scrim) only runs if its storyboard is
-still the most recent one (`activeScrimFade` identity check). Without this, closing and reopening
-About within ~130 ms collapses the scrim for the entire new modal session. Storyboards are
-superseded only by beginning a newer one — never via `Stop()`, see below.
+One hardening change to the scrim hide: a superseded fade's clock still runs out and raises
+`Completed`, so the collapse callback only hides the scrim when **`aboutWindow == null`** — i.e.
+when About was not reopened in the meantime. This ties the scrim's visibility to the real invariant
+("a scrim is shown iff an About window exists") without a dedicated identity field. Without it,
+closing and reopening About within ~130 ms collapses the scrim for the entire new modal session.
+Storyboards are superseded only by beginning a newer one — never via `Stop()`, see below.
+
+---
+
+## Second flash: an unrelated app appears above the panel
+
+### Symptom
+
+Reported 2026-06-15, with the **panel active** before clicking the tray icon: opening About would
+*intermittently* ("not every time but often enough") flash a different application — whatever was
+behind the panel — *above* the panel for a single frame, just before the About card faded in. This
+is a different artifact from the 2026-06-14 panel-frame pulse: here a foreign window briefly occludes
+the panel, rather than the panel's own frame repainting.
+
+### Diagnostic methodology
+
+The `+600 ms` foreground sample (added during the first fix) only proved the *settled* state — About
+always wins the foreground eventually — so it could not see a one-frame transient. A separate
+external watcher was used: `Scratch/watch-foreground.ps1` tight-polls `GetForegroundWindow` every
+4 ms from its own process (so it is **not** starved by QuinSlate's UI thread during the open) and
+logs every foreground transition with the owning process name, window class, and rect. Window
+identity is read off the rect: the tray menu helper sits offscreen at `(-12800,-12800)`, the panel is
+`660×560`, the About card is `480×440`.
+
+The log showed the open settling two ways. Clean opens went `menu helper → About card`. Flash opens
+went `menu helper → WindowsTerminal → About card`, with the foreign window foreground for ~16 ms
+(one frame) and the panel **never** appearing — exactly the reported flash, and intermittent because
+it depends on a race (below).
+
+### Root Cause
+
+`AboutWindow`'s constructor disabled its owner immediately (`EnableWindow(owner, false)`, for modal
+input blocking) — **before** About won the foreground. When the tray menu's topmost helper window
+relinquishes the foreground as it tears down, Windows reassigns the foreground; it tries to restore
+the previously-active window (the panel), finds it **disabled, skips it, and activates the next
+top-level window instead** — an unrelated app, which is raised above the panel for the frame before
+About's own activation lands. Whether the flash appears depends on whether the menu-teardown
+reshuffle beats About's activation, hence the intermittency. (The reshuffle is **asynchronous** — it
+runs after the menu's `onClose` returns, driven by the helper window's destruction — which is why no
+synchronous re-ordering in `onAbout`/`onClose` can pre-empt it.)
+
+### Fix
+
+**Files:** [QuinSlate.Ui/MainWindow.xaml.cs](../../QuinSlate.Ui/MainWindow.xaml.cs),
+[QuinSlate.Ui/Components/AboutWindow.cs](../../QuinSlate.Ui/Components/AboutWindow.cs)
+
+Keep the owner **enabled** through the teardown reshuffle, so Windows restores the foreground to the
+panel (the modal backdrop — an all-QuinSlate, on-top window) instead of diverting to another app.
+Disable it for modality only *after* the reshuffle has settled:
+
+- `AboutWindow` no longer disables the owner in its constructor; it exposes `DisableOwnerForModality()`
+  (idempotent) for the launcher to call once the modal is up.
+- The tray menu's `onClose` schedules `ScheduleAboutModalFinalise()` — a one-shot ~64 ms
+  `DispatcherQueue` timer that lands *after* the asynchronous reshuffle, then raises About
+  (`BringToForeground`) and calls `DisableOwnerForModality()`. 64 ms is comfortably past the
+  near-immediate (~16 ms) reshuffle yet imperceptible behind the fading scrim.
+
+Verified with the same watcher: across ~10 opens, no non-`QuinSlate.Ui` window ever became foreground
+between the menu vanishing and the About card. Opens now read `menu helper → panel → About card` (or
+`menu helper → About card` when About wins outright). The brief panel-active step is the backdrop the
+card sits over and is imperceptible (confirmed by eye); the panel's `WM_ACTIVATE` handler only flips
+state flags — it does **not** focus the editor — so this does not reintroduce the 2026-06-14 caret/
+frame pulse.
+
+> [!NOTE]
+> Deferring the disable was the only approach that works because the reshuffle is asynchronous.
+> Disabling in `onClose` (synchronously, before the reshuffle) or in `AboutWindow`'s first `Activated`
+> (which can fire synchronously inside `Activate()`, before the reshuffle) both leave the owner
+> disabled when the reshuffle runs — reproducing the flash. The disable must be on a deferred tick.
 
 ---
 
@@ -156,8 +239,9 @@ After applying the fix, `GetForegroundWindow` was polled 8 times at 250 ms inter
 
 | File | Role |
 |---|---|
-| [QuinSlate.Ui/MainWindow.xaml.cs](../../QuinSlate.Ui/MainWindow.xaml.cs) | `ShowAboutDialog`, `EnsureModalBackdrop`, `ShowModalScrim`, `HideModalScrim`, `FadeScrim` |
-| [QuinSlate.Ui/Components/AboutWindow.cs](../../QuinSlate.Ui/Components/AboutWindow.cs) | Owned About window; disables owner via `EnableWindow(ownerHwnd, false)` in constructor; fade-in via `WS_EX_LAYERED` / `SetLayeredWindowAttributes` |
-| [QuinSlate.Ui/Interop/NativeMethods.cs](../../QuinSlate.Ui/Interop/NativeMethods.cs) | `HWND_TOP`, `SWP_NOACTIVATE` added for the no-activate raise |
+| [QuinSlate.Ui/MainWindow.xaml.cs](../../QuinSlate.Ui/MainWindow.xaml.cs) | `ShowAboutDialog`, `PrepareModalBackdrop`, `ScheduleAboutModalFinalise`, `ShowModalScrim`, `HideModalScrim`, `FadeScrim`, `ShowPanel(bool)` |
+| [QuinSlate.Ui/Components/AboutWindow.cs](../../QuinSlate.Ui/Components/AboutWindow.cs) | Owned About window; `DisableOwnerForModality()` disables the owner (`EnableWindow(ownerHwnd, false)`) — called by the launcher *after* the menu teardown reshuffle, not from the constructor; `BringToForeground()` re-asserts foreground past the foreground lock; fade-in via `WS_EX_LAYERED` / `SetLayeredWindowAttributes` |
+| [QuinSlate.Ui/Interop/NativeMethods.cs](../../QuinSlate.Ui/Interop/NativeMethods.cs) | `HWND_TOP`, `SWP_NOACTIVATE` for the no-activate raise; `GetForegroundWindow`, `GetWindowThreadProcessId`, `AttachThreadInput`, `GetCurrentThreadId` for `BringToForeground` |
 | `Scratch/capture-about-flash.ps1` | Burst capture harness (git-ignored) |
+| `Scratch/watch-foreground.ps1` | External 4 ms foreground-transition watcher; logs each foreground hwnd + process name to catch the one-frame foreign-app flash (git-ignored) |
 | `Scratch/NcActivateProbe.cs` | Win32 probe proving owner frame is untouched by owned-window activation (git-ignored) |

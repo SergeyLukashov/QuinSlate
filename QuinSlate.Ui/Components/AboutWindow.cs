@@ -103,9 +103,45 @@ public sealed class AboutWindow : Window
         BeginHiddenForFade();
         ApplySizeAndPosition();
         UpdateDragRegion();
-        DisableOwner();
 
+        // The owner is deliberately NOT disabled here. Disabling it before this dialog wins the
+        // foreground lets the tray menu's foreground reshuffle skip the disabled owner and flash an
+        // unrelated app on top; the launcher disables it via DisableOwnerForModality once that
+        // reshuffle has settled.
         Closed += OnClosed;
+    }
+
+    /// <summary>
+    /// Re-asserts this window as the foreground window. <see cref="Window.Activate"/> on an
+    /// already-shown window does not reliably re-raise it, so without this a repeat About request
+    /// would leave the modal — and the owner it floats above — buried behind other apps' windows.
+    /// </summary>
+    public void BringToForeground()
+    {
+        IntPtr foreground = NativeMethods.GetForegroundWindow();
+        if (foreground == hwnd)
+        {
+            return;
+        }
+
+        // SetForegroundWindow is refused — or instantly reverted — when another process owns the
+        // foreground lock. Temporarily attaching this thread's input to the foreground window's
+        // thread lifts that lock, so the modal is raised reliably instead of only flashing.
+        uint thisThread = NativeMethods.GetCurrentThreadId();
+        uint foregroundThread = foreground == IntPtr.Zero
+            ? 0u
+            : NativeMethods.GetWindowThreadProcessId(foreground, out _);
+
+        bool attached = foregroundThread != 0u
+            && foregroundThread != thisThread
+            && NativeMethods.AttachThreadInput(thisThread, foregroundThread, true);
+
+        NativeMethods.SetForegroundWindow(hwnd);
+
+        if (attached)
+        {
+            NativeMethods.AttachThreadInput(thisThread, foregroundThread, false);
+        }
     }
 
     private void AddEscapeAccelerator()
@@ -232,9 +268,20 @@ public sealed class AboutWindow : Window
         MoveCenteredOnOwner(width, height);
     }
 
+    /// <summary>
+    /// Disables the owner window so this dialog blocks input to it (classic Win32 modal
+    /// behaviour). Called by the launcher after the tray menu has fully torn down — not from the
+    /// constructor — so the owner stays enabled through the menu's foreground reshuffle and Windows
+    /// does not skip it (which would flash an unrelated app above the panel). Idempotent.
+    /// </summary>
+    public void DisableOwnerForModality()
+    {
+        DisableOwner();
+    }
+
     private void DisableOwner()
     {
-        if (ownerHwnd == IntPtr.Zero)
+        if (ownerHwnd == IntPtr.Zero || ownerDisabled)
         {
             return;
         }

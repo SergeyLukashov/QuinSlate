@@ -54,7 +54,9 @@ internal static class NativeMethods
 
     public const uint SWP_NOSIZE = 0x0001;
     public const uint SWP_NOMOVE = 0x0002;
+    public const uint SWP_NOACTIVATE = 0x0010;
 
+    public static readonly IntPtr HWND_TOP = new IntPtr(0);
     public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
     public static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
 
@@ -243,6 +245,34 @@ internal static class NativeMethods
 
     [DllImport("user32.dll")]
     public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    /// <summary>
+    /// Returns the handle of the foreground window (the one the user is currently working with),
+    /// or <see cref="IntPtr.Zero"/> if there is none.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern IntPtr GetForegroundWindow();
+
+    /// <summary>
+    /// Returns the id of the thread that created the given window (and, via the out parameter, its
+    /// process id). Used to attach input queues so the foreground can be reassigned reliably.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+
+    /// <summary>
+    /// Attaches or detaches the input processing of one thread to another. Briefly attaching to the
+    /// current foreground thread lets <see cref="SetForegroundWindow"/> succeed past the foreground
+    /// lock; the attachment must be released again immediately afterwards.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
+
+    /// <summary>
+    /// Returns the id of the calling thread.
+    /// </summary>
+    [DllImport("kernel32.dll")]
+    public static extern uint GetCurrentThreadId();
 
     /// <summary>
     /// Enables or disables mouse and keyboard input to the given window. Disabling the

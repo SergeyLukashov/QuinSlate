@@ -38,6 +38,11 @@ public sealed partial class MainWindow : Window
     private const double ModalScrimOpacity = 0.45;
     private const int ModalScrimFadeMilliseconds = 130;
 
+    // Delay after the tray menu closes before the About modal is finalised (owner disabled,
+    // card raised). Long enough to fall past the menu helper window's asynchronous foreground
+    // reshuffle so the owner is still enabled when Windows reassigns the foreground.
+    private const int AboutModalFinaliseDelayMilliseconds = 64;
+
     private Timer settingsDebounceTimer;
     private readonly object pendingStateLock = new object();
     private int pendingSizeWidth;
@@ -526,40 +531,109 @@ public sealed partial class MainWindow : Window
                 }
                 _ = settingsService.SaveAsync();
             },
-            onAbout: () =>
-            {
-                ShowPanel();
-                ShowAboutDialog();
-            },
+            onAbout: () => ShowAboutDialog(),
             onExit: () => ExitApplication(),
             startupEnabled: startupEnabled,
             peekEnabled: peekEnabled,
             onClose: () =>
             {
                 isContextMenuOpen = false;
+
+                // The tray menu's helper window is torn down now, but the foreground reshuffle its
+                // destruction triggers is asynchronous and lands shortly after this. Finalise the
+                // modal past that point: with the owner still enabled, Windows restores the
+                // foreground to the panel (the modal backdrop) rather than skipping the disabled
+                // owner and flashing an unrelated app on top. The finalise then raises About and
+                // disables the owner for modal input blocking.
+                if (aboutWindow != null)
+                {
+                    ScheduleAboutModalFinalise();
+                }
             }
         );
     }
 
     private void ShowAboutDialog()
     {
-        if (aboutWindow != null)
-        {
-            aboutWindow.Activate();
-            return;
-        }
-
         if (windowHandle == IntPtr.Zero)
         {
             return;
         }
 
-        string storageDirectory = bufferService != null ? bufferService.AppDataDirectory : null;
+        if (aboutWindow != null)
+        {
+            // About is already open, but the tray menu currently owns the foreground and reverts it
+            // to the previously-active window as it tears down — raising About now only flashes it.
+            // The menu's onClose finalise raises it once the foreground has settled.
+            PrepareModalBackdrop();
+            return;
+        }
 
+        // Build the About window — a heavy XAML-island construction that blocks the UI thread —
+        // BEFORE revealing the panel. If the panel were shown first, that build would stall its
+        // first paint and the bare window would hold a blank (white) compositor frame until the
+        // build finished; building while the panel is still hidden lets the show below paint
+        // promptly.
+        string storageDirectory = bufferService != null ? bufferService.AppDataDirectory : null;
         aboutWindow = new AboutWindow(windowHandle, storageDirectory);
         aboutWindow.Closed += OnAboutWindowClosed;
+
+        PrepareModalBackdrop();
         ShowModalScrim();
         aboutWindow.Activate();
+    }
+
+    /// <summary>
+    /// Brings the panel up as the modal backdrop for the About card without giving it focus.
+    /// The About window activates itself; re-activating or re-focusing the panel here would
+    /// pulse its border/shadow (and caret) to the active state for a frame before About takes
+    /// the foreground — the open flash this avoids.
+    /// </summary>
+    private void PrepareModalBackdrop()
+    {
+        if (isPanelVisible)
+        {
+            // Already on screen but inactive (the tray menu holds the foreground). Raise it
+            // beneath the card without activating it: a no-activate raise leaves the panel's
+            // frame untouched so nothing flashes, while still lifting it above other windows.
+            IntPtr insertAfter = isPinned ? NativeMethods.HWND_TOPMOST : NativeMethods.HWND_TOP;
+            NativeMethods.SetWindowPos(windowHandle, insertAfter, 0, 0, 0, 0,
+                NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE);
+        }
+        else
+        {
+            // Hidden: reveal it so the dimmed backdrop and centred card have a surface. Showing
+            // activates the window (harmless — there is no prior visible state to pulse), but
+            // skip the editor focus: the modal disables the owner and takes keyboard focus, so
+            // focusing it would only flash the caret.
+            ShowPanel(focusEditor: false);
+        }
+    }
+
+    /// <summary>
+    /// Finalises the About modal a short time after the tray menu closes, once the menu helper
+    /// window's asynchronous foreground reshuffle has landed. Raises the card to the foreground
+    /// (past any foreground lock) and disables the owner for modal input blocking. Deferring the
+    /// owner-disable to here — rather than the <see cref="AboutWindow"/> constructor — keeps the
+    /// owner enabled through the reshuffle, so Windows restores the foreground to the panel
+    /// backdrop instead of skipping the disabled owner and flashing an unrelated app on top.
+    /// </summary>
+    private void ScheduleAboutModalFinalise()
+    {
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(AboutModalFinaliseDelayMilliseconds);
+        timer.Tick += (sender, args) =>
+        {
+            timer.Stop();
+            if (aboutWindow == null)
+            {
+                return;
+            }
+
+            aboutWindow.BringToForeground();
+            aboutWindow.DisableOwnerForModality();
+        };
+        timer.Start();
     }
 
     private void OnAboutWindowClosed(object sender, WindowEventArgs args)
@@ -581,7 +655,15 @@ public sealed partial class MainWindow : Window
 
     private void HideModalScrim()
     {
-        FadeScrim(0, () => ModalScrim.Visibility = Visibility.Collapsed);
+        FadeScrim(0, () =>
+        {
+            // A superseded fade still raises Completed; only collapse if About was not reopened
+            // in the meantime, so the scrim stays up for the new session.
+            if (aboutWindow == null)
+            {
+                ModalScrim.Visibility = Visibility.Collapsed;
+            }
+        });
     }
 
     private void FadeScrim(double toOpacity, Action onCompleted)
@@ -701,6 +783,11 @@ public sealed partial class MainWindow : Window
 
     private void ShowPanel()
     {
+        ShowPanel(focusEditor: true);
+    }
+
+    private void ShowPanel(bool focusEditor)
+    {
         if (appWindow != null)
         {
             appWindow.Show();
@@ -708,7 +795,10 @@ public sealed partial class MainWindow : Window
 
         ApplyPinState();
         NativeMethods.SetForegroundWindow(windowHandle);
-        Panel.FocusActiveEditor();
+        if (focusEditor)
+        {
+            Panel.FocusActiveEditor();
+        }
         isPanelVisible = true;
         isWindowActive = true;
     }

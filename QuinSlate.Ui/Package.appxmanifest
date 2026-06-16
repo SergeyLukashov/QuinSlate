@@ -1,10 +1,10 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10" IgnorableNamespaces="uap rescap">
-  <Identity Name="b3d78fa0-da1c-4798-b2c5-9fe10a893aad" Publisher="CN=lukas" Version="0.9.1.0" />
-  <mp:PhoneIdentity PhoneProductId="b3d78fa0-da1c-4798-b2c5-9fe10a893aad" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
+  <Identity Name="19589Sergejdev.QuinSlate" Publisher="CN=728BA5DB-B625-4BAE-822A-1FB55E5161EA" Version="0.9.2.0" />
+  <mp:PhoneIdentity PhoneProductId="a0ffe3a7-c7e2-4fc5-9b6e-554d516cf0f9" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
-    <DisplayName>QuinSlate.Ui</DisplayName>
-    <PublisherDisplayName>lukas</PublisherDisplayName>
+    <DisplayName>QuinSlate</DisplayName>
+    <PublisherDisplayName>Sergey Lukashov</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
   <Dependencies>
@@ -16,7 +16,7 @@
   </Resources>
   <Applications>
     <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
-      <uap:VisualElements DisplayName="QuinSlate.Ui" Description="QuinSlate.Ui" BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png">
+      <uap:VisualElements DisplayName="QuinSlate" Description="QuinSlate.Ui" BackgroundColor="transparent" Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png">
         <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
       </uap:VisualElements>

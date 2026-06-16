@@ -8,7 +8,7 @@
 | Persistence | Plain `.txt` files in `%AppData%\QuinSlate\` |
 | Always-on-top | Win32 `SetWindowPos` via P/Invoke |
 | Single instance | Named Mutex (`Local\QuinSlateSingleInstance`) |
-| Clipboard capture | `SendInput` + `WM_CLIPBOARDUPDATE` + `OpenClipboard` |
+| Clipboard | WinRT `Windows.ApplicationModel.DataTransfer.Clipboard` (read/write via managed API) |
 | Window/editor background | Per-pixel TPDF-dithered gradient into a `WriteableBitmap` (no external deps) |
 
 WinUI 3 has no native tray API. All tray behaviour is Win32 via P/Invoke.

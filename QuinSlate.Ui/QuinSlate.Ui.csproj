@@ -4,7 +4,7 @@
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>QuinSlate.Ui</RootNamespace>
-    <Version>0.9.1</Version>
+    <Version>0.9.2</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
@@ -74,6 +74,15 @@
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
     <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
     <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+    <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
+    <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
+    <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
+    <GenerateTestArtifacts>True</GenerateTestArtifacts>
+    <AppxBundle>Always</AppxBundle>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+    <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
   </PropertyGroup>
 
   <!--
@@ -91,20 +100,12 @@
       <_PackageVersion>$([System.Text.RegularExpressions.Regex]::Match($(_VersionCore).0.0.0, '^\d+\.\d+\.\d+\.\d+'))</_PackageVersion>
     </PropertyGroup>
 
-    <XmlPeek XmlInputPath="$(_AppxManifestPath)"
-             Query="/x:Package/x:Identity/@Version"
-             Namespaces="&lt;Namespace Prefix='x' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;">
+    <XmlPeek XmlInputPath="$(_AppxManifestPath)" Query="/x:Package/x:Identity/@Version" Namespaces="&lt;Namespace Prefix='x' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;">
       <Output TaskParameter="Result" PropertyName="_CurrentPackageVersion" />
     </XmlPeek>
 
-    <XmlPoke XmlInputPath="$(_AppxManifestPath)"
-             Query="/x:Package/x:Identity/@Version"
-             Value="$(_PackageVersion)"
-             Namespaces="&lt;Namespace Prefix='x' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;"
-             Condition="'$(_CurrentPackageVersion)' != '$(_PackageVersion)'" />
+    <XmlPoke XmlInputPath="$(_AppxManifestPath)" Query="/x:Package/x:Identity/@Version" Value="$(_PackageVersion)" Namespaces="&lt;Namespace Prefix='x' Uri='http://schemas.microsoft.com/appx/manifest/foundation/windows10' /&gt;" Condition="'$(_CurrentPackageVersion)' != '$(_PackageVersion)'" />
 
-    <Message Condition="'$(_CurrentPackageVersion)' != '$(_PackageVersion)'"
-             Importance="high"
-             Text="Synced Package.appxmanifest identity version to $(_PackageVersion) (from project Version '$(Version)')." />
+    <Message Condition="'$(_CurrentPackageVersion)' != '$(_PackageVersion)'" Importance="high" Text="Synced Package.appxmanifest identity version to $(_PackageVersion) (from project Version '$(Version)')." />
   </Target>
 </Project>

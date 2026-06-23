@@ -125,10 +125,15 @@ un-evaluated line.
 
 ### Hook point
 
-Attach to `KeyDown` on the `RichEditBox`. When the `=` key is pressed,
-read the current line via `ITextDocument` before the character is
-inserted, apply the adjacent guard and heuristic, then either rewrite
-the line in place or let the event through normally.
+Attach to `CharacterReceived` on the `RichEditBox` to detect the `=` keystroke.
+`CharacterReceived` delivers the composed character for the active keyboard
+layout, so the trigger fires for `=` no matter where it sits on the physical
+keyboard or whether it needs Shift/AltGr (a US-layout `VK_OEM_PLUS` virtual-key
+check does **not** work for non-US layouts such as Spanish, German, or French).
+The event fires after `KeyDown` and before the asynchronous `TextChanged`, so
+record that `=` was typed, then on the subsequent `TextChanged` read the current
+line via `ITextDocument`, apply the adjacent guard and heuristic, and either
+rewrite the line in place or leave the inserted `=` untouched.
 
 ### Line rewrite
 

@@ -20,7 +20,6 @@ namespace QuinSlate.Ui.Components;
 /// <item>Ctrl+Tab / Ctrl+Shift+Tab and Tab / Shift+Tab inside the editor to cycle buffers.</item>
 /// <item>Ctrl+1..5 (top row and numpad) to jump to a specific buffer.</item>
 /// <item>Suppresses Ctrl+B/I/U so the rich-edit box does not toggle formatting.</item>
-/// <item>Forwards equals key state to the <see cref="CalcResultAnimator"/>.</item>
 /// </list>
 /// </remarks>
 public sealed class BufferKeyboardController
@@ -29,7 +28,6 @@ public sealed class BufferKeyboardController
 
     private readonly TabView tabView;
     private readonly IReadOnlyDictionary<int, RichEditBox> editorsByBufferIndex;
-    private readonly CalcResultAnimator calcResultAnimator;
 
     /// <summary>
     /// Raised when the user requests the tab-edit flyout (F2). The argument is
@@ -44,12 +42,9 @@ public sealed class BufferKeyboardController
     /// </summary>
     /// <param name="tabView">The hosting <see cref="TabView"/>; used to read and set the selected index.</param>
     /// <param name="editorsByBufferIndex">Map from 1-based buffer index to its editor; used to focus on Ctrl+N selection.</param>
-    /// <param name="clearConfirmOverlay">Owns the clear-confirm flow that Escape dismisses.</param>
-    /// <param name="calcResultAnimator">Receives the equals-key signal for the inline calculator.</param>
     public BufferKeyboardController(
         TabView tabView,
-        IReadOnlyDictionary<int, RichEditBox> editorsByBufferIndex,
-        CalcResultAnimator calcResultAnimator)
+        IReadOnlyDictionary<int, RichEditBox> editorsByBufferIndex)
     {
         if (tabView == null)
         {
@@ -61,14 +56,8 @@ public sealed class BufferKeyboardController
             throw new ArgumentNullException(nameof(editorsByBufferIndex));
         }
 
-        if (calcResultAnimator == null)
-        {
-            throw new ArgumentNullException(nameof(calcResultAnimator));
-        }
-
         this.tabView = tabView;
         this.editorsByBufferIndex = editorsByBufferIndex;
-        this.calcResultAnimator = calcResultAnimator;
     }
 
     /// <summary>
@@ -134,7 +123,7 @@ public sealed class BufferKeyboardController
 
     /// <summary>
     /// Handles a key press inside a <see cref="RichEditBox"/>. Cycles buffers on
-    /// Tab / Shift+Tab and forwards the equals key state to the calc animator.
+    /// Tab / Shift+Tab.
     /// </summary>
     /// <param name="sender">The editor raising the event (unused).</param>
     /// <param name="e">The key event from the editor.</param>
@@ -152,10 +141,6 @@ public sealed class BufferKeyboardController
             e.Handled = true;
             return;
         }
-
-        calcResultAnimator.TrackKeyDown(
-            (int)e.Key,
-            IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)));
     }
 
     private void CycleBuffer(int direction)

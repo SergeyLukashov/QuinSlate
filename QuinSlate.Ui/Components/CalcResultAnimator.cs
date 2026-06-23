@@ -13,15 +13,15 @@ namespace QuinSlate.Ui.Components;
 /// highlights the inserted result.
 /// </summary>
 /// <remarks>
-/// Call <see cref="TrackKeyDown"/> from the editor's <c>KeyDown</c> handler
-/// and <see cref="HandleTextChanged"/> from the editor's <c>TextChanged</c>
+/// Call <see cref="TrackCharacter"/> from the editor's <c>CharacterReceived</c>
+/// handler and <see cref="HandleTextChanged"/> from the editor's <c>TextChanged</c>
 /// handler. Both calls are no-ops when no calculation is in progress.
 /// </remarks>
 public sealed class CalcResultAnimator
 {
     private const int AnimationDurationMs = 1600;
     private const int AnimationTickMs = 16;
-    private const int VKeyOemPlus = 187;
+    private const char EqualsChar = '=';
 
     private DispatcherTimer animationTimer;
     private RichEditBox animationEditor;
@@ -43,15 +43,16 @@ public sealed class CalcResultAnimator
     public bool IsApplyingColor { get; private set; }
 
     /// <summary>
-    /// Records whether the most recent key press was an unshifted <c>=</c>.
-    /// Must be called from the editor's <c>KeyDown</c> handler before the
-    /// character is inserted.
+    /// Records whether the character the user just typed is <c>=</c>. Must be
+    /// called from the editor's <c>CharacterReceived</c> handler, which delivers
+    /// the composed character for the active keyboard layout (so the trigger
+    /// works regardless of where <c>=</c> sits on the physical keyboard, or
+    /// whether it requires Shift or AltGr).
     /// </summary>
-    /// <param name="keyValue">The integer value of the pressed virtual key.</param>
-    /// <param name="isShiftDown">Whether the Shift modifier was held.</param>
-    public void TrackKeyDown(int keyValue, bool isShiftDown)
+    /// <param name="character">The composed character produced by the keystroke.</param>
+    public void TrackCharacter(char character)
     {
-        if (keyValue == VKeyOemPlus && !isShiftDown)
+        if (character == EqualsChar)
         {
             wasEqualsTyped = true;
         }

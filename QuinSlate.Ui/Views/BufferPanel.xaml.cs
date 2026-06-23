@@ -203,8 +203,7 @@ public sealed partial class BufferPanel : UserControl
 
         keyboardController = new BufferKeyboardController(
             BufferTabView,
-            editorsByBufferIndex,
-            calcResultAnimator);
+            editorsByBufferIndex);
         keyboardController.EditFlyoutRequested += OnEditFlyoutRequested;
 
         ClearAllDictionaries();
@@ -446,6 +445,7 @@ public sealed partial class BufferPanel : UserControl
         RichEditBox editor = editorView.Editor;
         editor.TextChanged += OnEditorTextChanged;
         editor.KeyDown += keyboardController.HandleEditorKey;
+        editor.CharacterReceived += OnEditorCharacterReceived;
         editor.Paste += OnEditorPaste;
         editorsByBufferIndex[buffer.Index] = editor;
 
@@ -1088,6 +1088,11 @@ public sealed partial class BufferPanel : UserControl
             bufferService.UpdateContent(index, text);
             UpdateClearButtonState(index, isEmpty: string.IsNullOrEmpty(text));
         }
+    }
+
+    private void OnEditorCharacterReceived(UIElement sender, CharacterReceivedRoutedEventArgs args)
+    {
+        calcResultAnimator.TrackCharacter(args.Character);
     }
 
     private void OnPanelPreviewKeyDown(object sender, KeyRoutedEventArgs e)

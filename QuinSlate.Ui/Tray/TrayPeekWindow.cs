@@ -2,6 +2,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using QuinSlate.Ui.Interop;
 using QuinSlate.Ui.Services;
+using Serilog;
 using System;
 using System.Runtime.InteropServices;
 using Windows.Graphics;
@@ -53,6 +54,7 @@ public sealed class TrayPeekWindow : IDisposable
     private const int StartYOffsetLogical = 16;
     private bool isVisible;
     private bool disposed;
+    private bool iconRectUnavailable;
     private float dpiScale = 1.0f;
     private IntPtr storedTrayHwnd;
     private uint storedTrayIconId;
@@ -115,6 +117,7 @@ public sealed class TrayPeekWindow : IDisposable
         StopHoverTimer();
         NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_HIDE);
         isVisible = false;
+        Log.ForContext<TrayPeekWindow>().Debug("Peek hidden.");
     }
 
     /// <inheritdoc />
@@ -278,9 +281,16 @@ public sealed class TrayPeekWindow : IDisposable
             return;
         }
 
+        if (TryQueryIconRect(storedTrayHwnd, storedTrayIconId, out NativeMethods.RECT iconRect) == false)
+        {
+            // Without a reliable icon rect the window cannot be placed next to the icon; skip
+            // this show rather than flash it at a garbage position. The next hover retries.
+            Log.ForContext<TrayPeekWindow>().Debug("Peek show skipped: tray icon rect unavailable.");
+            return;
+        }
+
         panel.SetRows(rows);
 
-        NativeMethods.RECT iconRect = QueryIconRect(storedTrayHwnd, storedTrayIconId);
         (windowWidth, windowHeight) = CalculatePhysicalWindowSize();
         (targetX, targetY) = CalculatePosition(iconRect, windowWidth, windowHeight);
 
@@ -294,6 +304,7 @@ public sealed class TrayPeekWindow : IDisposable
 
         NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_SHOWNOACTIVATE);
         isVisible = true;
+        Log.ForContext<TrayPeekWindow>().Debug("Peek shown.");
 
         StartAnimationTimer();
         StartHoverTimer();
@@ -399,11 +410,14 @@ public sealed class TrayPeekWindow : IDisposable
         }
 
         int scaledExpansion = (int)(HoverHitExpansionLogical * dpiScale);
-        NativeMethods.RECT iconRect = QueryIconRect(storedTrayHwnd, storedTrayIconId);
-        bool overIcon = cursor.X >= iconRect.Left - scaledExpansion
-                     && cursor.X <= iconRect.Right + scaledExpansion
-                     && cursor.Y >= iconRect.Top - scaledExpansion
-                     && cursor.Y <= iconRect.Bottom + scaledExpansion;
+        bool overIcon = false;
+        if (TryQueryIconRect(storedTrayHwnd, storedTrayIconId, out NativeMethods.RECT iconRect))
+        {
+            overIcon = cursor.X >= iconRect.Left - scaledExpansion
+                    && cursor.X <= iconRect.Right + scaledExpansion
+                    && cursor.Y >= iconRect.Top - scaledExpansion
+                    && cursor.Y <= iconRect.Bottom + scaledExpansion;
+        }
 
         if (overIcon)
         {
@@ -427,7 +441,7 @@ public sealed class TrayPeekWindow : IDisposable
         Hide();
     }
 
-    private NativeMethods.RECT QueryIconRect(IntPtr trayHwnd, uint trayIconId)
+    private bool TryQueryIconRect(IntPtr trayHwnd, uint trayIconId, out NativeMethods.RECT iconRect)
     {
         var identifier = new NativeMethods.NOTIFYICONIDENTIFIER();
         identifier.cbSize = (uint)Marshal.SizeOf(typeof(NativeMethods.NOTIFYICONIDENTIFIER));
@@ -435,9 +449,27 @@ public sealed class TrayPeekWindow : IDisposable
         identifier.uID = trayIconId;
         identifier.guidItem = Guid.Empty;
 
-        NativeMethods.RECT iconRect;
-        NativeMethods.Shell_NotifyIconGetRect(ref identifier, out iconRect);
-        return iconRect;
+        int hr = NativeMethods.Shell_NotifyIconGetRect(ref identifier, out iconRect);
+        if (hr != NativeMethods.S_OK)
+        {
+            // The query failed, so iconRect is unreliable (the API may leave it unwritten).
+            // Callers fail safe: skip the show, or treat the pointer as off-icon so the peek
+            // hides rather than sticking on a stale rect.
+            if (iconRectUnavailable == false)
+            {
+                iconRectUnavailable = true;
+                Log.ForContext<TrayPeekWindow>().Warning("Shell_NotifyIconGetRect failed (HRESULT 0x{HResult:X8}); peek positioning and hover checks degraded until it recovers.", hr);
+            }
+            return false;
+        }
+
+        if (iconRectUnavailable)
+        {
+            iconRectUnavailable = false;
+            Log.ForContext<TrayPeekWindow>().Information("Shell_NotifyIconGetRect recovered.");
+        }
+
+        return true;
     }
 
     private (int Width, int Height) CalculatePhysicalWindowSize()

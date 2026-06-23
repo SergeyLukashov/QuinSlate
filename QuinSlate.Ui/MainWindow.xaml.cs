@@ -57,6 +57,7 @@ public sealed partial class MainWindow : Window
     private NativeMethods.WndProcDelegate newWndProc;
     private IntPtr originalWndProc;
     private IntPtr windowHandle;
+    private uint taskbarCreatedMessage;
     private AppWindow appWindow;
 
     // Fills the bare Win32 window surface during WM_ERASEBKGND so it never flashes white/black
@@ -159,6 +160,16 @@ public sealed partial class MainWindow : Window
 
         trayIcon.Add(trayIconFilePath, AppConstants.AppName);
         trayIcon.SuppressTooltipOnHover = settingsService.TrayPeekEnabled;
+
+        // The shell discards every notification-area icon when the taskbar is recreated
+        // (e.g. an Explorer restart) and broadcasts TaskbarCreated so apps can re-add
+        // theirs. Without this the icon — and the hover/click/peek behaviour that rides on
+        // its callback messages — silently dies until the app is relaunched.
+        taskbarCreatedMessage = NativeMethods.RegisterWindowMessage(NativeMethods.TaskbarCreatedMessage);
+        if (taskbarCreatedMessage == 0)
+        {
+            Log.ForContext<MainWindow>().Warning("RegisterWindowMessage(TaskbarCreated) failed; the tray icon will not recover from an Explorer restart.");
+        }
 
         Closed += OnWindowClosed;
         Panel.PinToggleRequested += OnPanelPinToggleRequested;
@@ -453,6 +464,15 @@ public sealed partial class MainWindow : Window
             return IntPtr.Zero;
         }
 
+        if (taskbarCreatedMessage != 0 && msg == taskbarCreatedMessage)
+        {
+            if (trayIcon != null)
+            {
+                trayIcon.Reregister();
+            }
+            return IntPtr.Zero;
+        }
+
         if (trayIcon != null)
         {
             if (trayIcon.HandleMessage(msg, wParam, lParam))
@@ -478,6 +498,7 @@ public sealed partial class MainWindow : Window
     {
         if (isContextMenuOpen)
         {
+            Log.ForContext<MainWindow>().Debug("Tray hover ignored: context menu open.");
             return;
         }
 

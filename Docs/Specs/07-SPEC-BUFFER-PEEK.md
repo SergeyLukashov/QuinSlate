@@ -48,6 +48,14 @@ explorer does not send `NIN_POPUPOPEN` while `NIF_SHOWTIP` is armed.
 The window reads the current in-memory buffer state (not from disk) so
 the preview is always up to date with unsaved changes.
 
+Because the hover trigger rides on the icon's `Shell_NotifyIcon`
+callback messages, the icon must survive a taskbar recreation: when the
+shell broadcasts `TaskbarCreated` (for example after Explorer
+restarts), the icon is re-added via `NIM_ADD`. Without this the icon —
+and therefore hover, click, and peek — would silently stop working
+until the app is relaunched, even though the rest of the process keeps
+running.
+
 ## Positioning
 
 Display the tooltip window immediately above the tray icon. Query the
@@ -57,6 +65,16 @@ on the icon.
 
 If the tooltip would extend off the top of the screen (taskbar at top),
 flip it to appear below the icon instead.
+
+`Shell_NotifyIconGetRect` can fail at runtime (transient shell state,
+the icon moving into the overflow flyout, a taskbar/DPI reshuffle) and
+does not reliably write its out-rect on failure. The HRESULT is checked
+at every call site and a failure is treated as "rect unavailable",
+failing safe: the peek is not shown (rather than placed at a garbage
+position), and for hover-leave detection the pointer is treated as
+off-icon (so the peek hides and the hover state recovers) rather than
+trusting a possibly-uninitialized rect — which could otherwise wedge
+the hover state and silently disable the peek.
 
 ## Updates
 

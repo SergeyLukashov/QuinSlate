@@ -26,6 +26,7 @@ public sealed class TrayIcon : IDisposable
     private bool hovering;
     private bool tooltipDisarmed;
     private int ticksOutsideIcon;
+    private bool iconRectUnavailable;
     private DispatcherQueueTimer hoverPollTimer;
 
     /// <summary>
@@ -102,6 +103,58 @@ public sealed class TrayIcon : IDisposable
         iconHandle = LoadIcon(iconFilePath);
         tooltipText = tooltip ?? string.Empty;
 
+        if (RegisterIcon() == false)
+        {
+            var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+            Log.ForContext<TrayIcon>().Warning("Shell_NotifyIcon NIM_ADD failed. Win32 error: {Win32Error}", error);
+            return false;
+        }
+
+        added = true;
+        Log.ForContext<TrayIcon>().Information("Tray icon added.");
+        return true;
+    }
+
+    /// <summary>
+    /// Re-adds the icon after the shell has recreated the taskbar (the
+    /// <c>TaskbarCreated</c> broadcast, raised for example when Explorer restarts).
+    /// Explorer discards every registered icon when it restarts and stops delivering
+    /// the icon's callback messages, so without re-adding, the icon silently
+    /// disappears and hover, click, and peek stop working until the app is relaunched.
+    /// The icon handle and tooltip text are reused; the hover/tooltip state machine is
+    /// reset because the previous Explorer instance's notion of it is gone. No-op if
+    /// the icon was never added or has already been removed.
+    /// </summary>
+    public void Reregister()
+    {
+        if (added == false || disposed)
+        {
+            return;
+        }
+
+        StopHoverPollTimer();
+        hovering = false;
+        tooltipDisarmed = false;
+        ticksOutsideIcon = 0;
+
+        if (RegisterIcon() == false)
+        {
+            var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+            Log.ForContext<TrayIcon>().Warning("Shell_NotifyIcon NIM_ADD failed on taskbar re-registration. Win32 error: {Win32Error}", error);
+            return;
+        }
+
+        Log.ForContext<TrayIcon>().Information("Tray icon re-registered after taskbar recreation.");
+    }
+
+    /// <summary>
+    /// Sends the <c>NIM_ADD</c> for the current icon and tooltip state and promotes the
+    /// icon to <see cref="NativeMethods.NOTIFYICON_VERSION_4"/>. Shared by the initial
+    /// add and the taskbar re-registration path. Returns <c>false</c> if the
+    /// <c>NIM_ADD</c> fails; the caller reads the Win32 error.
+    /// </summary>
+    private bool RegisterIcon()
+    {
         var data = BuildData(tooltipText);
         data.uFlags = NativeMethods.NIF_MESSAGE | NativeMethods.NIF_ICON | NativeMethods.NIF_TIP;
         if (tooltipText.Length > 0)
@@ -111,19 +164,13 @@ public sealed class TrayIcon : IDisposable
 
         data.hIcon = iconHandle;
 
-        var addResult = NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_ADD, ref data);
-        if (addResult == false)
+        if (NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_ADD, ref data) == false)
         {
-            var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
-            Log.ForContext<TrayIcon>().Warning("Shell_NotifyIcon NIM_ADD failed. Win32 error: {Win32Error}", error);
             return false;
         }
 
         data.uVersion = NativeMethods.NOTIFYICON_VERSION_4;
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_SETVERSION, ref data);
-
-        added = true;
-        Log.ForContext<TrayIcon>().Information("Tray icon added.");
         return true;
     }
 
@@ -213,12 +260,14 @@ public sealed class TrayIcon : IDisposable
         }
 
         StartHoverPollTimer();
+        Log.ForContext<TrayIcon>().Debug("Tray hover begin.");
         MouseHovered?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnHoverEnd()
     {
         hovering = false;
+        Log.ForContext<TrayIcon>().Debug("Tray hover end.");
         MouseLeft?.Invoke(this, EventArgs.Empty);
     }
 
@@ -307,7 +356,29 @@ public sealed class TrayIcon : IDisposable
         identifier.uID = TrayIconId;
         identifier.guidItem = Guid.Empty;
 
-        NativeMethods.Shell_NotifyIconGetRect(ref identifier, out NativeMethods.RECT iconRect);
+        int hr = NativeMethods.Shell_NotifyIconGetRect(ref identifier, out NativeMethods.RECT iconRect);
+        if (hr != NativeMethods.S_OK)
+        {
+            // The query failed, so iconRect is unreliable — the API may leave the out value
+            // unwritten (uninitialized stack memory). Trusting it can wedge hovering true
+            // forever: a garbage rect that happens to bracket the cursor makes the poll believe
+            // the pointer never leaves, so OnHoverEnd never fires and every later hover
+            // short-circuits — peek and tooltip silently die while the icon stays visible. Fail
+            // safe toward "off icon" so the hover state always recovers.
+            if (iconRectUnavailable == false)
+            {
+                iconRectUnavailable = true;
+                Log.ForContext<TrayIcon>().Warning("Shell_NotifyIconGetRect failed (HRESULT 0x{HResult:X8}); treating pointer as off-icon until it recovers.", hr);
+            }
+            return false;
+        }
+
+        if (iconRectUnavailable)
+        {
+            iconRectUnavailable = false;
+            Log.ForContext<TrayIcon>().Information("Shell_NotifyIconGetRect recovered.");
+        }
+
         return cursor.X >= iconRect.Left && cursor.X <= iconRect.Right
             && cursor.Y >= iconRect.Top && cursor.Y <= iconRect.Bottom;
     }

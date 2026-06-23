@@ -9,6 +9,9 @@ namespace QuinSlate.Ui.Interop;
 /// </summary>
 internal static class NativeMethods
 {
+    /// <summary>HRESULT for a successful call (<c>S_OK</c>).</summary>
+    public const int S_OK = 0;
+
     public const int WM_GETMINMAXINFO = 0x0024;
     public const int WM_HOTKEY = 0x0312;
     public const int WM_MOUSEMOVE = 0x0200;
@@ -16,6 +19,15 @@ internal static class NativeMethods
     private const int WM_APP = 0x8000;
     public const int WM_TRAYICON = WM_APP + 1;
     public const uint WM_QUINSLATE_ACTIVATE = (uint)(WM_APP + 2);
+
+    /// <summary>
+    /// Name of the message the shell broadcasts to every top-level window when the
+    /// taskbar is created or recreated (for example after Explorer restarts). The
+    /// numeric id is process-specific and must be resolved at runtime with
+    /// <see cref="RegisterWindowMessage"/>; notification-area icons are discarded on
+    /// taskbar recreation and must be re-added in response to this message.
+    /// </summary>
+    public const string TaskbarCreatedMessage = "TaskbarCreated";
 
     public const int VK_Q = 0x51;
 
@@ -324,6 +336,15 @@ internal static class NativeMethods
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+
+    /// <summary>
+    /// Defines a new window message that is guaranteed to be unique throughout the
+    /// system. Registering the same string from any process yields the same value, so
+    /// it is the documented way to obtain the id of the shell's
+    /// <see cref="TaskbarCreatedMessage"/> broadcast. Returns 0 on failure.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern uint RegisterWindowMessage(string lpString);
 
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool GetCursorPos(out POINT lpPoint);

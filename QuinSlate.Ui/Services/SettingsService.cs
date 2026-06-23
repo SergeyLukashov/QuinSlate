@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace QuinSlate.Ui.Services;
@@ -13,7 +14,7 @@ namespace QuinSlate.Ui.Services;
 /// Persists non-buffer state to a single <c>settings.json</c> file under
 /// <c>%AppData%\QuinSlate\</c>.
 /// </summary>
-public sealed class SettingsService
+public sealed partial class SettingsService
 {
     private const string SettingsFileName = "settings.json";
     private const int MaxRecentEmoji = 7;
@@ -237,7 +238,7 @@ public sealed class SettingsService
         try
         {
             var json = await File.ReadAllTextAsync(settingsFilePath, Encoding.UTF8);
-            var loaded = JsonSerializer.Deserialize<AppSettings>(json);
+            var loaded = JsonSerializer.Deserialize(json, SettingsJsonContext.Default.AppSettings);
             if (loaded != null)
             {
                 settings = loaded;
@@ -256,7 +257,7 @@ public sealed class SettingsService
     {
         try
         {
-            var json = JsonSerializer.Serialize(settings);
+            var json = JsonSerializer.Serialize(settings, SettingsJsonContext.Default.AppSettings);
             await File.WriteAllTextAsync(settingsFilePath, json, Encoding.UTF8);
         }
         catch (Exception ex)
@@ -273,7 +274,7 @@ public sealed class SettingsService
     {
         try
         {
-            var json = JsonSerializer.Serialize(settings);
+            var json = JsonSerializer.Serialize(settings, SettingsJsonContext.Default.AppSettings);
             File.WriteAllText(settingsFilePath, json, Encoding.UTF8);
         }
         catch (Exception ex)
@@ -309,5 +310,15 @@ public sealed class SettingsService
         public bool IsPinned { get; set; }
         public List<SettingsService.TabEntry> Tabs { get; set; }
         public List<string> RecentEmoji { get; set; }
+    }
+
+    /// <summary>
+    /// Source-generated <see cref="JsonSerializerContext"/> for <see cref="AppSettings"/>.
+    /// Required because the trimmed/published build disables reflection-based
+    /// <see cref="JsonSerializer"/>; the generator emits the metadata at compile time.
+    /// </summary>
+    [JsonSerializable(typeof(AppSettings))]
+    private sealed partial class SettingsJsonContext : JsonSerializerContext
+    {
     }
 }

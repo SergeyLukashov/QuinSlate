@@ -124,6 +124,34 @@ public sealed class StartupService
     }
 
     /// <summary>
+    /// Returns <c>true</c> when this process was activated by the Windows startup task
+    /// (the user logging in) rather than launched manually. Reads the activation kind via
+    /// <see cref="Microsoft.Windows.AppLifecycle.AppInstance.GetActivatedEventArgs"/>;
+    /// a <see cref="Microsoft.Windows.AppLifecycle.ExtendedActivationKind.StartupTask"/>
+    /// kind means a login launch. Any failure (e.g. no package identity on a dev run) is
+    /// treated as a manual launch so the window still appears.
+    /// </summary>
+    public static bool WasLaunchedAtStartup()
+    {
+        try
+        {
+            Microsoft.Windows.AppLifecycle.AppActivationArguments activationArgs =
+                Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
+            if (activationArgs == null)
+            {
+                return false;
+            }
+
+            return activationArgs.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.StartupTask;
+        }
+        catch (Exception ex)
+        {
+            Log.ForContext<StartupService>().Warning(ex, "Failed to read activation kind; assuming manual launch.");
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Resolves the manifest-declared startup task. Returns <c>null</c> when the task
     /// cannot be retrieved — for example when running without package identity — so
     /// callers degrade gracefully instead of throwing.

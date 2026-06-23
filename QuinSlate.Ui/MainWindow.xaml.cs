@@ -93,11 +93,13 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>
-    /// Wires the buffer service, registers the global hotkey, installs the
-    /// tray icon, and hides the window. Must be called once after construction.
-    /// Calling it more than once is a no-op after the first successful call.
+    /// Wires the buffer service, registers the global hotkey, and installs the
+    /// tray icon. A manual launch shows the panel; when <paramref name="startHidden"/>
+    /// is <c>true</c> (a Windows startup-task login launch) only the tray icon appears.
+    /// Must be called once after construction. Calling it more than once is a no-op after
+    /// the first successful call.
     /// </summary>
-    public void Initialise(BufferService bufferService, string trayIconFilePath, StartupService startupService, SettingsService settingsService)
+    public void Initialise(BufferService bufferService, string trayIconFilePath, StartupService startupService, SettingsService settingsService, bool startHidden)
     {
         if (isInitialised)
         {
@@ -181,15 +183,26 @@ public sealed partial class MainWindow : Window
 
         isInitialised = true;
 
-        // Activate must be called once to initialise the XAML island before
-        // the window is hidden via AppWindow.Hide().
-        this.Activate();
-
-#if DEBUG
-        ShowPanel();
-#else
-        HidePanel();
-#endif
+        if (startHidden)
+        {
+            // Activate must still be called to initialise the XAML island, but on a hidden
+            // (login) launch that briefly shows the bare window frame for a frame before
+            // AppWindow.Hide() takes effect — a visible flash. Cloak the window via DWM first
+            // so the warm-up composes off-screen; uncloak once it is hidden (cloaking and
+            // SW_HIDE are independent, so uncloaking a hidden window keeps it hidden, and the
+            // next ShowPanel reveals a normal uncloaked window).
+            NativeMethods.SetWindowCloak(windowHandle, true);
+            this.Activate();
+            HidePanel();
+            NativeMethods.SetWindowCloak(windowHandle, false);
+        }
+        else
+        {
+            // Activate initialises the XAML island; ShowPanel then brings the panel to the
+            // foreground.
+            this.Activate();
+            ShowPanel();
+        }
     }
 
     private void ConfigureWindowAppearance()

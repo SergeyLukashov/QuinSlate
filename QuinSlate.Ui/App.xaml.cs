@@ -11,8 +11,9 @@ using System.Threading;
 namespace QuinSlate.Ui;
 
 /// <summary>
-/// Application entry point. Initialises the buffer service, creates the
-/// main window, and starts the panel hidden so only the tray icon is visible.
+/// Application entry point. Initialises the buffer service and creates the main
+/// window. A manual launch shows the panel; a Windows startup-task launch (login)
+/// starts hidden so only the tray icon is visible.
 /// </summary>
 public partial class App : Application
 {
@@ -66,6 +67,10 @@ public partial class App : Application
     /// </summary>
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
+        // Resolve the activation kind first: for packaged apps GetActivatedEventArgs only
+        // returns the arguments on its first call, so read it before any other startup work.
+        bool launchedAtStartup = StartupService.WasLaunchedAtStartup();
+
         bool acquired;
         singleInstanceMutex = new Mutex(true, MutexName, out acquired);
         if (acquired == false)
@@ -96,7 +101,7 @@ public partial class App : Application
         await startupService.EnsureRegisteredOnFirstLaunchAsync();
 
         window = new MainWindow();
-        window.Initialise(bufferService, ResolveTrayIconPath(), startupService, settingsService);
+        window.Initialise(bufferService, ResolveTrayIconPath(), startupService, settingsService, launchedAtStartup);
     }
 
     private static string ResolveAppDataDirectory()

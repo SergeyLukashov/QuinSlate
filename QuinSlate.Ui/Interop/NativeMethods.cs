@@ -41,6 +41,9 @@ internal static class NativeMethods
 
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
     private const int DWMWCP_ROUND = 2;
+    private const int DWMWA_CLOAK = 13;
+    private const int DwmCloakOn = 1;
+    private const int DwmCloakOff = 0;
 
     public const uint NIM_ADD = 0x00000000;
     public const uint NIM_MODIFY = 0x00000001;
@@ -490,6 +493,18 @@ internal static class NativeMethods
     {
         int preference = DWMWCP_ROUND;
         DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
+    }
+
+    /// <summary>
+    /// Cloaks or uncloaks a window via DWM. A cloaked window stays composed (so its content
+    /// can render and warm up) but is not painted to the screen — unlike <c>SW_HIDE</c>, which
+    /// stops composition. Used to initialise the XAML island while the window is shown without
+    /// the bare frame flashing on screen for a frame before it is hidden.
+    /// </summary>
+    public static void SetWindowCloak(IntPtr hwnd, bool cloaked)
+    {
+        int value = cloaked ? DwmCloakOn : DwmCloakOff;
+        DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, ref value, sizeof(int));
     }
 
     /// <summary>

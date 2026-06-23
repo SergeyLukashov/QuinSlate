@@ -7,7 +7,10 @@ automatic saving to plain text files.
 
 ## Behaviour
 
-- On launch the app appears only as a tray icon. No window is shown.
+- On a manual launch the panel is shown. When launched automatically by the
+  Windows startup task at login, the app appears only as a tray icon and no
+  window is shown. (The launch kind is read via
+  `AppInstance.GetActivatedEventArgs` — a `StartupTask` kind means a login launch.)
 - A global hotkey (Ctrl+Shift+Q) toggles the panel visible/hidden. If the panel is visible but not the active foreground window, it brings the panel to the foreground instead of hiding it.
 - The panel contains 7 tabs, numbered 1–7, each with a distinct colour.
 - Each tab holds a plain multiline text box. No formatting controls.

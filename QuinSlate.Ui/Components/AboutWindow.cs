@@ -13,10 +13,10 @@ using WinRT.Interop;
 namespace QuinSlate.Ui.Components;
 
 /// <summary>
-/// A small, borderless, owned top-level window that hosts the <see cref="AboutView"/>
-/// card and behaves like a classic modal dialog. Living in its own window (rather than
-/// a <c>ContentDialog</c> bounded to the main window's content area) lets the card always
-/// render at its natural size, even when the main window has been resized smaller than it.
+/// A small, owned top-level window — a thin frame and no title bar — that hosts the
+/// <see cref="AboutView"/> card and behaves like a classic modal dialog. Living in its own window
+/// (rather than a <c>ContentDialog</c> bounded to the main window's content area) lets the card
+/// always render at its natural size, even when the main window has been resized smaller than it.
 /// </summary>
 /// <remarks>
 /// The window disables its owner while open (modal input blocking), paints its bare Win32
@@ -225,7 +225,13 @@ public sealed class AboutWindow : Window
         presenter.IsResizable = false;
         presenter.IsMaximizable = false;
         presenter.IsMinimizable = false;
-        presenter.SetBorderAndTitleBar(false, false);
+
+        // Keep the real window frame (border yes, title bar no) exactly as MainWindow does. The
+        // frame's 1px edge is what DWM draws — and it is themed dark in dark mode. A frameless
+        // window (hasBorder: false) plus a forced rounded-corner mask leaves the bare window
+        // backdrop exposed along the straight edges between the masked corners, which reads as
+        // intermittent near-white strips on a dark surface; the frame covers that boundary.
+        presenter.SetBorderAndTitleBar(true, false);
         appWindow.SetPresenter(presenter);
     }
 

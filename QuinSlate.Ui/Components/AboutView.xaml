@@ -118,7 +118,7 @@
                      card above (the outer StackPanel's 16px spacing). -->
                 <StackPanel Spacing="6">
                     <!-- Global hotkey -->
-                    <Grid Height="26">
+                    <Grid Height="23">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -134,7 +134,7 @@
                     </Grid>
 
                     <!-- Quick math -->
-                    <Grid Height="26">
+                    <Grid Height="23">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />

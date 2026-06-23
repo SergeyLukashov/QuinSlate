@@ -12,8 +12,8 @@ using Buffer = QuinSlate.Ui.Models.Buffer;
 namespace QuinSlate.Ui.Tray;
 
 /// <summary>
-/// A borderless, non-activating WinUI 3 popup window that renders a two-column
-/// preview of every buffer when the user hovers the tray icon. Replacing the
+/// A non-activating WinUI 3 popup window — a thin frame and no title bar — that renders a
+/// two-column preview of every buffer when the user hovers the tray icon. Replacing the
 /// previous Win32 GDI implementation so that color emoji in tab titles render
 /// correctly via WinUI 3 TextBlock.
 /// </summary>
@@ -214,7 +214,13 @@ public sealed class TrayPeekWindow : IDisposable
         presenter.IsMaximizable = false;
         presenter.IsMinimizable = false;
         presenter.IsAlwaysOnTop = true;
-        presenter.SetBorderAndTitleBar(false, false);
+
+        // Keep the real window frame (border yes, title bar no) exactly as MainWindow does. The
+        // frame's 1px edge is what DWM draws — and it is themed dark in dark mode. A frameless
+        // window (hasBorder: false) plus a forced rounded-corner mask leaves the bare window
+        // backdrop exposed along the straight edges between the masked corners, which reads as
+        // intermittent near-white strips on a dark surface; the frame covers that boundary.
+        presenter.SetBorderAndTitleBar(true, false);
         appWindow.SetPresenter(presenter);
     }
 

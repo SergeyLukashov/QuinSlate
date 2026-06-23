@@ -482,9 +482,9 @@ internal static class NativeMethods
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
 
     /// <summary>
-    /// Forces Windows 11 rounded corners on a borderless window so the window itself owns the
-    /// single rounded outline. The hosted content must not draw its own rounded border: a second
-    /// rounded contour never aligns exactly with the window's and reads as a detached edge.
+    /// Forces Windows 11 rounded corners on a window so it owns the single rounded outline. The
+    /// hosted content must not draw its own rounded border: a second rounded contour never aligns
+    /// exactly with the window's and reads as a detached edge.
     /// </summary>
     public static void SetRoundedCornerPreference(IntPtr hwnd)
     {

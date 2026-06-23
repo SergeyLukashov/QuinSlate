@@ -4,7 +4,7 @@
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>QuinSlate.Ui</RootNamespace>
-    <Version>0.9.2</Version>
+    <Version>0.9.3</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
@@ -47,13 +47,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <TrimmerRootAssembly Include="Serilog" />
-    <TrimmerRootAssembly Include="Serilog.Sinks.File" />
-    <TrimmerRootAssembly Include="Serilog.Sinks.Async" />
-    <TrimmerRootAssembly Include="Serilog.Sinks.Debug" />
-  </ItemGroup>
-
-  <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>QuinSlate.Tests</_Parameter1>
     </AssemblyAttribute>
@@ -72,8 +65,18 @@
   <PropertyGroup>
     <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
     <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Debug'">False</PublishTrimmed>
-    <PublishTrimmed Condition="'$(Configuration)' != 'Debug'">True</PublishTrimmed>
+    <!--
+      Trimming is disabled deliberately. This app is published JIT (not PublishAot),
+      so CsWinRT marshals managed types across the WinRT ABI via its reflection path
+      at runtime. Trimming strips the ABI helper metadata that path needs (the
+      AbiToProjectionVftablePtr field), so any managed collection bound to a control
+      (e.g. an ObservableCollection set as ItemsSource) crashes with a
+      NullReferenceException in WinRT.TypeExtensions.GetAbiToProjectionVftblPtr —
+      only in the published Release build, never under `dotnet build`. The emoji
+      picker hit this on a fresh Store install. Do not re-enable PublishTrimmed
+      without moving to PublishAot and rooting every WinRT-marshaled type.
+    -->
+    <PublishTrimmed>False</PublishTrimmed>
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
     <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
     <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>

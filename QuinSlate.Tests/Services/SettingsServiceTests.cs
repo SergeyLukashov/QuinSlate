@@ -251,4 +251,32 @@ public sealed class SettingsServiceTests : IDisposable
     {
         Assert.True(settingsService.TrayPeekEnabled);
     }
+
+    [Fact]
+    public void HasShownTrayNotice_Default_IsFalse()
+    {
+        Assert.False(settingsService.HasShownTrayNotice);
+    }
+
+    [Fact]
+    public async Task SaveAsync_PersistsHasShownTrayNotice()
+    {
+        settingsService.HasShownTrayNotice = true;
+
+        await settingsService.SaveAsync();
+
+        var content = await File.ReadAllTextAsync(settingsService.SettingsFilePath);
+        Assert.Contains("\"HasShownTrayNotice\":true", content);
+    }
+
+    [Fact]
+    public async Task LoadAsync_ExistingFile_RestoresHasShownTrayNotice()
+    {
+        var json = "{\"HasShownTrayNotice\":true}";
+        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json);
+
+        await settingsService.LoadAsync();
+
+        Assert.True(settingsService.HasShownTrayNotice);
+    }
 }

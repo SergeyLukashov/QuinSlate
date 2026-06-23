@@ -45,6 +45,11 @@ public sealed partial class MainWindow : Window
     // reshuffle so the owner is still enabled when Windows reassigns the foreground.
     private const int AboutModalFinaliseDelayMilliseconds = 64;
 
+    // One-time notice shown the first time the panel is hidden to the tray, so the user
+    // learns the app keeps running rather than having quit.
+    private const string TrayNoticeTitle = AppConstants.AppName + " is still running";
+    private const string TrayNoticeText = "It's tucked away in the system tray. Click the tray icon any time to bring it back.";
+
     private Timer settingsDebounceTimer;
     private readonly object pendingStateLock = new object();
     private int pendingSizeWidth;
@@ -159,6 +164,7 @@ public sealed partial class MainWindow : Window
         trayIcon.RightClicked += OnTrayRightClicked;
         trayIcon.MouseHovered += OnTrayMouseHovered;
         trayIcon.MouseLeft += OnTrayMouseLeft;
+        trayIcon.BalloonClicked += OnTrayBalloonClicked;
 
         trayIcon.Add(trayIconFilePath, AppConstants.AppName);
         trayIcon.SuppressTooltipOnHover = settingsService.TrayPeekEnabled;
@@ -507,6 +513,11 @@ public sealed partial class MainWindow : Window
         ShowContextMenu();
     }
 
+    private void OnTrayBalloonClicked(object sender, EventArgs e)
+    {
+        ShowPanel();
+    }
+
     private void OnTrayMouseHovered(object sender, EventArgs e)
     {
         if (isContextMenuOpen)
@@ -847,6 +858,8 @@ public sealed partial class MainWindow : Window
 
     private void HidePanel()
     {
+        bool wasVisible = isPanelVisible;
+
         if (appWindow != null)
         {
             appWindow.Hide();
@@ -854,6 +867,25 @@ public sealed partial class MainWindow : Window
 
         isPanelVisible = false;
         isWindowActive = false;
+
+        // Only on a genuine user-initiated hide of a shown panel — never the init-time hide
+        // of a startup-hidden (login) launch, where the panel was never visible.
+        if (wasVisible)
+        {
+            ShowFirstTrayNoticeIfNeeded();
+        }
+    }
+
+    private void ShowFirstTrayNoticeIfNeeded()
+    {
+        if (settingsService == null || trayIcon == null || settingsService.HasShownTrayNotice)
+        {
+            return;
+        }
+
+        settingsService.HasShownTrayNotice = true;
+        _ = settingsService.SaveAsync();
+        trayIcon.ShowBalloon(TrayNoticeTitle, TrayNoticeText);
     }
 
     private void ApplyPinState()

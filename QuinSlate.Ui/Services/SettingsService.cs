@@ -61,6 +61,17 @@ public sealed partial class SettingsService
     }
 
     /// <summary>
+    /// Whether the one-time "QuinSlate keeps running in the tray" notice has
+    /// already been shown. Set the first time the panel is hidden to the tray so
+    /// the notice never repeats on later launches.
+    /// </summary>
+    public bool HasShownTrayNotice
+    {
+        get => settings.HasShownTrayNotice;
+        set => settings.HasShownTrayNotice = value;
+    }
+
+    /// <summary>
     /// Last saved window width in logical pixels (DIP). Zero means use the default.
     /// </summary>
     public int WindowWidth
@@ -301,6 +312,7 @@ public sealed partial class SettingsService
     private sealed class AppSettings
     {
         public bool HasRegisteredStartup { get; set; }
+        public bool HasShownTrayNotice { get; set; }
         public int WindowWidth { get; set; }
         public int WindowHeight { get; set; }
         public bool HasSavedPosition { get; set; }

@@ -53,7 +53,11 @@ internal static class NativeMethods
     public const uint NIF_MESSAGE = 0x00000001;
     public const uint NIF_ICON = 0x00000002;
     public const uint NIF_TIP = 0x00000004;
+    public const uint NIF_INFO = 0x00000010;
     public const uint NIF_SHOWTIP = 0x00000080;
+
+    public const uint NIIF_NONE = 0x00000000;
+    public const uint NIIF_INFO = 0x00000001;
 
     public const uint NOTIFYICON_VERSION_4 = 4;
 
@@ -66,6 +70,7 @@ internal static class NativeMethods
     public const uint SPI_GETWORKAREA = 0x0030;
 
     public const uint NIN_SELECT = 0x0400;
+    public const uint NIN_BALLOONUSERCLICK = 0x0405;
 
     public const uint SWP_NOSIZE = 0x0001;
     public const uint SWP_NOMOVE = 0x0002;

@@ -56,6 +56,13 @@ public sealed class TrayIcon : IDisposable
     public event EventHandler MouseLeft;
 
     /// <summary>
+    /// Raised when the user clicks the body of a balloon notification shown via
+    /// <see cref="ShowBalloon"/> (the <c>NIN_BALLOONUSERCLICK</c> callback).
+    /// Dismissing the balloon by its close button does not raise this.
+    /// </summary>
+    public event EventHandler BalloonClicked;
+
+    /// <summary>
     /// When <c>true</c>, the standard tooltip is withdrawn (<c>NIM_MODIFY</c>
     /// without <c>NIF_SHOWTIP</c>) at hover begin and restored once the pointer
     /// leaves, so a custom hover popup can be shown instead. The tooltip stays
@@ -201,8 +208,44 @@ public sealed class TrayIcon : IDisposable
         {
             RightClicked?.Invoke(this, EventArgs.Empty);
         }
+        else if (loWord == NativeMethods.NIN_BALLOONUSERCLICK)
+        {
+            BalloonClicked?.Invoke(this, EventArgs.Empty);
+        }
 
         return true;
+    }
+
+    /// <summary>
+    /// Shows a balloon notification anchored to the tray icon (<c>NIM_MODIFY</c>
+    /// with <c>NIF_INFO</c>). On Windows 10/11 the shell surfaces this through the
+    /// notification system while keeping it associated with the icon. Clicking the
+    /// balloon body raises <see cref="BalloonClicked"/>. No-op if the icon has not
+    /// been added or has been removed.
+    /// </summary>
+    /// <param name="title">The balloon title (bold first line).</param>
+    /// <param name="text">The balloon body text.</param>
+    public void ShowBalloon(string title, string text)
+    {
+        if (added == false || disposed)
+        {
+            return;
+        }
+
+        var data = BuildData(tooltipText);
+        data.uFlags = NativeMethods.NIF_INFO;
+        data.szInfoTitle = title ?? string.Empty;
+        data.szInfo = text ?? string.Empty;
+        data.dwInfoFlags = NativeMethods.NIIF_INFO;
+
+        if (NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data) == false)
+        {
+            var error = System.Runtime.InteropServices.Marshal.GetLastWin32Error();
+            Log.ForContext<TrayIcon>().Warning("Shell_NotifyIcon NIM_MODIFY (balloon) failed. Win32 error: {Win32Error}", error);
+            return;
+        }
+
+        Log.ForContext<TrayIcon>().Information("Tray balloon notification shown.");
     }
 
     /// <summary>

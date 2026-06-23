@@ -2,6 +2,7 @@ using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using QuinSlate.Ui.Services;
+using Serilog;
 using System;
 using Windows.UI;
 
@@ -55,6 +56,9 @@ public sealed class CalcResultAnimator
         if (character == EqualsChar)
         {
             wasEqualsTyped = true;
+            Log.ForContext<CalcResultAnimator>().Information(
+                "Calc: '=' armed via CharacterReceived (isCalcReplacing={IsCalcReplacing}). Expecting the next TextChanged to evaluate.",
+                isCalcReplacing);
         }
     }
 
@@ -79,10 +83,19 @@ public sealed class CalcResultAnimator
         if (!isCalcReplacing && wasEqualsTyped)
         {
             wasEqualsTyped = false;
+            Log.ForContext<CalcResultAnimator>().Information(
+                "Calc: TextChanged is consuming the armed '='; evaluating expression.");
             TryCalcReplace(editor);
         }
         else
         {
+            if (wasEqualsTyped)
+            {
+                Log.ForContext<CalcResultAnimator>().Warning(
+                    "Calc: armed '=' dropped without evaluating (isCalcReplacing={IsCalcReplacing}).",
+                    isCalcReplacing);
+            }
+
             wasEqualsTyped = false;
         }
     }
@@ -125,8 +138,13 @@ public sealed class CalcResultAnimator
 
         if (!CalcService.TryEvaluate(lineContent, out string result))
         {
+            Log.ForContext<CalcResultAnimator>().Information(
+                "Calc: expression did not evaluate (heuristic or parse miss); '=' left as typed.");
             return;
         }
+
+        Log.ForContext<CalcResultAnimator>().Information(
+            "Calc: expression evaluated successfully; rewriting line and starting highlight.");
 
         bool hasSpaceBefore = lineContent.EndsWith(" =");
         string separator = hasSpaceBefore ? " " : "";

@@ -629,6 +629,12 @@ public sealed partial class MainWindow : Window
         aboutWindow.Closed += OnAboutWindowClosed;
 
         PrepareModalBackdrop();
+
+        // The card was positioned in its constructor, which may have run while the owner was
+        // minimized (e.g. after Win+D) and therefore off-screen. Now that PrepareModalBackdrop
+        // has restored the owner, re-centre the card onto it.
+        aboutWindow.CenterOnOwner();
+
         ShowModalScrim();
         aboutWindow.Activate();
     }
@@ -641,7 +647,7 @@ public sealed partial class MainWindow : Window
     /// </summary>
     private void PrepareModalBackdrop()
     {
-        if (isPanelVisible)
+        if (isPanelVisible && IsPanelMinimized() == false)
         {
             // Already on screen but inactive (the tray menu holds the foreground). Raise it
             // beneath the card without activating it: a no-activate raise leaves the panel's
@@ -652,9 +658,11 @@ public sealed partial class MainWindow : Window
         }
         else
         {
-            // Hidden: reveal it so the dimmed backdrop and centred card have a surface. Showing
-            // activates the window (harmless — there is no prior visible state to pulse), but
-            // skip the editor focus: the modal disables the owner and takes keyboard focus, so
+            // Hidden, or minimized by "Show Desktop" (Win+D): reveal/restore it so the dimmed
+            // backdrop and centred card have a surface. A no-activate raise does not un-minimize
+            // a window, so a minimized panel must go through ShowPanel (which restores it).
+            // Showing activates the window (harmless — there is no prior visible state to pulse),
+            // but skip the editor focus: the modal disables the owner and takes keyboard focus, so
             // focusing it would only flash the caret.
             ShowPanel(focusEditor: false);
         }
@@ -815,6 +823,15 @@ public sealed partial class MainWindow : Window
 
     private void TogglePanelVisibility()
     {
+        // A minimized panel (e.g. after Win+D / Show Desktop) is not visible to the user even
+        // though isPanelVisible may still be set. Toggling it would only hide it further, so a
+        // hotkey or tray click would never bring it back; always restore it instead.
+        if (IsPanelMinimized())
+        {
+            ShowPanel();
+            return;
+        }
+
         if (isPanelVisible)
         {
             bool wasActive = isWindowActive ||
@@ -834,6 +851,17 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private bool IsPanelMinimized()
+    {
+        if (appWindow == null)
+        {
+            return false;
+        }
+
+        var presenter = appWindow.Presenter as OverlappedPresenter;
+        return presenter != null && presenter.State == OverlappedPresenterState.Minimized;
+    }
+
     private void ShowPanel()
     {
         ShowPanel(focusEditor: true);
@@ -844,6 +872,17 @@ public sealed partial class MainWindow : Window
         if (appWindow != null)
         {
             appWindow.Show();
+
+            // "Show Desktop" (Win+D) minimizes the window; AppWindow.Show() and
+            // SetForegroundWindow do not un-minimize it, so the panel would return as a taskbar
+            // button with no visible window and stay that way however many times the tray icon
+            // is clicked. Restore it explicitly when minimized.
+            if (IsPanelMinimized())
+            {
+                Log.ForContext<MainWindow>().Debug("Restoring panel from minimized state (e.g. after Show Desktop).");
+                var presenter = appWindow.Presenter as OverlappedPresenter;
+                presenter.Restore();
+            }
         }
 
         ApplyPinState();

@@ -310,7 +310,20 @@ public sealed class AboutWindow : Window
     }
 
     /// <summary>
-    /// Positions the window of the given physical size centred over the owner window.
+    /// Re-centres the window over its owner. When the dialog is first positioned in the
+    /// constructor the owner may be minimized (e.g. after Win+D), reporting an off-screen rect;
+    /// the launcher calls this again once it has restored the owner as the modal backdrop so the
+    /// card lands on the owner rather than off-screen.
+    /// </summary>
+    public void CenterOnOwner()
+    {
+        ApplySizeAndPosition();
+    }
+
+    /// <summary>
+    /// Positions the window of the given physical size centred over the owner window. When the
+    /// owner is minimized its window rect is off-screen, so the card is centred on the primary
+    /// work area instead — never positioned off-screen where it would be invisible.
     /// </summary>
     private void MoveCenteredOnOwner(int width, int height)
     {
@@ -319,21 +332,23 @@ public sealed class AboutWindow : Window
             return;
         }
 
-        int x;
-        int y;
-        if (NativeMethods.GetWindowRect(ownerHwnd, out NativeMethods.RECT ownerRect))
+        int centreX;
+        int centreY;
+        if (NativeMethods.IsIconic(ownerHwnd) == false && NativeMethods.GetWindowRect(ownerHwnd, out NativeMethods.RECT ownerRect))
         {
-            int centreX = (ownerRect.Left + ownerRect.Right) / 2;
-            int centreY = (ownerRect.Top + ownerRect.Bottom) / 2;
-            x = centreX - (width / 2);
-            y = centreY - (height / 2);
+            centreX = (ownerRect.Left + ownerRect.Right) / 2;
+            centreY = (ownerRect.Top + ownerRect.Bottom) / 2;
         }
         else
         {
-            x = 0;
-            y = 0;
+            var workArea = new NativeMethods.RECT();
+            NativeMethods.SystemParametersInfo(NativeMethods.SPI_GETWORKAREA, 0, ref workArea, 0);
+            centreX = (workArea.Left + workArea.Right) / 2;
+            centreY = (workArea.Top + workArea.Bottom) / 2;
         }
 
+        int x = centreX - (width / 2);
+        int y = centreY - (height / 2);
         appWindow.MoveAndResize(new RectInt32(x, y, width, height));
     }
 

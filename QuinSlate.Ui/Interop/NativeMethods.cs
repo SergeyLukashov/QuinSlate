@@ -84,6 +84,7 @@ internal static class NativeMethods
     public const uint WS_EX_TOOLWINDOW = 0x00000080;
     public const uint WS_EX_NOACTIVATE = 0x08000000;
     public const uint WS_EX_LAYERED = 0x00080000;
+    public const uint WS_EX_TOPMOST = 0x00000008;
 
     public const uint LWA_ALPHA = 0x00000002;
 
@@ -464,6 +465,14 @@ internal static class NativeMethods
     /// </summary>
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    /// <summary>
+    /// Returns whether the window is minimized (iconic). A minimized window's
+    /// <see cref="GetWindowRect"/> reports off-screen coordinates, so callers that position
+    /// relative to it must special-case this state.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern bool IsIconic(IntPtr hWnd);
 
     /// <summary>
     /// Sets the opacity and transparency color key of a layered window.

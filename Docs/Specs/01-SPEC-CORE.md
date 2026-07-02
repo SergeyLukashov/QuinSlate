@@ -11,7 +11,7 @@ automatic saving to plain text files.
   Windows startup task at login, the app appears only as a tray icon and no
   window is shown. (The launch kind is read via
   `AppInstance.GetActivatedEventArgs` — a `StartupTask` kind means a login launch.)
-- A global hotkey (Ctrl+Shift+Q) toggles the panel visible/hidden. If the panel is visible but not the active foreground window, it brings the panel to the foreground instead of hiding it.
+- A global hotkey (Ctrl+Shift+Q) toggles the panel visible/hidden. If the panel is visible but not the active foreground window, it brings the panel to the foreground instead of hiding it. If the window has been minimized (e.g. by "Show Desktop"/Win+D), the hotkey and tray click restore it rather than toggling — `AppWindow.Show()`/`SetForegroundWindow` alone do not un-minimize a window, so the panel is explicitly restored (`OverlappedPresenter.Restore`).
 - The panel contains 7 tabs, numbered 1–7, each with a distinct colour.
 - Each tab holds a plain multiline text box. No formatting controls.
 - Text is saved automatically. There is no save button.

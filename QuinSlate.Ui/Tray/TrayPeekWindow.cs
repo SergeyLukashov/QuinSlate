@@ -309,11 +309,35 @@ public sealed class TrayPeekWindow : IDisposable
         panel.PlayShowAnimation(slideUp);
 
         NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_SHOWNOACTIVATE);
+        AssertTopmost();
         isVisible = true;
         Log.ForContext<TrayPeekWindow>().Debug("Peek shown.");
 
         StartAnimationTimer();
         StartHoverTimer();
+    }
+
+    /// <summary>
+    /// Re-establishes the window's topmost z-order. Required on every show: "Show Desktop"
+    /// (Win+D) and other shell actions that hide all windows clear <c>WS_EX_TOPMOST</c>, and
+    /// the peek window is created once and reused, so the topmost flag applied at creation is
+    /// not enough — without re-asserting it, a demoted peek reappears behind other windows and
+    /// stays there until the app restarts.
+    /// </summary>
+    private void AssertTopmost()
+    {
+        IntPtr exStyle = NativeMethods.GetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE);
+        bool isTopmost = (exStyle.ToInt64() & NativeMethods.WS_EX_TOPMOST) != 0;
+        if (isTopmost == false)
+        {
+            Log.ForContext<TrayPeekWindow>().Debug("Peek had lost topmost z-order (e.g. after Show Desktop); re-asserting.");
+        }
+
+        NativeMethods.SetWindowPos(
+            peekHwnd,
+            NativeMethods.HWND_TOPMOST,
+            0, 0, 0, 0,
+            NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE);
     }
 
     private void StartAnimationTimer()

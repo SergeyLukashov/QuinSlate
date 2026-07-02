@@ -66,6 +66,13 @@ on the icon.
 If the tooltip would extend off the top of the screen (taskbar at top),
 flip it to appear below the icon instead.
 
+The window is topmost, but its topmost z-order is **re-asserted on every
+show** (`SetWindowPos` `HWND_TOPMOST`), not just at creation. The peek
+window is created once and reused, and "Show Desktop" (Win+D) — along
+with other shell actions that hide all windows — clears `WS_EX_TOPMOST`.
+Without re-asserting it each time, a demoted peek reappears behind every
+other window and stays there until the app restarts.
+
 `Shell_NotifyIconGetRect` can fail at runtime (transient shell state,
 the icon moving into the overflow flyout, a taskbar/DPI reshuffle) and
 does not reliably write its out-rect on failure. The HRESULT is checked

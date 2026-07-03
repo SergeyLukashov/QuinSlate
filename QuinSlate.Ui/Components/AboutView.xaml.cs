@@ -17,8 +17,7 @@ namespace QuinSlate.Ui.Components;
 /// </summary>
 public sealed partial class AboutView : UserControl
 {
-    private const string DefaultRepoUrl = "https://github.com/lukas/QuinSlate";
-    private const string MitLicenseUrl = "https://opensource.org/licenses/MIT";
+    private const string ReportIssueMailtoUri = "mailto:contact@quinslate.com?subject=QuinSlate%20issue%20report";
     private const string AboutTitlePrefix = "About ";
     private const string VersionPrefix = "v";
     private const char SemVerMetadataSeparator = '+';
@@ -235,19 +234,7 @@ public sealed partial class AboutView : UserControl
     {
         try
         {
-            _ = Windows.System.Launcher.LaunchUriAsync(new Uri(DefaultRepoUrl));
-        }
-        catch (Exception)
-        {
-            // Fail silently to prevent crash
-        }
-    }
-
-    private void OnMitLicenseClicked(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            _ = Windows.System.Launcher.LaunchUriAsync(new Uri(MitLicenseUrl));
+            _ = Windows.System.Launcher.LaunchUriAsync(new Uri(ReportIssueMailtoUri));
         }
         catch (Exception)
         {

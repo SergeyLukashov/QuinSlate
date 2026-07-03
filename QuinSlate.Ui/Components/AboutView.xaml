@@ -162,7 +162,6 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Note: The following footer buttons will be uncommented later when filled with actual info.
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
                     <Button Style="{StaticResource FlatLinkButtonStyle}" Click="OnReportIssueClicked">
                         <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -170,14 +169,7 @@
                             <TextBlock Text="Report an issue" FontSize="12" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource FlatLinkButtonStyle}" Click="OnMitLicenseClicked">
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <FontIcon Glyph="&#xE8A5;" FontSize="12" VerticalAlignment="Center" />
-                            <TextBlock Text="MIT license" FontSize="12" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
                 </StackPanel>
-                -->
 
                 <TextBlock x:Name="VersionText"
                            Grid.Column="1"

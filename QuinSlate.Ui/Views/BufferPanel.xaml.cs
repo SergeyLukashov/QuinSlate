@@ -1050,6 +1050,12 @@ public sealed partial class BufferPanel : UserControl
         if (dataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text))
         {
             string text = await dataView.GetTextAsync();
+
+            // RichEdit's TypeText inserts a break for each CR and each LF it sees, so
+            // clipboard CRLF pairs would double every line. Collapse all line endings to
+            // the single CR that RichEdit uses as its paragraph separator.
+            text = text.Replace("\r\n", "\r").Replace('\n', '\r');
+
             editor.Document.GetText(TextGetOptions.None, out string currentText);
 
             int selectionLength = editor.Document.Selection.Text.Length;

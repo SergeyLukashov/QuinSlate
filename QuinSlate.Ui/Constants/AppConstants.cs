@@ -14,6 +14,14 @@ public static class AppConstants
     /// The maximum number of characters a single buffer (tab) may hold. This
     /// caps the editor's <c>MaxLength</c>, bounds paste truncation, and acts as
     /// the final safeguard before content is written to disk.
+    /// <para>
+    /// Kept at 50,000 to stay well clear of the <c>RichEditBox</c> render
+    /// ceiling: that control does not virtualize and stops painting glyphs past a
+    /// fixed rendered height (~260k px), while still keeping the characters in the
+    /// document and selectable. A larger cap let realistic buffers grow tall
+    /// enough to hit that ceiling, leaving the tail of long tabs invisible. See
+    /// <c>Docs/Investigations/richeditbox-tall-document-render-ceiling.md</c>.
+    /// </para>
     /// </summary>
-    public const int MaxBufferLength = 100_000;
+    public const int MaxBufferLength = 50_000;
 }

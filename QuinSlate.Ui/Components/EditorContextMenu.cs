@@ -39,7 +39,7 @@ internal static class EditorContextMenu
         redoItem.Click += (s, e) => editor.Document.Redo();
         cutItem.Click += (s, e) => editor.Document.Selection.Cut();
         copyItem.Click += (s, e) => editor.Document.Selection.Copy();
-        pasteItem.Click += (s, e) => editor.Document.Selection.Paste(0);
+        pasteItem.Click += async (s, e) => await EditorPaste.PasteClampedAsync(editor);
         selectAllItem.Click += (s, e) => editor.Document.Selection.SetRange(0, int.MaxValue);
 
         menu.Items.Add(undoItem);

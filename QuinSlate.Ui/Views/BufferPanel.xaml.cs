@@ -87,6 +87,7 @@ public sealed partial class BufferPanel : UserControl
     private TabEditFlyout tabEditFlyout;
     private BufferKeyboardController keyboardController;
     private bool preventMenuClosing;
+    private bool isEnforcingMaxLength;
     private DateTime clearTransitionTime;
     private const int ClearConfirmCooldownMs = 500;
 
@@ -1046,31 +1047,7 @@ public sealed partial class BufferPanel : UserControl
             return;
         }
 
-        var dataView = Windows.ApplicationModel.DataTransfer.Clipboard.GetContent();
-        if (dataView.Contains(Windows.ApplicationModel.DataTransfer.StandardDataFormats.Text))
-        {
-            string text = await dataView.GetTextAsync();
-
-            // RichEdit's TypeText inserts a break for each CR and each LF it sees, so
-            // clipboard CRLF pairs would double every line. Collapse all line endings to
-            // the single CR that RichEdit uses as its paragraph separator.
-            text = text.Replace("\r\n", "\r").Replace('\n', '\r');
-
-            editor.Document.GetText(TextGetOptions.None, out string currentText);
-
-            int selectionLength = editor.Document.Selection.Text.Length;
-            int maxAllowedPaste = AppConstants.MaxBufferLength - (currentText.Length - selectionLength);
-
-            if (maxAllowedPaste > 0)
-            {
-                if (text.Length > maxAllowedPaste)
-                {
-                    text = text.Substring(0, maxAllowedPaste);
-                }
-
-                editor.Document.Selection.TypeText(text);
-            }
-        }
+        await EditorPaste.PasteClampedAsync(editor);
     }
 
     private void OnEditorTextChanged(object sender, RoutedEventArgs e)
@@ -1086,15 +1063,63 @@ public sealed partial class BufferPanel : UserControl
             return;
         }
 
+        if (isEnforcingMaxLength)
+        {
+            return;
+        }
+
         if (editor.Tag is int index)
         {
             calcResultAnimator.HandleTextChanged(editor);
 
             editor.Document.GetText(TextGetOptions.UseCrlf, out string text);
             text = text.TrimEnd('\r', '\n');
+
+            if (text.Length > AppConstants.MaxBufferLength)
+            {
+                text = TruncateToMaxLength(editor);
+            }
+
             bufferService.UpdateContent(index, text);
             UpdateClearButtonState(index, isEmpty: string.IsNullOrEmpty(text));
         }
+    }
+
+    /// <summary>
+    /// Trims the editor's document so its persisted length matches
+    /// <see cref="AppConstants.MaxBufferLength"/>. The editor's own <c>MaxLength</c>
+    /// counts each line break as a single character, but the buffer is stored and
+    /// clamped with CRLF line endings where each break is two characters; without
+    /// this a buffer of short lines would render content past the cap that the disk
+    /// clamp silently discards, leaving the editor and the file out of sync. Returns
+    /// the resulting CRLF text with trailing breaks trimmed, matching how the normal
+    /// path stores content.
+    /// </summary>
+    private string TruncateToMaxLength(RichEditBox editor)
+    {
+        editor.Document.GetText(TextGetOptions.UseCrlf, out string full);
+        string kept = full.Substring(0, AppConstants.MaxBufferLength);
+
+        // RichEdit uses a single CR as its paragraph separator; collapse CRLF before
+        // writing back so the paragraph count (and therefore caret positions) match.
+        string native = kept.Replace("\r\n", "\r").Replace('\n', '\r');
+
+        var selection = editor.Document.Selection;
+        int caret = Math.Min(selection.EndPosition, native.Length);
+
+        isEnforcingMaxLength = true;
+        try
+        {
+            editor.Document.SetText(TextSetOptions.None, native);
+            editor.Document.Selection.SetRange(caret, caret);
+        }
+        finally
+        {
+            isEnforcingMaxLength = false;
+        }
+
+        editor.Document.GetText(TextGetOptions.UseCrlf, out string result);
+        return result.TrimEnd('\r', '\n');
     }
 
     private void OnEditorCharacterReceived(UIElement sender, CharacterReceivedRoutedEventArgs args)

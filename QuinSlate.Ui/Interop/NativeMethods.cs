@@ -69,6 +69,18 @@ internal static class NativeMethods
 
     public const uint SPI_GETWORKAREA = 0x0030;
 
+    /// <summary>
+    /// <c>MonitorFromRect</c> flag: return the monitor nearest the rectangle when it
+    /// intersects none, so a query never yields a null handle.
+    /// </summary>
+    public const uint MONITOR_DEFAULTTONEAREST = 2;
+
+    /// <summary>
+    /// <c>GetDpiForMonitor</c> DPI type: the effective (scaled) DPI that accounts for
+    /// the user's per-monitor scale setting.
+    /// </summary>
+    public const int MDT_EFFECTIVE_DPI = 0;
+
     public const uint NIN_SELECT = 0x0400;
     public const uint NIN_BALLOONUSERCLICK = 0x0405;
 
@@ -526,6 +538,46 @@ internal static class NativeMethods
     /// </summary>
     [DllImport("user32.dll")]
     public static extern uint GetDpiForSystem();
+
+    /// <summary>
+    /// Returns a handle to the display monitor that has the largest area of
+    /// intersection with <paramref name="lprc"/>, or the nearest monitor when
+    /// <see cref="MONITOR_DEFAULTTONEAREST"/> is passed and none intersects.
+    /// </summary>
+    [DllImport("user32.dll")]
+    public static extern IntPtr MonitorFromRect(ref RECT lprc, uint dwFlags);
+
+    /// <summary>
+    /// Retrieves the DPI of <paramref name="hmonitor"/> for the given
+    /// <paramref name="dpiType"/>. Returns <see cref="S_OK"/> on success; both axes
+    /// carry the same value for display monitors.
+    /// </summary>
+    [DllImport("shcore.dll")]
+    public static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    /// <summary>
+    /// Returns the effective DPI of the monitor the given screen rectangle sits on,
+    /// falling back to the system DPI if the monitor or its DPI cannot be resolved.
+    /// This is the correct scale to size and position a window placed next to that
+    /// rectangle (e.g. the tray icon), which may be on a monitor whose scale differs
+    /// from the primary monitor's on a mixed-DPI setup.
+    /// </summary>
+    public static uint GetDpiForRect(RECT rect)
+    {
+        IntPtr monitor = MonitorFromRect(ref rect, MONITOR_DEFAULTTONEAREST);
+        if (monitor == IntPtr.Zero)
+        {
+            return GetDpiForSystem();
+        }
+
+        int hr = GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, out uint dpiX, out uint dpiY);
+        if (hr != S_OK || dpiX == 0)
+        {
+            return GetDpiForSystem();
+        }
+
+        return dpiX;
+    }
 
     /// <summary>
     /// Changes the size, position, and Z order of a window.

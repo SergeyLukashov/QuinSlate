@@ -90,8 +90,9 @@ public sealed class TrayPeekWindow : IDisposable
         storedSettingsService = settingsService;
         storedTrayHwnd = trayHwnd;
         storedTrayIconId = trayIconId;
-        dpiScale = NativeMethods.GetDpiForSystem() / 96.0f;
 
+        // dpiScale is resolved from the tray icon's monitor in ExecuteShow, once the icon
+        // rect is known, so it reflects the taskbar monitor's scale on a mixed-DPI setup.
         if (isVisible)
         {
             return;
@@ -293,6 +294,11 @@ public sealed class TrayPeekWindow : IDisposable
             Log.ForContext<TrayPeekWindow>().Debug("Peek show skipped: tray icon rect unavailable.");
             return;
         }
+
+        // Scale to the DPI of the monitor the tray icon sits on, not the system (primary
+        // monitor) DPI. On a mixed-DPI setup the taskbar can be on a monitor whose scale
+        // differs from the primary's, and system DPI would mis-size and mis-place the peek.
+        dpiScale = NativeMethods.GetDpiForRect(iconRect) / 96.0f;
 
         panel.SetRows(rows);
 

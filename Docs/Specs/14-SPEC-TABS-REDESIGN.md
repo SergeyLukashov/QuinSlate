@@ -123,18 +123,55 @@ tab label in place with no flicker.
 
 ### 5.1 Emoji Picker
 
-Use the **Emoji.WPF** or **EmojiPicker** NuGet package (evaluate at implementation time
-for WinUI 3 compatibility) to render a self-contained scrollable grid of emoji inside the
-popover. The Windows system picker (`Win + .`) is **not** used — the in-app grid keeps
-the interaction contained to the panel.
+The picker is a fully custom **static glyph sheet**: a single `Canvas` inside a
+`ScrollViewer`, with one plain `TextBlock` per emoji and one per category header, all
+created exactly once and kept alive for the app's lifetime. No NuGet package and no
+virtualizing items control (GridView / ListView / ItemsRepeater) is used: over this
+small, fixed dataset, virtualization pays UI-thread container realization exactly when
+the user acts (first open, every search keystroke, first scroll), which produced visible
+lag and freezes even on fast hardware. With the pre-built sheet, opening and scrolling
+are pure composition work and searching only repositions the existing TextBlocks
+(matches move into a compact grid under a "Matches" header; non-matches collapse) —
+no UI element is created, destroyed, or rebound on any user action after the one-time
+build, which `EmojiPicker.Prewarm()` performs off the critical path shortly after the
+panel loads. The Windows system picker (`Win + .`) is **not** used — the in-app sheet
+keeps the interaction contained to the panel.
+
+Because a non-virtualized `ScrollViewer` re-renders its full content extent, a fully
+visible sheet would rasterize every color-emoji glyph in the first presented frame — a
+multi-second render-thread stall (~6 ms per glyph, measured). Two mechanisms absorb it:
+
+- **Invisible glyph-cache warm-up at startup.** `EmojiGlyphCacheWarmer` hosts throwaway
+  glyph TextBlocks in a 1×1-clipped, non-interactive host in the live window (measured
+  to rasterize despite being invisible, unlike `Opacity=0`, which the compositor culls)
+  and reveals 2 per frame starting 2 s after panel load, then removes itself. Color
+  glyph rasterization is cached process-wide, so a warmed first open settles in tens of
+  milliseconds.
+- **Windowed paced transitions.** Glyphs are built collapsed, and every transition —
+  initial reveal, each search keystroke, each return to browse — applies visibility
+  cells-intersecting-the-viewport-window first (up to one slice of 28 synchronously so
+  the visible region never blanks), then one slice per `CompositionTarget.Rendering`
+  tick (`EmojiSheetRevealPlanner`). Reopening in fully-visible browse state skips
+  re-pacing; pacing pauses while the picker is closed and resumes where it left off.
+
+See ADR 0002 for the measured baseline and outcome numbers.
 
 Requirements for the picker component:
 
-- Grouped by standard Unicode category (Smileys, Objects, Symbols, etc.)
-- Search / filter field at the top
-- Single-click on a glyph selects it, updates the emoji button preview, and closes the
-  picker grid
-- Recently used row (last 7 selections, persisted in `settings.json`)
+- Grouped by standard Unicode category (Smileys, Objects, Symbols, etc.); all
+  positions come from a pure, unit-tested calculator (`EmojiSheetLayoutCalculator`),
+  and the reveal order/partitions from a pure, unit-tested planner
+  (`EmojiSheetRevealPlanner`)
+- Search / filter field at the top; filtering is applied synchronously per keystroke
+  (repositioning is cheap enough that no debounce is needed), and `Enter` picks the
+  first visible match
+- Hover/press feedback is a single shared highlight border moved by pointer-to-cell
+  math; single-click (tap) on a glyph selects it, updates the emoji button preview,
+  and closes the picker grid
+- Recently used row (last 7 selections, persisted in `settings.json`), rendered by a
+  small pool of reused TextBlocks
+- Accepted trade-off: no per-emoji automation peers and no per-item keyboard
+  navigation — the sheet exposes a single "Emoji grid" automation name (see ADR 0002)
 
 ---
 

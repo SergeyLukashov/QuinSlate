@@ -21,6 +21,14 @@
     <Build Solution="*|x86" Project="false" />
     <Build Solution="Release|x64" Project="false" />
   </Project>
+  <Project Path="QuinSlate.EmojiPickerBench/QuinSlate.EmojiPickerBench.csproj">
+    <Platform Solution="*|ARM64" Project="x64" />
+    <Platform Solution="*|x64" Project="x64" />
+    <Platform Solution="*|x86" Project="x64" />
+    <Build Solution="*|ARM64" Project="false" />
+    <Build Solution="*|x86" Project="false" />
+    <Build Solution="Release|x64" Project="false" />
+  </Project>
   <Project Path="QuinSlate.AssetGenerator/QuinSlate.AssetGenerator.csproj">
     <Platform Solution="*|ARM64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />

@@ -1,0 +1,40 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>QuinSlate.EmojiPickerBench</RootNamespace>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <Nullable>disable</Nullable>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <EnableMsixTooling>false</EnableMsixTooling>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.1839" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.0.1" />
+    <PackageReference Include="Serilog" Version="4.2.0" />
+  </ItemGroup>
+
+  <!-- Compile the real picker sources so the bench measures exactly what the app ships
+       (and gets internal access without InternalsVisibleTo). -->
+  <ItemGroup>
+    <Compile Include="..\QuinSlate.Ui\Components\EmojiSheetPresenter.cs" Link="Linked\EmojiSheetPresenter.cs" />
+    <Compile Include="..\QuinSlate.Ui\Components\EmojiCanvasInteraction.cs" Link="Linked\EmojiCanvasInteraction.cs" />
+    <Compile Include="..\QuinSlate.Ui\Components\EmojiGlyphFactory.cs" Link="Linked\EmojiGlyphFactory.cs" />
+    <Compile Include="..\QuinSlate.Ui\Components\EmojiGlyphCacheWarmer.cs" Link="Linked\EmojiGlyphCacheWarmer.cs" />
+    <Compile Include="..\QuinSlate.Ui\Layout\EmojiSheetLayoutCalculator.cs" Link="Linked\EmojiSheetLayoutCalculator.cs" />
+    <Compile Include="..\QuinSlate.Ui\Layout\EmojiSheetLayout.cs" Link="Linked\EmojiSheetLayout.cs" />
+    <Compile Include="..\QuinSlate.Ui\Layout\EmojiSheetSection.cs" Link="Linked\EmojiSheetSection.cs" />
+    <Compile Include="..\QuinSlate.Ui\Layout\EmojiCellPosition.cs" Link="Linked\EmojiCellPosition.cs" />
+    <Compile Include="..\QuinSlate.Ui\Layout\EmojiSheetRevealPlanner.cs" Link="Linked\EmojiSheetRevealPlanner.cs" />
+    <Compile Include="..\QuinSlate.Ui\Models\EmojiData.cs" Link="Linked\EmojiData.cs" />
+    <Compile Include="..\QuinSlate.Ui\Models\EmojiEntry.cs" Link="Linked\EmojiEntry.cs" />
+    <Compile Include="..\QuinSlate.Ui\Models\EmojiGroup.cs" Link="Linked\EmojiGroup.cs" />
+    <Compile Include="..\QuinSlate.Ui\Models\EmojiSearch.cs" Link="Linked\EmojiSearch.cs" />
+  </ItemGroup>
+</Project>

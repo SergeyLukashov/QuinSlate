@@ -82,3 +82,6 @@ BundleArtifacts/
 *.appxbundle
 *.appxupload
 *.appxsym
+# Benchmark run artifacts
+QuinSlate.EmojiPickerBench/results/
+QuinSlate.EmojiPickerBench/crash.log

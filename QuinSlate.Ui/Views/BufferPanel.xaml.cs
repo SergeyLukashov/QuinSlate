@@ -1,3 +1,4 @@
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -547,6 +548,7 @@ public sealed partial class BufferPanel : UserControl
     private void OnPanelLoaded(object sender, RoutedEventArgs e)
     {
         ApplyDitheredBackground();
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => emojiPicker.Prewarm(RootGrid));
     }
 
     private void OnPanelActualThemeChanged(FrameworkElement sender, object args)

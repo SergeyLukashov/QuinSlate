@@ -1,38 +1,55 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Input;
 using QuinSlate.Ui.Models;
+using Serilog;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
+using System.Diagnostics;
+using Windows.System;
 
 namespace QuinSlate.Ui.Components;
 
 /// <summary>
-/// The emoji-picker surface: a search box, a virtualizing grouped category
-/// grid, a recent strip, and a search-results grid. The category grid is
-/// driven by a grouped <see cref="CollectionViewSource"/> so only the emoji
-/// in view are realized.
+/// The emoji-picker surface: a search box, a pooled recent strip, and a single
+/// pre-built glyph sheet (plain TextBlocks on a Canvas inside a ScrollViewer).
+/// The sheet is built exactly once and never rebuilt: searching repositions
+/// the existing glyphs synchronously per keystroke, and scrolling the static
+/// sheet is pure composition work, so no user action pays element creation or
+/// container realization costs.
 /// </summary>
 public sealed partial class EmojiPickerView : UserControl
 {
-    private readonly ObservableCollection<EmojiEntry> recentItems = new ObservableCollection<EmojiEntry>();
-    private readonly ObservableCollection<EmojiEntry> searchResultItems = new ObservableCollection<EmojiEntry>();
+    private const double NoPendingScrollOffset = -1;
 
-    /// <summary>Raised when the user clicks an emoji. The argument is the emoji string.</summary>
+    private readonly EmojiSheetPresenter sheetPresenter;
+    private readonly RecentEmojiStrip recentStrip;
+
+    private bool isInSearchMode;
+    private double savedBrowseScrollOffset;
+    private double pendingScrollOffset = NoPendingScrollOffset;
+
+    /// <summary>Raised when the user picks an emoji. The argument is the emoji string.</summary>
     public event EventHandler<string> EmojiClicked;
 
-    /// <summary>Builds the picker surface and binds the category, recent, and search grids.</summary>
+    /// <summary>Builds the picker surface, including the entire glyph sheet, up front.</summary>
     public EmojiPickerView()
     {
         InitializeComponent();
 
-        EmojiGroupsSource.Source = EmojiData.GetGroups();
-        CategoryView.ItemsSource = EmojiGroupsSource.View;
-        RecentView.ItemsSource = recentItems;
-        SearchResultsView.ItemsSource = searchResultItems;
+        var headerStyle = (Style)Resources["CategoryHeaderStyle"];
 
-        SearchBox.TextChanged += (s, e) => Filter(SearchBox.Text);
+        sheetPresenter = new EmojiSheetPresenter(SheetCanvas, SheetHoverHighlight, SheetPressedHighlight, headerStyle);
+        sheetPresenter.EmojiChosen += OnEmojiChosen;
+
+        recentStrip = new RecentEmojiStrip(RecentCanvas, RecentHoverHighlight, RecentPressedHighlight);
+        recentStrip.EmojiChosen += OnEmojiChosen;
+
+        sheetPresenter.Build();
+
+        SearchBox.TextChanged += OnSearchTextChanged;
+        SearchBox.KeyDown += OnSearchBoxKeyDown;
+        SheetScroller.Loaded += OnSheetScrollerLoaded;
     }
 
     /// <summary>
@@ -41,88 +58,108 @@ public sealed partial class EmojiPickerView : UserControl
     /// </summary>
     public void Reset(IReadOnlyList<string> recentEmoji)
     {
-        if (recentEmoji == null)
-        {
-            recentEmoji = new List<string>();
-        }
-
         SearchBox.Text = string.Empty;
 
-        if (!RecentMatches(recentEmoji))
-        {
-            recentItems.Clear();
-            foreach (var emoji in recentEmoji)
-            {
-                recentItems.Add(new EmojiEntry(emoji, emoji));
-            }
-        }
-
-        RecentContainer.Visibility = recentItems.Count > 0
+        RecentContainer.Visibility = recentStrip.SetRecents(recentEmoji)
             ? Visibility.Visible
             : Visibility.Collapsed;
 
         Filter(string.Empty);
     }
 
-    /// <summary>
-    /// Returns true when the current recent strip already shows exactly
-    /// <paramref name="recentEmoji"/> in the same order, so it does not need
-    /// to be cleared and rebuilt (which would retrigger entrance animations).
-    /// </summary>
-    private bool RecentMatches(IReadOnlyList<string> recentEmoji)
+    private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
     {
-        if (recentItems.Count != recentEmoji.Count)
+        Filter(SearchBox.Text);
+    }
+
+    private void OnSearchBoxKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key != VirtualKey.Enter)
         {
-            return false;
+            return;
         }
 
-        for (int i = 0; i < recentItems.Count; i++)
+        string firstMatch = sheetPresenter.FirstMatchEmoji;
+        if (isInSearchMode && !string.IsNullOrEmpty(firstMatch))
         {
-            if (!string.Equals(recentItems[i].Emoji, recentEmoji[i], StringComparison.Ordinal))
-            {
-                return false;
-            }
+            e.Handled = true;
+            EmojiClicked?.Invoke(this, firstMatch);
         }
-
-        return true;
     }
 
     private void Filter(string query)
     {
-        bool showAll = string.IsNullOrWhiteSpace(query);
+        var stopwatch = Stopwatch.StartNew();
 
-        if (showAll)
+        if (EmojiSearch.IsBrowseQuery(query))
         {
-            CategoryView.Visibility = Visibility.Visible;
-            SearchResultsContainer.Visibility = Visibility.Collapsed;
-            searchResultItems.Clear();
+            double browseViewportTop = isInSearchMode ? savedBrowseScrollOffset : SheetScroller.VerticalOffset;
+            sheetPresenter.ShowBrowse(browseViewportTop);
+            MatchesHeader.Visibility = Visibility.Collapsed;
+
+            if (isInSearchMode)
+            {
+                isInSearchMode = false;
+                ScrollSheetTo(savedBrowseScrollOffset);
+            }
+
+            Log.ForContext<EmojiPickerView>().Debug(
+                "Emoji sheet restored to browse in {ElapsedMs:F2} ms.",
+                stopwatch.Elapsed.TotalMilliseconds);
             return;
         }
 
-        CategoryView.Visibility = Visibility.Collapsed;
-        SearchResultsContainer.Visibility = Visibility.Visible;
-
-        searchResultItems.Clear();
-        foreach (var entry in EmojiData.GetAllEntries())
+        if (!isInSearchMode)
         {
-            bool match = (entry.Keywords != null && entry.Keywords.Contains(query, StringComparison.OrdinalIgnoreCase))
-                      || (entry.Emoji != null && entry.Emoji.Contains(query, StringComparison.OrdinalIgnoreCase));
-
-            if (match)
-            {
-                searchResultItems.Add(entry);
-            }
+            isInSearchMode = true;
+            savedBrowseScrollOffset = SheetScroller.VerticalOffset;
+            ScrollSheetTo(0);
         }
+
+        int matchCount = sheetPresenter.ShowMatches(query);
+        MatchesHeader.Visibility = Visibility.Visible;
+
+        Log.ForContext<EmojiPickerView>().Debug(
+            "Emoji filter applied in {ElapsedMs:F2} ms: {MatchCount} matches.",
+            stopwatch.Elapsed.TotalMilliseconds,
+            matchCount);
     }
 
-    private void OnEmojiItemClick(object sender, ItemClickEventArgs e)
+    /// <summary>
+    /// Scrolls the sheet without animation. ChangeView is a no-op while the
+    /// scroller is disconnected (the flyout is closed), so a failed request is
+    /// remembered and replayed when the scroller next loads.
+    /// </summary>
+    private void ScrollSheetTo(double verticalOffset)
     {
-        var entry = e.ClickedItem as EmojiEntry;
-        if (entry == null || string.IsNullOrEmpty(entry.Emoji))
+        if (SheetScroller.ChangeView(null, verticalOffset, null, true))
+        {
+            pendingScrollOffset = NoPendingScrollOffset;
+            return;
+        }
+
+        pendingScrollOffset = verticalOffset;
+    }
+
+    private void OnSheetScrollerLoaded(object sender, RoutedEventArgs e)
+    {
+        if (pendingScrollOffset == NoPendingScrollOffset)
         {
             return;
         }
 
-        EmojiClicked?.Invoke(this, entry.Emoji);
+        double offset = pendingScrollOffset;
+        pendingScrollOffset = NoPendingScrollOffset;
+        DispatcherQueue.TryEnqueue(() => SheetScroller.ChangeView(null, offset, null, true));
+    }
+
+    private void OnEmojiChosen(object sender, string emoji)
+    {
+        if (string.IsNullOrEmpty(emoji))
+        {
+            return;
+        }
+
+        EmojiClicked?.Invoke(this, emoji);
     }
 }

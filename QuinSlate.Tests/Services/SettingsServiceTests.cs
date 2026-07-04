@@ -59,7 +59,7 @@ public sealed class SettingsServiceTests : IDisposable
         await settingsService.SaveAsync();
 
         Assert.True(File.Exists(settingsService.SettingsFilePath));
-        var content = await File.ReadAllTextAsync(settingsService.SettingsFilePath);
+        var content = await File.ReadAllTextAsync(settingsService.SettingsFilePath, TestContext.Current.CancellationToken);
         Assert.Contains("\"HasRegisteredStartup\":true", content);
     }
 
@@ -67,7 +67,7 @@ public sealed class SettingsServiceTests : IDisposable
     public async Task LoadAsync_ExistingFile_RestoresSettings()
     {
         var json = "{\"HasRegisteredStartup\":true}";
-        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json);
+        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json, TestContext.Current.CancellationToken);
 
         await settingsService.LoadAsync();
 
@@ -77,7 +77,7 @@ public sealed class SettingsServiceTests : IDisposable
     [Fact]
     public async Task LoadAsync_MalformedJson_DoesNotThrowAndKeepsDefaults()
     {
-        await File.WriteAllTextAsync(settingsService.SettingsFilePath, "not valid json");
+        await File.WriteAllTextAsync(settingsService.SettingsFilePath, "not valid json", TestContext.Current.CancellationToken);
 
         await settingsService.LoadAsync();
 
@@ -105,7 +105,7 @@ public sealed class SettingsServiceTests : IDisposable
 
         await settingsService.SaveAsync();
 
-        var content = await File.ReadAllTextAsync(settingsService.SettingsFilePath);
+        var content = await File.ReadAllTextAsync(settingsService.SettingsFilePath, TestContext.Current.CancellationToken);
         Assert.Contains("\"WindowWidth\":560", content);
         Assert.Contains("\"WindowHeight\":680", content);
     }
@@ -114,7 +114,7 @@ public sealed class SettingsServiceTests : IDisposable
     public async Task LoadAsync_ExistingFile_RestoresWindowSize()
     {
         var json = "{\"WindowWidth\":560,\"WindowHeight\":680}";
-        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json);
+        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json, TestContext.Current.CancellationToken);
 
         await settingsService.LoadAsync();
 
@@ -126,7 +126,7 @@ public sealed class SettingsServiceTests : IDisposable
     public async Task LoadAsync_FileWithoutWindowSize_DefaultsToZero()
     {
         var json = "{\"HasRegisteredStartup\":false}";
-        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json);
+        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json, TestContext.Current.CancellationToken);
 
         await settingsService.LoadAsync();
 
@@ -138,7 +138,7 @@ public sealed class SettingsServiceTests : IDisposable
     public async Task LoadAsync_FileWithoutTrayPeekEnabled_DefaultsToTrue()
     {
         var json = "{\"HasRegisteredStartup\":false}";
-        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json);
+        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json, TestContext.Current.CancellationToken);
 
         await settingsService.LoadAsync();
 
@@ -165,7 +165,7 @@ public sealed class SettingsServiceTests : IDisposable
 
         await settingsService.SaveAsync();
 
-        var content = await File.ReadAllTextAsync(settingsService.SettingsFilePath);
+        var content = await File.ReadAllTextAsync(settingsService.SettingsFilePath, TestContext.Current.CancellationToken);
         Assert.Contains("\"WindowLeft\":100", content);
         Assert.Contains("\"WindowTop\":200", content);
     }
@@ -174,7 +174,7 @@ public sealed class SettingsServiceTests : IDisposable
     public async Task LoadAsync_ExistingFile_RestoresWindowPosition()
     {
         var json = "{\"WindowLeft\":100,\"WindowTop\":200}";
-        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json);
+        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json, TestContext.Current.CancellationToken);
 
         await settingsService.LoadAsync();
 
@@ -207,7 +207,7 @@ public sealed class SettingsServiceTests : IDisposable
 
         settingsService.SetTabs(modified);
 
-        await Task.Delay(50);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
 
         var fresh = new SettingsService(tempDirectory);
         await fresh.LoadAsync();
@@ -265,7 +265,7 @@ public sealed class SettingsServiceTests : IDisposable
 
         await settingsService.SaveAsync();
 
-        var content = await File.ReadAllTextAsync(settingsService.SettingsFilePath);
+        var content = await File.ReadAllTextAsync(settingsService.SettingsFilePath, TestContext.Current.CancellationToken);
         Assert.Contains("\"HasShownTrayNotice\":true", content);
     }
 
@@ -273,7 +273,7 @@ public sealed class SettingsServiceTests : IDisposable
     public async Task LoadAsync_ExistingFile_RestoresHasShownTrayNotice()
     {
         var json = "{\"HasShownTrayNotice\":true}";
-        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json);
+        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json, TestContext.Current.CancellationToken);
 
         await settingsService.LoadAsync();
 

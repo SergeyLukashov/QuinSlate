@@ -205,6 +205,28 @@ public sealed class BufferService
         }
     }
 
+    /// <summary>
+    /// Final safeguard before content reaches disk: clamps to
+    /// <see cref="AppConstants.MaxBufferLength"/> so a buffer can never be
+    /// persisted larger than the editor's enforced limit, regardless of how the
+    /// in-memory content was produced. Truncation is logged (length only, never
+    /// content).
+    /// </summary>
+    private static string ClampToMaxLength(string content)
+    {
+        var text = content ?? string.Empty;
+        if (text.Length <= AppConstants.MaxBufferLength)
+        {
+            return text;
+        }
+
+        Log.ForContext<BufferService>().Warning(
+            "Buffer content of {ActualLength} chars exceeds the {MaxLength} limit; truncating before write.",
+            text.Length,
+            AppConstants.MaxBufferLength);
+        return text.Substring(0, AppConstants.MaxBufferLength);
+    }
+
     private static async Task WriteFileAsync(string path, string content)
     {
         try
@@ -212,7 +234,7 @@ public sealed class BufferService
             using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
             using (var writer = new StreamWriter(stream, Utf8WithBom))
             {
-                await writer.WriteAsync(content ?? string.Empty);
+                await writer.WriteAsync(ClampToMaxLength(content));
             }
         }
         catch (IOException ex)
@@ -229,7 +251,7 @@ public sealed class BufferService
     {
         try
         {
-            File.WriteAllText(path, content ?? string.Empty, Utf8WithBom);
+            File.WriteAllText(path, ClampToMaxLength(content), Utf8WithBom);
         }
         catch (IOException ex)
         {

@@ -13,9 +13,6 @@
 
 WinUI 3 has no native tray API. All tray behaviour is Win32 via P/Invoke.
 
-> [!NOTE]
-> The application was renamed from **Jott** to **QuinSlate**. All namespaces, project names, settings paths, and mutex names have been updated accordingly.
-
 ---
 
 ## Project structure
@@ -25,10 +22,12 @@ QuinSlate/
 ├── QuinSlate.Ui/             # WinUI 3 desktop application source code and assets
 ├── QuinSlate.Tests/          # Unit tests for models and services
 ├── QuinSlate.AssetGenerator/ # Asset generator utility console app
+├── QuinSlate.EmojiPickerBench/ # Benchmark harness for the emoji picker
 ├── Docs/
 │   ├── Specs/                # Product specifications and feature queue
 │   ├── Investigations/       # Deep-dives into platform bugs, dead-end archaeology
-│   └── Decisions/            # Architecture decision records (ADRs)
+│   ├── Decisions/            # Architecture decision records (ADRs)
+│   └── Plans/                # Implementation plans for multi-step work
 ├── Scratch/                  # Local-only scratchpad for temporary code/scripts
 ```
 

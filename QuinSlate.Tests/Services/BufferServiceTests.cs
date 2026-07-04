@@ -161,6 +161,20 @@ public sealed class BufferServiceTests : IDisposable
     }
 
     [Fact]
+    public void FlushPendingWritesSync_ContentExceedingMax_TruncatesOnDisk()
+    {
+        bufferService.LoadAll();
+
+        var oversized = new string('x', AppConstants.MaxBufferLength + 500);
+        bufferService.UpdateContent(1, oversized);
+
+        bufferService.FlushPendingWritesSync();
+
+        var written = File.ReadAllText(Path.Combine(tempDirectory, "buffer-1.txt"));
+        Assert.Equal(AppConstants.MaxBufferLength, written.Length);
+    }
+
+    [Fact]
     public void DebounceTimer_WritesToDiskAfterDelay()
     {
         bufferService.LoadAll();

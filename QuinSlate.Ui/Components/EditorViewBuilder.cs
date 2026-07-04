@@ -2,6 +2,7 @@ using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using QuinSlate.Ui.Constants;
 using System;
 using Buffer = QuinSlate.Ui.Models.Buffer;
 
@@ -16,7 +17,6 @@ internal static class EditorViewBuilder
 {
     private const string MonospaceFont = "Cascadia Code";
     private const double EditorFontSize = 15;
-    private const int MaxBufferLength = 1_000_000;
     private const double EditorContentTopGap = 4;
 
     /// <summary>
@@ -48,7 +48,7 @@ internal static class EditorViewBuilder
             IsSpellCheckEnabled = false,
             Tag = buffer.Index,
             SelectionFlyout = null,
-            MaxLength = MaxBufferLength,
+            MaxLength = AppConstants.MaxBufferLength,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(16, 10, 16, 16),
         };

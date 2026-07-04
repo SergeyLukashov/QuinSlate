@@ -37,7 +37,6 @@ public sealed partial class BufferPanel : UserControl
     private const string PinnedGlyph = "";
     private const string PinTooltip = "Pin";
     private const string UnpinTooltip = "Unpin";
-    private const int MaxBufferLength = 1_000_000;
     private const string RenameTabMenuText = "Rename tab";
     private const string RenameTabIconGlyph = "";
     private const string FluentIconFontFamily = "Segoe Fluent Icons";
@@ -1054,7 +1053,7 @@ public sealed partial class BufferPanel : UserControl
             editor.Document.GetText(TextGetOptions.None, out string currentText);
 
             int selectionLength = editor.Document.Selection.Text.Length;
-            int maxAllowedPaste = MaxBufferLength - (currentText.Length - selectionLength);
+            int maxAllowedPaste = AppConstants.MaxBufferLength - (currentText.Length - selectionLength);
 
             if (maxAllowedPaste > 0)
             {

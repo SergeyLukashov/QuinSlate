@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Serilog;
 using System;
 using System.IO;
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -79,8 +80,10 @@ internal static class DitheredGradientBrushFactory
                 element.ActualHeight,
                 scale);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Log.ForContext(typeof(DitheredGradientBrushFactory)).Debug(
+                ex, "Failed to build dithered gradient brush; caller degrades to the flat mid-tone fallback.");
             return null;
         }
     }

@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using QuinSlate.Ui.Constants;
+using Serilog;
 using System;
 using System.IO;
 using System.Reflection;
@@ -205,9 +206,9 @@ public sealed partial class AboutView : UserControl
 
             System.Diagnostics.Process.Start("explorer.exe", dataDirectory);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Fail silently to prevent crash
+            Log.ForContext<AboutView>().Warning(ex, "Failed to open the data storage folder in Explorer.");
         }
     }
 
@@ -224,9 +225,9 @@ public sealed partial class AboutView : UserControl
             dataPackage.SetText(dataDirectory);
             Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Fail silently to prevent crash
+            Log.ForContext<AboutView>().Warning(ex, "Failed to copy the data storage path to the clipboard.");
         }
     }
 
@@ -236,9 +237,9 @@ public sealed partial class AboutView : UserControl
         {
             _ = Windows.System.Launcher.LaunchUriAsync(new Uri(ReportIssueMailtoUri));
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Fail silently to prevent crash
+            Log.ForContext<AboutView>().Warning(ex, "Failed to launch the report-issue mail link.");
         }
     }
 }

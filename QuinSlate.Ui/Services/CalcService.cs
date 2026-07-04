@@ -83,6 +83,9 @@ internal static class CalcService
         }
         catch
         {
+            // Intentionally silent: a parse/evaluation failure just means the text is not a
+            // valid expression. This runs on every keystroke, so failures are the normal case
+            // (not an error) and logging them would be noise.
             return false;
         }
     }

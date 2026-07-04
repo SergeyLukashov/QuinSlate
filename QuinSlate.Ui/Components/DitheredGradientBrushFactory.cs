@@ -159,16 +159,24 @@ internal static class DitheredGradientBrushFactory
         double uDenominator = width > 1 ? width - 1 : 1;
         double vDenominator = height > 1 ? height - 1 : 1;
 
-        uint rngState = 0x9E3779B9u ^ (uint)(width * 73856093) ^ (uint)(height * 19349663);
-        if (rngState == 0)
-        {
-            rngState = 1;
-        }
+        uint baseSeed = 0x9E3779B9u ^ (uint)(width * 73856093) ^ (uint)(height * 19349663);
 
-        int index = 0;
-        for (int y = 0; y < height; y++)
+        // Rows are independent, so the fill is parallelised across cores: at native pixel size on a
+        // high-DPI window this is millions of RNG draws that would otherwise run single-threaded on
+        // the UI thread during a resize/theme rebuild. Each row seeds its own RNG from the row index
+        // so the noise stays deterministic and decorrelated between rows; TPDF dithering needs only
+        // per-pixel decorrelated noise, not a single globally-sequential stream, so the result is
+        // visually identical.
+        System.Threading.Tasks.Parallel.For(0, height, y =>
         {
+            uint rngState = baseSeed ^ ((uint)(y + 1) * 2654435761u);
+            if (rngState == 0)
+            {
+                rngState = 1;
+            }
+
             double v = y / vDenominator;
+            int index = y * width * BytesPerPixel;
             for (int x = 0; x < width; x++)
             {
                 double u = x / uDenominator;
@@ -181,7 +189,7 @@ internal static class DitheredGradientBrushFactory
                 pixels[index + 3] = 0xFF;
                 index += BytesPerPixel;
             }
-        }
+        });
 
         var bitmap = new WriteableBitmap(width, height);
         using (Stream stream = bitmap.PixelBuffer.AsStream())

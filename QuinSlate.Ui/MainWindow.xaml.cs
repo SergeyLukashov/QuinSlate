@@ -804,6 +804,10 @@ public sealed partial class MainWindow : Window
             settingsService.SaveSync();
         }
 
+        // Drain any keystrokes still held by the editor extraction debounce into the buffer
+        // service before it flushes, so the exit write captures the very latest edits.
+        Panel.FlushPendingContent();
+
         if (bufferService != null)
         {
             bufferService.FlushPendingWritesSync();

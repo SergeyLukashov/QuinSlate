@@ -92,6 +92,20 @@ public sealed partial class BufferPanel : UserControl
     private const int ClearConfirmCooldownMs = 500;
 
     /// <summary>
+    /// Buffer indices whose editor text changed since the last extraction to the buffer service.
+    /// Drained by <see cref="contentExtractTimer"/>. Touched only on the UI thread.
+    /// </summary>
+    private readonly HashSet<int> dirtyBufferIndices = new HashSet<int>();
+
+    /// <summary>
+    /// Debounces reading editor text into the buffer service. <c>RichEditBox.Document.GetText</c>
+    /// allocates the entire document, so it runs once per typing burst rather than on every
+    /// keystroke; the extracted text is what feeds the buffer service's own persistence debounce.
+    /// </summary>
+    private DispatcherTimer contentExtractTimer;
+    private const int ContentExtractDebounceMs = 300;
+
+    /// <summary>
     /// Debounces rebuilding the Win2D dithered background brushes while the window is being
     /// resized. The dithered surfaces must be re-rendered at the new native pixel size (a
     /// stretched dithered bitmap re-bands), but doing so on every <c>SizeChanged</c> tick
@@ -1034,6 +1048,10 @@ public sealed partial class BufferPanel : UserControl
             bufferService.UpdateContent(bufferIndex, string.Empty);
         }
 
+        // The SetText above marks the buffer dirty via TextChanged; drop it since the clear is
+        // already persisted here, so the debounce does not re-extract the same empty document.
+        dirtyBufferIndices.Remove(bufferIndex);
+
         UpdateClearButtonState(bufferIndex, isEmpty: true);
         ResetClearMenuItem(bufferIndex);
     }
@@ -1070,7 +1088,60 @@ public sealed partial class BufferPanel : UserControl
 
         if (editor.Tag is int index)
         {
+            // The calc animator watches every keystroke for an armed '='; it does no full-document
+            // read except briefly while its result highlight is animating, so it stays inline.
             calcResultAnimator.HandleTextChanged(editor);
+
+            // Defer the expensive document read to the debounce: mark this editor dirty and (re)arm
+            // the timer so a burst of keystrokes yields a single extraction once typing settles.
+            dirtyBufferIndices.Add(index);
+            ArmContentExtractTimer();
+        }
+    }
+
+    private void ArmContentExtractTimer()
+    {
+        if (contentExtractTimer == null)
+        {
+            contentExtractTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(ContentExtractDebounceMs),
+            };
+            contentExtractTimer.Tick += OnContentExtractTimerTick;
+        }
+
+        contentExtractTimer.Stop();
+        contentExtractTimer.Start();
+    }
+
+    private void OnContentExtractTimerTick(object sender, object e)
+    {
+        contentExtractTimer.Stop();
+        ExtractDirtyBuffers();
+    }
+
+    /// <summary>
+    /// Reads the text of every editor marked dirty since the last extraction and hands it to the
+    /// buffer service, enforcing the length cap. One <c>GetText</c> per editor per typing burst,
+    /// on the UI thread (the only thread that may touch an editor).
+    /// </summary>
+    private void ExtractDirtyBuffers()
+    {
+        if (bufferService == null || dirtyBufferIndices.Count == 0)
+        {
+            return;
+        }
+
+        int[] indices = new int[dirtyBufferIndices.Count];
+        dirtyBufferIndices.CopyTo(indices);
+        dirtyBufferIndices.Clear();
+
+        foreach (int index in indices)
+        {
+            if (editorsByBufferIndex.TryGetValue(index, out RichEditBox editor) == false)
+            {
+                continue;
+            }
 
             editor.Document.GetText(TextGetOptions.UseCrlf, out string text);
             text = text.TrimEnd('\r', '\n');
@@ -1082,6 +1153,28 @@ public sealed partial class BufferPanel : UserControl
 
             bufferService.UpdateContent(index, text);
             UpdateClearButtonState(index, isEmpty: string.IsNullOrEmpty(text));
+        }
+    }
+
+    /// <summary>
+    /// Forces any keystrokes still held by the extraction debounce to be read out and handed to
+    /// the buffer service immediately. Call on shutdown, before the buffer service's own flush, so
+    /// the exit write persists the very latest edits rather than the last debounced snapshot.
+    /// </summary>
+    public void FlushPendingContent()
+    {
+        if (contentExtractTimer != null)
+        {
+            contentExtractTimer.Stop();
+        }
+
+        try
+        {
+            ExtractDirtyBuffers();
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.ForContext<BufferPanel>().Warning(ex, "Failed to flush pending editor content on shutdown.");
         }
     }
 

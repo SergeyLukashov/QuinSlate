@@ -37,6 +37,15 @@ public sealed class BufferService
     private readonly Dictionary<int, Buffer> buffersByIndex = new Dictionary<int, Buffer>();
     private readonly Dictionary<int, Timer> debounceTimers = new Dictionary<int, Timer>();
     private readonly Dictionary<int, Task> inFlightWrites = new Dictionary<int, Task>();
+
+    // Per-buffer dirty tracking: a buffer is dirty when the version stamped on its
+    // last content update is newer than the version last written to disk. The
+    // shutdown flush uses this to skip buffers already persisted (or never edited),
+    // rather than rewriting all five every exit. All access is under syncRoot.
+    private readonly Dictionary<int, long> contentVersionByIndex = new Dictionary<int, long>();
+    private readonly Dictionary<int, long> persistedVersionByIndex = new Dictionary<int, long>();
+    private long versionCounter;
+
     private readonly object syncRoot = new object();
 
     /// <summary>
@@ -126,6 +135,8 @@ public sealed class BufferService
 
         lock (syncRoot)
         {
+            contentVersionByIndex[index] = ++versionCounter;
+
             Timer existing;
             if (debounceTimers.TryGetValue(index, out existing))
             {
@@ -145,9 +156,10 @@ public sealed class BufferService
     /// <remarks>
     /// First waits (bounded) for debounce-fired async writes still in flight, so
     /// the final synchronous pass never collides with an open write handle and
-    /// lose the freshest content to a sharing violation. All buffers are then
-    /// written, covering the race where a debounce timer has already fired and
-    /// removed itself from the dictionary but its write was never scheduled.
+    /// loses the freshest content to a sharing violation. Only buffers still dirty
+    /// after that wait are written — those already persisted by the async path (or
+    /// never edited this session) are skipped — while a dirty buffer whose write was
+    /// never scheduled is still covered.
     /// </remarks>
     public void FlushPendingWritesSync()
     {
@@ -173,12 +185,24 @@ public sealed class BufferService
         }
         catch (AggregateException ex)
         {
-            Log.ForContext<BufferService>().Warning(ex, "An in-flight buffer write faulted while flushing; the synchronous pass below rewrites every buffer.");
+            Log.ForContext<BufferService>().Warning(ex, "An in-flight buffer write faulted while flushing; the synchronous pass below rewrites every dirty buffer.");
         }
 
         foreach (var buffer in buffersByIndex.Values)
         {
-            WriteFileSafe(buffer.FilePath, buffer.Content);
+            long version;
+            lock (syncRoot)
+            {
+                if (IsDirty(buffer.Index, out version) == false)
+                {
+                    continue;
+                }
+            }
+
+            if (WriteFileSafe(buffer.FilePath, buffer.Content))
+            {
+                MarkPersisted(buffer.Index, version);
+            }
         }
     }
 
@@ -199,9 +223,11 @@ public sealed class BufferService
                 timer.Dispose();
             }
 
+            long version = contentVersionByIndex.TryGetValue(index, out long v) ? v : 0;
+
             Task previousWrite;
             inFlightWrites.TryGetValue(index, out previousWrite);
-            inFlightWrites[index] = WriteFileChainedAsync(previousWrite, buffer.FilePath, buffer.Content);
+            inFlightWrites[index] = WriteFileChainedAsync(previousWrite, index, buffer.FilePath, buffer.Content, version);
         }
     }
 
@@ -209,16 +235,50 @@ public sealed class BufferService
     /// Runs a buffer write after the previous write for the same file has
     /// finished, so two debounce firings can never write the same path
     /// concurrently (the atomic writer's exclusive temp file would make the
-    /// newer write fail and its content would be lost until the next edit).
+    /// newer write fail and its content would be lost until the next edit). On a
+    /// successful write the buffer's persisted version advances so the shutdown
+    /// flush can skip it.
     /// </summary>
-    private static async Task WriteFileChainedAsync(Task previousWrite, string path, string content)
+    private async Task WriteFileChainedAsync(Task previousWrite, int index, string path, string content, long version)
     {
         if (previousWrite != null)
         {
             await previousWrite.ConfigureAwait(false);
         }
 
-        await WriteFileAsync(path, content).ConfigureAwait(false);
+        if (await WriteFileAsync(path, content).ConfigureAwait(false))
+        {
+            MarkPersisted(index, version);
+        }
+    }
+
+    /// <summary>
+    /// Returns whether the buffer's in-memory content differs from what was last
+    /// written to disk, and outputs the current content version. Must be called
+    /// under <see cref="syncRoot"/>.
+    /// </summary>
+    private bool IsDirty(int index, out long contentVersion)
+    {
+        contentVersion = contentVersionByIndex.TryGetValue(index, out long content) ? content : 0;
+        long persisted = persistedVersionByIndex.TryGetValue(index, out long p) ? p : 0;
+        return contentVersion > persisted;
+    }
+
+    /// <summary>
+    /// Advances the buffer's persisted version to <paramref name="version"/> (never
+    /// backwards), marking it clean up to that content update. A newer update that
+    /// bumped the content version in the meantime leaves the buffer dirty.
+    /// </summary>
+    private void MarkPersisted(int index, long version)
+    {
+        lock (syncRoot)
+        {
+            long current = persistedVersionByIndex.TryGetValue(index, out long p) ? p : 0;
+            if (version > current)
+            {
+                persistedVersionByIndex[index] = version;
+            }
+        }
     }
 
     private string GetBufferFilePath(int index)
@@ -267,35 +327,41 @@ public sealed class BufferService
         return text.Substring(0, AppConstants.MaxBufferLength);
     }
 
-    private static async Task WriteFileAsync(string path, string content)
+    private static async Task<bool> WriteFileAsync(string path, string content)
     {
         try
         {
             await AtomicFileWriter.WriteAllTextAsync(path, ClampToMaxLength(content), Utf8WithBom).ConfigureAwait(false);
+            return true;
         }
         catch (IOException ex)
         {
             Log.ForContext<BufferService>().Warning(ex, "Failed to write buffer file {Path}.", path);
+            return false;
         }
         catch (UnauthorizedAccessException ex)
         {
             Log.ForContext<BufferService>().Warning(ex, "Access denied writing buffer file {Path}.", path);
+            return false;
         }
     }
 
-    private static void WriteFileSafe(string path, string content)
+    private static bool WriteFileSafe(string path, string content)
     {
         try
         {
             AtomicFileWriter.WriteAllText(path, ClampToMaxLength(content), Utf8WithBom);
+            return true;
         }
         catch (IOException ex)
         {
             Log.ForContext<BufferService>().Warning(ex, "Failed to write buffer file {Path}.", path);
+            return false;
         }
         catch (UnauthorizedAccessException ex)
         {
             Log.ForContext<BufferService>().Warning(ex, "Access denied writing buffer file {Path}.", path);
+            return false;
         }
     }
 }

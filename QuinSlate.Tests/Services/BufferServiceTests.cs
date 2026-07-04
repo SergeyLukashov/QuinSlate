@@ -222,6 +222,59 @@ public sealed class BufferServiceTests : IDisposable
     }
 
     [Fact]
+    public void FlushPendingWritesSync_OnlyWritesDirtyBuffers()
+    {
+        bufferService.LoadAll();
+
+        bufferService.UpdateContent(1, "only one edited");
+
+        // Flush immediately, before any debounce fires. Only buffer 1 was edited, so the other
+        // four are clean and must not be written to disk.
+        bufferService.FlushPendingWritesSync();
+
+        Assert.True(File.Exists(Path.Combine(tempDirectory, "buffer-1.txt")));
+        Assert.False(File.Exists(Path.Combine(tempDirectory, "buffer-2.txt")));
+        Assert.False(File.Exists(Path.Combine(tempDirectory, "buffer-5.txt")));
+    }
+
+    [Fact]
+    public void FlushPendingWritesSync_SkipsBufferAlreadyPersistedByDebounce()
+    {
+        bufferService.LoadAll();
+
+        bufferService.UpdateContent(2, "persisted by debounce");
+
+        // Let the debounce timer write it, then remove the file so a redundant flush write would
+        // be visible by the file reappearing.
+        Thread.Sleep(500);
+        var path = Path.Combine(tempDirectory, "buffer-2.txt");
+        Assert.True(File.Exists(path));
+        File.Delete(path);
+
+        // Buffer 2 is clean (its persisted version matches its content version), so the flush must
+        // skip it and not recreate the file.
+        bufferService.FlushPendingWritesSync();
+
+        Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public void FlushPendingWritesSync_EditAfterDebounce_RewritesBuffer()
+    {
+        bufferService.LoadAll();
+
+        bufferService.UpdateContent(3, "first");
+        Thread.Sleep(500);
+
+        // A fresh edit after the debounce persisted the first version makes the buffer dirty
+        // again, so the flush must write the newer content.
+        bufferService.UpdateContent(3, "second");
+        bufferService.FlushPendingWritesSync();
+
+        Assert.Equal("second", File.ReadAllText(Path.Combine(tempDirectory, "buffer-3.txt")));
+    }
+
+    [Fact]
     public void DebounceTimer_RapidSuccessiveUpdates_PersistsLatestContent()
     {
         bufferService.LoadAll();

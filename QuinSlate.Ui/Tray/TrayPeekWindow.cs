@@ -51,7 +51,6 @@ public sealed class TrayPeekWindow : IDisposable
     private int windowHeight;
     private const int AnimationSteps = 6;
     private const int AnimationIntervalMs = 15;
-    private const int StartYOffsetLogical = 16;
     private bool isVisible;
     private bool disposed;
     private bool iconRectUnavailable;

@@ -188,4 +188,52 @@ public sealed class BufferServiceTests : IDisposable
         Assert.True(File.Exists(filePath));
         Assert.Equal("delayed content", File.ReadAllText(filePath));
     }
+
+    [Fact]
+    public void FlushPendingWritesSync_WhileDebouncedWriteInFlight_PersistsLatestContent()
+    {
+        bufferService.LoadAll();
+
+        bufferService.UpdateContent(3, "first version");
+
+        // Let the debounce timer fire so its async write is (or was) in flight,
+        // then supersede the content and flush immediately.
+        Thread.Sleep(350);
+        bufferService.UpdateContent(3, "latest version");
+
+        bufferService.FlushPendingWritesSync();
+
+        var written = File.ReadAllText(Path.Combine(tempDirectory, "buffer-3.txt"));
+        Assert.Equal("latest version", written);
+    }
+
+    [Fact]
+    public void Writes_LeaveNoTemporaryFilesBehind()
+    {
+        bufferService.LoadAll();
+
+        bufferService.UpdateContent(1, "content via debounce");
+        Thread.Sleep(500);
+
+        bufferService.UpdateContent(2, "content via flush");
+        bufferService.FlushPendingWritesSync();
+
+        Assert.Empty(Directory.GetFiles(tempDirectory, "*.tmp"));
+    }
+
+    [Fact]
+    public void DebounceTimer_RapidSuccessiveUpdates_PersistsLatestContent()
+    {
+        bufferService.LoadAll();
+
+        for (var i = 1; i <= 10; i++)
+        {
+            bufferService.UpdateContent(4, $"revision {i}");
+        }
+
+        Thread.Sleep(500);
+
+        var written = File.ReadAllText(Path.Combine(tempDirectory, "buffer-4.txt"));
+        Assert.Equal("revision 10", written);
+    }
 }

@@ -279,4 +279,47 @@ public sealed class SettingsServiceTests : IDisposable
 
         Assert.True(settingsService.HasShownTrayNotice);
     }
+
+    [Fact]
+    public async Task SaveAsync_ConcurrentSaves_FileHoldsNewestSnapshotAndStaysValid()
+    {
+        var saves = new List<Task>();
+        for (var i = 1; i <= 20; i++)
+        {
+            settingsService.WindowWidth = i;
+            saves.Add(settingsService.SaveAsync());
+        }
+
+        await Task.WhenAll(saves);
+
+        var fresh = new SettingsService(tempDirectory);
+        await fresh.LoadAsync();
+        Assert.Equal(20, fresh.WindowWidth);
+    }
+
+    [Fact]
+    public async Task SaveSync_AfterPendingSaveAsync_FileHoldsNewestSnapshot()
+    {
+        settingsService.WindowWidth = 100;
+        Task pending = settingsService.SaveAsync();
+
+        settingsService.WindowWidth = 200;
+        settingsService.SaveSync();
+
+        await pending;
+
+        var fresh = new SettingsService(tempDirectory);
+        await fresh.LoadAsync();
+        Assert.Equal(200, fresh.WindowWidth);
+    }
+
+    [Fact]
+    public async Task SaveAsync_LeavesNoTemporaryFileBehind()
+    {
+        settingsService.WindowWidth = 42;
+
+        await settingsService.SaveAsync();
+
+        Assert.Empty(Directory.GetFiles(tempDirectory, "*.tmp"));
+    }
 }

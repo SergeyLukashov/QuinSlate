@@ -6,6 +6,7 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace QuinSlate.Ui.Services;
@@ -29,7 +30,10 @@ public sealed partial class SettingsService
     };
 
     private readonly string settingsFilePath;
+    private readonly SemaphoreSlim saveGate = new SemaphoreSlim(1, 1);
     private AppSettings settings;
+    private long saveVersion;
+    private long lastWrittenSaveVersion;
 
     /// <summary>
     /// Constructs the service rooted at <paramref name="appDataDirectory"/>
@@ -262,14 +266,28 @@ public sealed partial class SettingsService
     }
 
     /// <summary>
-    /// Persists the current settings to disk asynchronously.
+    /// Persists the current settings to disk asynchronously. The state is
+    /// snapshotted synchronously on the calling (UI) thread, so later property
+    /// mutations cannot tear the serialized output; concurrent saves are
+    /// serialised behind a gate and stale snapshots are skipped, so the file
+    /// always ends up holding the newest snapshot regardless of completion order.
     /// </summary>
     public async Task SaveAsync()
     {
         try
         {
             var json = JsonSerializer.Serialize(settings, SettingsJsonContext.Default.AppSettings);
-            await File.WriteAllTextAsync(settingsFilePath, json, Encoding.UTF8);
+            long version = Interlocked.Increment(ref saveVersion);
+
+            await saveGate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                await WriteSnapshotGatedAsync(json, version).ConfigureAwait(false);
+            }
+            finally
+            {
+                saveGate.Release();
+            }
         }
         catch (Exception ex)
         {
@@ -280,18 +298,45 @@ public sealed partial class SettingsService
     /// <summary>
     /// Persists the current settings to disk synchronously. Call this only in
     /// shutdown paths where the UI thread must not await (e.g. <c>Teardown</c>).
+    /// Waits for any in-flight <see cref="SaveAsync"/> write to finish first so
+    /// the two can never write the file concurrently.
     /// </summary>
     public void SaveSync()
     {
         try
         {
             var json = JsonSerializer.Serialize(settings, SettingsJsonContext.Default.AppSettings);
-            File.WriteAllText(settingsFilePath, json, Encoding.UTF8);
+            long version = Interlocked.Increment(ref saveVersion);
+
+            saveGate.Wait();
+            try
+            {
+                if (version > Volatile.Read(ref lastWrittenSaveVersion))
+                {
+                    AtomicFileWriter.WriteAllText(settingsFilePath, json, Encoding.UTF8);
+                    Volatile.Write(ref lastWrittenSaveVersion, version);
+                }
+            }
+            finally
+            {
+                saveGate.Release();
+            }
         }
         catch (Exception ex)
         {
             Log.ForContext<SettingsService>().Warning(ex, "Failed to save settings.");
         }
+    }
+
+    private async Task WriteSnapshotGatedAsync(string json, long version)
+    {
+        if (version <= Volatile.Read(ref lastWrittenSaveVersion))
+        {
+            return;
+        }
+
+        await AtomicFileWriter.WriteAllTextAsync(settingsFilePath, json, Encoding.UTF8).ConfigureAwait(false);
+        Volatile.Write(ref lastWrittenSaveVersion, version);
     }
 
     /// <summary>

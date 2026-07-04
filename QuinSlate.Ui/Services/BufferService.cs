@@ -24,11 +24,19 @@ public sealed class BufferService
     private const int DebounceMilliseconds = 300;
     private const string BufferFileNameFormat = "buffer-{0}.txt";
 
+    /// <summary>
+    /// Upper bound on how long the shutdown flush waits for debounce-fired async
+    /// writes still in flight. Generous for local file IO while still keeping a
+    /// wedged write from hanging process exit indefinitely.
+    /// </summary>
+    private const int FlushWaitTimeoutMilliseconds = 2000;
+
     private static readonly UTF8Encoding Utf8WithBom = new UTF8Encoding(true);
 
     private readonly string appDataDirectory;
     private readonly Dictionary<int, Buffer> buffersByIndex = new Dictionary<int, Buffer>();
     private readonly Dictionary<int, Timer> debounceTimers = new Dictionary<int, Timer>();
+    private readonly Dictionary<int, Task> inFlightWrites = new Dictionary<int, Task>();
     private readonly object syncRoot = new object();
 
     /// <summary>
@@ -135,23 +143,37 @@ public sealed class BufferService
     /// outstanding debounce timers. Call this on application exit.
     /// </summary>
     /// <remarks>
-    /// Writing all buffers (not just those with active timers) covers the race
-    /// where a debounce timer has already fired and removed itself from the
-    /// dictionary but the resulting async write has not yet completed.
+    /// First waits (bounded) for debounce-fired async writes still in flight, so
+    /// the final synchronous pass never collides with an open write handle and
+    /// lose the freshest content to a sharing violation. All buffers are then
+    /// written, covering the race where a debounce timer has already fired and
+    /// removed itself from the dictionary but its write was never scheduled.
     /// </remarks>
     public void FlushPendingWritesSync()
     {
         List<Timer> timersToDispose;
+        List<Task> writesInFlight;
 
         lock (syncRoot)
         {
             timersToDispose = new List<Timer>(debounceTimers.Values);
             debounceTimers.Clear();
+            writesInFlight = new List<Task>(inFlightWrites.Values);
+            inFlightWrites.Clear();
         }
 
         foreach (var timer in timersToDispose)
         {
             timer.Dispose();
+        }
+
+        try
+        {
+            Task.WaitAll(writesInFlight.ToArray(), FlushWaitTimeoutMilliseconds);
+        }
+        catch (AggregateException ex)
+        {
+            Log.ForContext<BufferService>().Warning(ex, "An in-flight buffer write faulted while flushing; the synchronous pass below rewrites every buffer.");
         }
 
         foreach (var buffer in buffersByIndex.Values)
@@ -176,9 +198,27 @@ public sealed class BufferService
                 debounceTimers.Remove(index);
                 timer.Dispose();
             }
+
+            Task previousWrite;
+            inFlightWrites.TryGetValue(index, out previousWrite);
+            inFlightWrites[index] = WriteFileChainedAsync(previousWrite, buffer.FilePath, buffer.Content);
+        }
+    }
+
+    /// <summary>
+    /// Runs a buffer write after the previous write for the same file has
+    /// finished, so two debounce firings can never write the same path
+    /// concurrently (the atomic writer's exclusive temp file would make the
+    /// newer write fail and its content would be lost until the next edit).
+    /// </summary>
+    private static async Task WriteFileChainedAsync(Task previousWrite, string path, string content)
+    {
+        if (previousWrite != null)
+        {
+            await previousWrite.ConfigureAwait(false);
         }
 
-        _ = WriteFileAsync(buffer.FilePath, buffer.Content);
+        await WriteFileAsync(path, content).ConfigureAwait(false);
     }
 
     private string GetBufferFilePath(int index)
@@ -231,11 +271,7 @@ public sealed class BufferService
     {
         try
         {
-            using (var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read))
-            using (var writer = new StreamWriter(stream, Utf8WithBom))
-            {
-                await writer.WriteAsync(ClampToMaxLength(content));
-            }
+            await AtomicFileWriter.WriteAllTextAsync(path, ClampToMaxLength(content), Utf8WithBom).ConfigureAwait(false);
         }
         catch (IOException ex)
         {
@@ -251,7 +287,7 @@ public sealed class BufferService
     {
         try
         {
-            File.WriteAllText(path, ClampToMaxLength(content), Utf8WithBom);
+            AtomicFileWriter.WriteAllText(path, ClampToMaxLength(content), Utf8WithBom);
         }
         catch (IOException ex)
         {

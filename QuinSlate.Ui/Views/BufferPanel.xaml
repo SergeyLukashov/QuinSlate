@@ -211,7 +211,7 @@
                 x:Name="PinButton"
                 Style="{StaticResource TitleBarButtonStyle}"
                 Margin="{StaticResource TitleBarFooterLeftGap}"
-                ToolTipService.ToolTip="Pin window"
+                ToolTipService.ToolTip="Keep window always on top"
                 IsTabStop="False"
                 UseSystemFocusVisuals="False"
                 Click="OnPinButtonClicked">

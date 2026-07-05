@@ -35,8 +35,8 @@ public sealed partial class BufferPanel : UserControl
 {
     private const string PinGlyph = "";
     private const string PinnedGlyph = "";
-    private const string PinTooltip = "Pin";
-    private const string UnpinTooltip = "Unpin";
+    private const string PinTooltip = "Keep window always on top";
+    private const string UnpinTooltip = "Stop keeping window on top";
     private const string RenameTabMenuText = "Rename tab";
     private const string RenameTabIconGlyph = "";
     private const string FluentIconFontFamily = "Segoe Fluent Icons";
@@ -150,7 +150,6 @@ public sealed partial class BufferPanel : UserControl
     public BufferPanel()
     {
         InitializeComponent();
-        ToolTipService.SetToolTip(TitleBarIconImage, AppConstants.AppName);
     }
 
     /// <summary>

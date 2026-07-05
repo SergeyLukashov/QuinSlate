@@ -1,16 +1,16 @@
 ---
 name: implement-features
-description: Sequentially implement features from FEATURE-QUEUE.md using subagents. Use when the user requests specific feature numbers to implement (e.g. "implement features 10 and 13", "/implement-features 10 13"). Reads each feature's spec file and dispatches a dedicated subagent per feature, updating the queue when each one completes.
+description: Sequentially implement features from 00-FEATURE-QUEUE.md using subagents. Use when the user requests specific feature numbers to implement (e.g. "implement features 10 and 13", "/implement-features 10 13"). Reads each feature's spec file and dispatches a dedicated subagent per feature, updating the queue when each one completes.
 ---
 
 # Feature Queue Sequential Implementation
 
-You are an Orchestrator. Implement the features the user requested by number, processing them **strictly one at a time** — never start the next feature until the current one is complete and marked done in `Specs/FEATURE-QUEUE.md`.
+You are an Orchestrator. Implement the features the user requested by number, processing them **strictly one at a time** — never start the next feature until the current one is complete and marked done in `Specs/00-FEATURE-QUEUE.md`.
 
 ## Setup
 
 1. Parse the feature numbers from the user's invocation arguments or message (e.g. "10 13" → [10, 13]).
-2. Read `Specs/FEATURE-QUEUE.md` to locate each feature's name and spec file path.
+2. Read `Specs/00-FEATURE-QUEUE.md` to locate each feature's name and spec file path.
 3. Validate every requested number exists in the queue. If any are already marked `[x]`, skip them and tell the user.
 4. For each remaining feature number, in the order the user listed them, execute the loop below.
 
@@ -18,7 +18,7 @@ You are an Orchestrator. Implement the features the user requested by number, pr
 
 ### Step 1 — Read the spec
 
-Read the spec file for this feature (the path is listed in FEATURE-QUEUE.md, e.g. `Specs/10-SPEC-CAPTURE.md`). Also read `CLAUDE.md` for architecture rules and constraints.
+Read the spec file for this feature (the path is listed in 00-FEATURE-QUEUE.md, e.g. `Specs/10-CAPTURE.md`). Also read `CLAUDE.md` for architecture rules and constraints.
 
 ### Step 2 — Classify the feature
 
@@ -37,7 +37,7 @@ You are implementing feature N: <feature name> for the QuinSlate WinUI 3 applica
 ## Project context (from CLAUDE.md)
 <paste the full CLAUDE.md content here>
 
-## Spec (from Specs/XX-SPEC-NAME.md)
+## Spec (from Specs/NN-NAME.md)
 <paste the full spec file content here>
 
 ## Your task
@@ -81,7 +81,7 @@ If either fails, dispatch a fix subagent with the error output and the original 
 
 ### Step 6 — Mark feature complete
 
-Edit `Specs/FEATURE-QUEUE.md`: change `- [ ] NN` to `- [x] NN` for the completed feature. Do this immediately after the feature passes — before starting the next one.
+Edit `Specs/00-FEATURE-QUEUE.md`: change `- [ ] NN` to `- [x] NN` for the completed feature. Do this immediately after the feature passes — before starting the next one.
 
 Tell the user: "Feature N complete: <feature name>."
 
@@ -96,6 +96,6 @@ Move to the next requested feature number and repeat from Step 1.
 - **Self-contained prompts.** Every subagent prompt must include the full spec and full CLAUDE.md — never ask subagents to read files themselves.
 - **Stop on BLOCKED.** A single blocked feature halts the entire queue. Report clearly and wait.
 - **Always verify build+tests** before marking done.
-- **Always update FEATURE-QUEUE.md** immediately after each feature passes.
+- **Always update 00-FEATURE-QUEUE.md** immediately after each feature passes.
 - **Do not commit.** The user will commit when ready.
 - If the user gave no feature numbers, ask: "Which feature numbers should I implement?"

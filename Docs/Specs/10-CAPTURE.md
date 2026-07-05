@@ -1,19 +1,21 @@
 # SPEC: Capture without opening
 
+> _Last updated: 2026-07-05_
+
 ## What
-Ctrl+Shift+1 through Ctrl+Shift+7 silently append the current text
+Ctrl+Shift+1 through Ctrl+Shift+5 silently append the current text
 selection from any app to the matching buffer. The panel never opens.
 A tray notification confirms the capture.
 
 ## Hotkeys
 
-Register 7 hotkeys on startup:
+Register 5 hotkeys on startup:
 
     Ctrl+Shift+1  →  append to buffer 1
     ...
-    Ctrl+Shift+7  →  append to buffer 7
+    Ctrl+Shift+5  →  append to buffer 5
 
-Use `RegisterHotKey` with a stable ID set (e.g. 0x1001–0x1007).
+Use `RegisterHotKey` with a stable ID set (e.g. 0x1001–0x1005).
 If a specific slot fails to register (conflict), log it and continue —
 the remaining slots must still register. Do not block startup.
 
@@ -62,7 +64,7 @@ Execute in this exact order:
 | `OpenClipboard` fails (locked) | Retry once after 30 ms. If still locked, abort silently. |
 | `SendInput` succeeds but clipboard unchanged after 100 ms | Abort silently. |
 | Buffer file write fails | Show tray notification: "Capture failed — could not write to buffer N." |
-| All 7 hotkeys fail to register | Log error on startup. No dialog. |
+| All 5 hotkeys fail to register | Log error on startup. No dialog. |
 
 ## Threading
 

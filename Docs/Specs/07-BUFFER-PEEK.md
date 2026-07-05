@@ -1,20 +1,20 @@
 # SPEC: Buffer peek
 
+> _Last updated: 2026-07-05_
+
 ## What
 Hovering the tray icon shows a preview of the first line of each buffer
 so the user can find content without opening the panel.
 
 ## Display format
 
-    1 · Buy milk and eggs
-    2 · TODO: refactor auth module
-    3 · (empty)
-    4 · Meeting notes 14 May
-    5 · (empty)
-    6 · (empty)
-    7 · ssh -i ~/.ssh/id_rsa user@ho…
+    📋 Scratch   Buy milk and eggs
+    ✅ Tasks     TODO: refactor auth module
+    💡 Ideas     (empty)
+    🔗 Links     Meeting notes 14 May
+    📖 Notes     ssh -i ~/.ssh/id_rsa user@ho…
 
-- One line per buffer (matching the active tabs, currently 5 in total).
+- One line per buffer (matching the active tabs — 5 in total).
 - Formatted as `[emoji] [title]` for the label and the first line of buffer content for the preview.
 - Show only the first line of the buffer content (up to the first `\n`).
 - Visual truncation is handled by the UI TextBlock (`TextTrimming="CharacterEllipsis"`), so no hardcoded text-level character limit is enforced in code.

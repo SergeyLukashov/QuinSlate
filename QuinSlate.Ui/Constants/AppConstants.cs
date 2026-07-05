@@ -20,7 +20,7 @@ public static class AppConstants
     /// fixed rendered height (~260k px), while still keeping the characters in the
     /// document and selectable. A larger cap let realistic buffers grow tall
     /// enough to hit that ceiling, leaving the tail of long tabs invisible. See
-    /// <c>Docs/Investigations/richeditbox-tall-document-render-ceiling.md</c>.
+    /// <c>Docs/Investigations/03-RICHEDITBOX-TALL-DOCUMENT-RENDER-CEILING.md</c>.
     /// </para>
     /// </summary>
     public const int MaxBufferLength = 50_000;

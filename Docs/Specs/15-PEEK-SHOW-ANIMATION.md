@@ -1,15 +1,26 @@
 # 15 — SPEC: Tray Peek Show Animation
 
-> **Status: Implemented.** The entrance animation has been implemented as a hybrid transition 
-> combining a stationary window-level fade-in (via `SetLayeredWindowAttributes` over a 90ms timer) 
-> with a GPU-accelerated content-level slide-up/down (via a XAML Storyboard over 150ms). This 
-> ensures the entire window fades smoothly into view without janky window position updates, 
-> restoring the full Mica backdrop upon completion.
+> _Last updated: 2026-07-05_
+
+> **Status: Implemented.** The entrance animation is a hybrid transition combining a
+> stationary window-level fade-in (via `SetLayeredWindowAttributes` over a timer) with a
+> content-level slide-up/down. This fades the entire window smoothly into view without
+> janky window position updates.
+>
+> **Update — backdrop is now the dithered gradient, not Mica.** The whole app (including
+> the peek window) later dropped Mica/Acrylic system backdrops for the opaque, in-tree
+> `DitheredGradientBrushFactory` mesh (`TrayPeekPanel` paints `RootBorder` with it; see the
+> "Background gradient" section of `CLAUDE.md`). The Mica investigation below is retained as
+> historical dead-end archaeology, but its central obstacle no longer applies: the gradient
+> is an ordinary in-tree `ImageBrush`, so a content composition animation moves it together
+> with the content — unlike external Mica, which DWM renders below the compositor. The
+> project has also since moved to **Windows App SDK 2.2.0** (the notes below were written
+> against 2.0.1), so the SDK-version-specific API gaps may no longer hold.
 
 ## Goal
 
 When the tray peek window appears (on tray-icon hover, see
-[07-SPEC-BUFFER-PEEK.md](07-SPEC-BUFFER-PEEK.md)), it should play a polished
+[07-BUFFER-PEEK.md](07-BUFFER-PEEK.md)), it should play a polished
 entrance animation: the **whole window** should **fade in and slide up from the
 bottom**, similar to:
 

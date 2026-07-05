@@ -1,5 +1,7 @@
 # ADR 0001: Logging with Serilog
 
+> _Last updated: 2026-07-05_
+
 ## Status
 Accepted — 2026-06-15
 
@@ -34,4 +36,4 @@ library.
 - The trimmed Release build roots the Serilog assemblies (`TrimmerRootAssembly`)
   so trimming cannot strip types Serilog reaches via reflection.
 - Buffer/note contents are never logged (only lengths, indices, and paths).
-- See [Docs/Specs/16-SPEC-LOGGING.md](../Specs/16-SPEC-LOGGING.md).
+- See [Docs/Specs/16-LOGGING.md](../Specs/16-LOGGING.md).

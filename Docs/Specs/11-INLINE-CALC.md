@@ -1,12 +1,14 @@
 # SPEC: Inline calculator
 
+> _Last updated: 2026-07-05_
+
 ## What
 When a line ends with `=` (with or without a preceding space) and the user
 types the `=` character, QuinSlate evaluates the mathematical expression to the
 left of the `=` and appends the result on the same line — instantly,
 without pressing Enter.
 
-    subtotal * 1.21 =         →   subtotal * 1.21 = 594.77
+    450 * 1.21 =              →   450 * 1.21 = 544.5
     (450 + 38.50) / 4 =       →   (450 + 38.50) / 4 = 122.13
     2^10 =                    →   2^10 = 1024
     1+2=                      →   1+2=3

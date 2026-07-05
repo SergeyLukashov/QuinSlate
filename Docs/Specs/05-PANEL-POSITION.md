@@ -1,5 +1,7 @@
 # SPEC: Panel anchor and position memory
 
+> _Last updated: 2026-07-05_
+
 ## What
 The panel opens in a sensible default position on first launch and
 remembers wherever the user moves it afterward.
@@ -56,13 +58,16 @@ the last run), reset to the default anchor position. Do not show an error.
 ## Settings schema (relevant fields)
 
     {
-      "windowLeft":   1420,
-      "windowTop":    820,
-      "windowWidth":  560,
-      "windowHeight": 680
+      "HasSavedPosition": true,
+      "WindowLeft":       1420,
+      "WindowTop":        820,
+      "WindowWidth":      560,
+      "WindowHeight":     680
     }
 
-All values are in logical pixels. Zero or absent means use the default.
+All values are in logical pixels; property names are serialized in PascalCase (the
+`System.Text.Json` default). `HasSavedPosition` false (or absent) means use the default
+anchor and size.
 
 ## Out of scope
 

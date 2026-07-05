@@ -1,5 +1,7 @@
 # Investigation: Empty Tray Tooltip Box — Windows 11 Explorer Bug
 
+> _Last updated: 2026-07-05_
+
 ## Status
 
 **FIXED** (2026-06-11). Dynamic tooltip arming in `Tray/TrayIcon.cs`.

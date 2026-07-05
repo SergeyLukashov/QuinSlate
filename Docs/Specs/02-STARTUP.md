@@ -1,5 +1,7 @@
 # SPEC: Launch on startup
 
+> _Last updated: 2026-07-05_
+
 ## What
 Register QuinSlate to start automatically with Windows so the tray icon is
 always present without manual intervention.

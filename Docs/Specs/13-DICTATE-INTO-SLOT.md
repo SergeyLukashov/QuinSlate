@@ -1,5 +1,7 @@
 # SPEC: Dictate into slot
 
+> _Last updated: 2026-07-05_
+
 ## What
 
 The user presses a button in the panel — or a hotkey while the panel is

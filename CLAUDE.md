@@ -39,8 +39,8 @@ Do not enable nullable reference types. Do not use `?` annotations on reference
 types or `!` null-forgiving operators. Null checks are explicit `if (x == null)` guards.
 
 Serilog is an accepted dependency for application logging (the one sanctioned
-exception to "no third-party NuGet packages") — see `Docs/Decisions/0001-logging-with-serilog.md`
-and `Docs/Specs/16-SPEC-LOGGING.md`. Logs roll daily into the `Logs/` subfolder
+exception to "no third-party NuGet packages") — see `Docs/Decisions/01-LOGGING-SERILOG.md`
+and `Docs/Specs/16-LOGGING.md`. Logs roll daily into the `Logs/` subfolder
 of the app-data directory. Never log buffer/note contents.
 
 ---
@@ -70,7 +70,7 @@ of the app-data directory. Never log buffer/note contents.
 
 **Persistence** — Buffer files use UTF-8 with BOM (`new UTF8Encoding(true)`). Writes are debounced 300 ms after the last keystroke; never write on every keystroke. On exit, flush any pending debounced write synchronously before the process ends. A missing file on startup is an empty buffer — do not throw.
 
-**Settings** — Non-buffer state lives in a single `settings.json`. Do not use the registry. "Launch on startup" is **not** a registry run-key — QuinSlate is MSIX-packaged, so it uses the `windows.startupTask` manifest extension plus the `Windows.ApplicationModel.StartupTask` API (registry run-key writes get virtualized and never run; see `Docs/Specs/02-SPEC-STARTUP.md`).
+**Settings** — Non-buffer state lives in a single `settings.json`. Do not use the registry. "Launch on startup" is **not** a registry run-key — QuinSlate is MSIX-packaged, so it uses the `windows.startupTask` manifest extension plus the `Windows.ApplicationModel.StartupTask` API (registry run-key writes get virtualized and never run; see `Docs/Specs/02-STARTUP.md`).
 
 **Single instance** — Enforce via named mutex before hotkey registration. The existing instance must respond to a second launch by surfacing the panel.
 
@@ -201,6 +201,24 @@ This applies to new files and edited files alike. Do not skip it for trivial cha
 ## Specs
 
 If it is decided during implementation to drift away from the initial requirements, agents should modify the corresponding `Docs/Specs/` `.md` files to reflect the new direction.
+
+---
+
+## Docs conventions
+
+Everything under `Docs/` (`Specs/`, `Investigations/`, `Decisions/`, `Plans/`) follows one
+naming and stamping convention. Apply it to every new or renamed doc.
+
+- **Filename:** `NN-KEBAB-NAME.md` — a two-digit ordinal prefix, then an UPPERCASE
+  kebab-case name, `.md`. No type token in the name (the folder already conveys the type:
+  spec / investigation / decision / plan). The ordinal is per-folder and orders the files;
+  `00-` is reserved for a folder's index/queue (e.g. `Specs/00-FEATURE-QUEUE.md`). Pick the
+  next free number in that folder. Investigations and plans are numbered chronologically.
+- **Date stamp:** every doc opens with its H1 title immediately followed by a
+  `> _Last updated: YYYY-MM-DD_` blockquote. Refresh that date (ISO `YYYY-MM-DD`) whenever
+  you edit the doc.
+- **Cross-links:** reference other docs by their current filename. When you rename a doc,
+  update every link to it (other docs, `CLAUDE.md`, and code comments).
 
 ---
 

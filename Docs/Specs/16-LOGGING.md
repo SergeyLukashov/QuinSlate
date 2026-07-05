@@ -1,5 +1,7 @@
 # SPEC: Application logging
 
+> _Last updated: 2026-07-05_
+
 ## What
 Add a proper, always-on logging subsystem so that the application's behaviour,
 important lifecycle events, errors, and crashes are recorded to disk in a form
@@ -184,7 +186,7 @@ Adopting Serilog deviates from the documented build baseline ("No third-party
 NuGet packages unless absolutely necessary"). To keep the codebase honest and
 stop a future agent from reverting it:
 
-- Add `Docs/Decisions/0001-logging-with-serilog.md` (first ADR; the
+- Add `Docs/Decisions/01-LOGGING-SERILOG.md` (first ADR; the
   `Docs/Decisions/` folder is created here) recording the decision, the
   alternatives considered (custom logger, Microsoft.Extensions.Logging), and the
   rationale.

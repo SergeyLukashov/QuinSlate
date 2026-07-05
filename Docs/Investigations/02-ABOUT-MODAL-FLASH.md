@@ -1,5 +1,7 @@
 # Investigation: About Modal — Main Window Flashes on Open
 
+> _Last updated: 2026-07-05_
+
 ## Status
 
 **FIXED** (2026-06-14, panel-frame flash; 2026-06-15, foreign-app flash). `ShowAboutDialog` prepares

@@ -1,5 +1,7 @@
 # Application Logging Implementation Plan
 
+> _Last updated: 2026-07-05_
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add an always-on Serilog-based logging subsystem that records lifecycle events, errors, and crashes to a rolling daily file under the user's data folder — verbose in DEBUG, Information+ in RELEASE — with automatic retention and full unhandled-exception capture.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** .NET 10, WinUI 3 (Windows App SDK 2.0.1), Serilog (+ Sinks.File, Sinks.Async, Sinks.Debug), xUnit.
 
-**Spec:** [Docs/Specs/16-SPEC-LOGGING.md](../Specs/16-SPEC-LOGGING.md)
+**Spec:** [Docs/Specs/16-LOGGING.md](../Specs/16-LOGGING.md)
 
 **Conventions to honour (from CLAUDE.md):** file-scoped namespaces; namespace matches folder; one public class per file; `private` fields `camelCase`; no `?`/`!` nullable annotations — explicit `if (x == null)` guards; no magic numbers (use named `const`); XML doc comments on all public members of `Interop/`, `Services/`, and `Logging/`; no `#region`. After every task that edits `.cs`, the final task runs `dotnet format`. Build with `dotnet build QuinSlate.slnx -p:Platform=x64`; test with `dotnet test QuinSlate.slnx -p:Platform=x64`.
 
@@ -24,7 +26,7 @@
 - `QuinSlate.Tests/Logging/ThreadIdEnricherTests.cs`
 - `QuinSlate.Tests/Logging/EnvironmentReportTests.cs`
 - `QuinSlate.Tests/Logging/LogBootstrapperTests.cs`
-- `Docs/Decisions/0001-logging-with-serilog.md` — ADR (creates the `Docs/Decisions/` folder).
+- `Docs/Decisions/01-LOGGING-SERILOG.md` — ADR (creates the `Docs/Decisions/` folder).
 
 **Modified:**
 - `QuinSlate.Ui/QuinSlate.Ui.csproj` — Serilog package references + trimmer roots.
@@ -1197,12 +1199,12 @@ git commit -m "build: keep Serilog assemblies under trimming"
 ## Task 10: ADR and CLAUDE.md update
 
 **Files:**
-- Create: `Docs/Decisions/0001-logging-with-serilog.md`
+- Create: `Docs/Decisions/01-LOGGING-SERILOG.md`
 - Modify: `CLAUDE.md`
 
 - [ ] **Step 1: Write the ADR**
 
-Create `Docs/Decisions/0001-logging-with-serilog.md`:
+Create `Docs/Decisions/01-LOGGING-SERILOG.md`:
 
 ```markdown
 # ADR 0001: Logging with Serilog
@@ -1239,7 +1241,7 @@ than the library.
 - Release logs at Information; Debug builds log at Verbose and mirror to the
   debugger output.
 - The trimmed Release build roots the Serilog assemblies (`TrimmerRootAssembly`).
-- See [Docs/Specs/16-SPEC-LOGGING.md](../Specs/16-SPEC-LOGGING.md).
+- See [Docs/Specs/16-LOGGING.md](../Specs/16-LOGGING.md).
 ```
 
 - [ ] **Step 2: Update CLAUDE.md**
@@ -1249,15 +1251,15 @@ In `CLAUDE.md`, under the "Build baseline" section, append a note after the exis
 ```markdown
 
 Serilog is an accepted dependency for application logging (the one sanctioned
-exception to "no third-party NuGet packages") — see `Docs/Decisions/0001-logging-with-serilog.md`
-and `Docs/Specs/16-SPEC-LOGGING.md`. Logs roll daily into the `Logs/` subfolder
+exception to "no third-party NuGet packages") — see `Docs/Decisions/01-LOGGING-SERILOG.md`
+and `Docs/Specs/16-LOGGING.md`. Logs roll daily into the `Logs/` subfolder
 of the app-data directory. Never log buffer/note contents.
 ```
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add Docs/Decisions/0001-logging-with-serilog.md CLAUDE.md
+git add Docs/Decisions/01-LOGGING-SERILOG.md CLAUDE.md
 git commit -m "docs: record Serilog logging decision (ADR + CLAUDE.md)"
 ```
 

@@ -1,5 +1,7 @@
 # ADR 0002: Emoji picker as a static glyph sheet
 
+> _Last updated: 2026-07-05_
+
 ## Status
 Accepted — 2026-07-03
 

@@ -1,5 +1,7 @@
 # Investigation: Text Not Rendered at the Bottom of Long Tabs
 
+> _Last updated: 2026-07-05_
+
 ## Status
 
 **KNOWN PLATFORM LIMITATION — mitigated, not eliminated** (2026-07-04). The editor is a

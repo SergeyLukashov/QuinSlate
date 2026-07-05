@@ -1,5 +1,7 @@
 # SPEC: Tray context menu
 
+> _Last updated: 2026-07-05_
+
 ## What
 A right-click menu on the tray icon giving the user access to top-level
 app controls. The only place to quit or change persistent settings.
@@ -8,7 +10,7 @@ app controls. The only place to quit or change persistent settings.
 
     Open                     (show the panel; same as left-click or hotkey)
     ─────────────────────
-    Launch on startup   [✓]  (checkbox; toggles registry run key)
+    Launch on startup   [✓]  (checkbox; toggles the packaged startup task)
     ─────────────────────
     About
     Exit
@@ -22,13 +24,17 @@ Open
 - If the panel is already visible, bring it to focus (do not hide it).
 
 Launch on startup
-- Checkbox reflects the live registry value, read at the moment the menu
+- Checkbox reflects the live startup-task state, read at the moment the menu
   opens, not a cached setting.
-- Toggling writes or removes the registry key immediately (see SPEC_STARTUP).
+- Toggling enables or disables the packaged startup task immediately — **not** an
+  `HKCU\...\Run` registry key, which does not work for an MSIX-packaged app (see
+  [02-STARTUP.md](02-STARTUP.md)).
 
 About
 - Show a rich About card (`AboutView`) styled with the app's dithered gradient background, hosted in its own borderless, owned top-level window (`AboutWindow`) centred over the main window. Using a dedicated window rather than an in-window `ContentDialog` keeps the card at its natural size and fully visible even when the main window has been resized smaller than the card.
-- Displays the app name ("QuinSlate"), version ("v1.0.0"), and description.
+- Displays the app name ("QuinSlate"), version, and description. The version string
+  is resolved at runtime from the assembly's informational version (currently
+  `v0.9.5`), not hardcoded.
 - Includes a data location card that shows the dynamic local AppData path with "Open folder" and "Copy path" actions.
 - Displays a visual keyboard hotkey mapping for the global toggle shortcut (`Ctrl`+`Shift`+`Q`).
 - Illustrates a "Quick math" row to demo the inline evaluation feature.

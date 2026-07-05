@@ -1,5 +1,7 @@
 # SPEC: Calculation result highlight animation
 
+> _Last updated: 2026-07-05_
+
 ## What
 When a line is evaluated by the inline calculator, the appended result
 value briefly receives a background highlight to signal that the value

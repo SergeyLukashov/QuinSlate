@@ -1,5 +1,7 @@
 # SPEC: Pin window
 
+> _Last updated: 2026-07-05_
+
 ## What
 A toggle that keeps the panel above all other windows so the user can
 read from a buffer while working in another app.
@@ -32,10 +34,11 @@ z-order.
 ## Settings schema (relevant field)
 
     {
-      "isPinned": true
+      "IsPinned": true
     }
 
-Write to `settings.json` on every toggle. Read on startup to restore state.
+Property name is serialized in PascalCase (the `System.Text.Json` default). Write to
+`settings.json` on every toggle. Read on startup to restore state.
 
 ## Notes
 

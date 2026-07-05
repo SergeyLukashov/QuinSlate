@@ -1,5 +1,7 @@
 # SPEC: Clear buffer with confirmation
 
+> _Last updated: 2026-07-05_
+
 ## What
 Each buffer tab's context menu (right-click menu) has a compact "Clear tab" item. To prevent accidental data loss, clicking this item does not immediately clear; instead, it changes in-place to "Confirm clear" with a Fluent whole-item slide-in micro-animation. Clicking a second time completes the action.
 

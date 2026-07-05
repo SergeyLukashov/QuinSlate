@@ -1,5 +1,7 @@
 # SPEC: Core buffers, tray icon, hotkey, autosave
 
+> _Last updated: 2026-07-05_
+
 ## What
 The foundation of the app. Five persistent text buffers displayed in a
 floating panel, a system tray icon, a global show/hide hotkey, and
@@ -12,8 +14,12 @@ automatic saving to plain text files.
   window is shown. (The launch kind is read via
   `AppInstance.GetActivatedEventArgs` — a `StartupTask` kind means a login launch.)
 - A global hotkey (Ctrl+Shift+Q) toggles the panel visible/hidden. If the panel is visible but not the active foreground window, it brings the panel to the foreground instead of hiding it. If the window has been minimized (e.g. by "Show Desktop"/Win+D), the hotkey and tray click restore it rather than toggling — `AppWindow.Show()`/`SetForegroundWindow` alone do not un-minimize a window, so the panel is explicitly restored (`OverlappedPresenter.Restore`).
-- The panel contains 5 tabs, numbered 1–5, each with a distinct colour.
-- Each tab holds a plain multiline text box. No formatting controls.
+- The panel contains 5 tabs. (Originally numbered 1–5 with a distinct colour each;
+  superseded by the emoji + editable-title tab design — see
+  [14-TABS-REDESIGN.md](14-TABS-REDESIGN.md).)
+- Each tab holds a plain multiline editor. No formatting controls. (The control is a
+  `RichEditBox` rather than a `TextBox` so programmatic edits preserve the undo stack —
+  see [11-INLINE-CALC.md](11-INLINE-CALC.md).)
 - Text is saved automatically. There is no save button.
 - On next launch all buffer content is restored to the state at last write.
 
@@ -46,9 +52,9 @@ native tray API.
 
 ## Hotkey
 
-Registered with `RegisterHotKey` (Win32). Hardcoded to Win+` for v1.
-If registration fails (conflict), log the error. Do not crash or show a
-dialog.
+Registered with `RegisterHotKey` (Win32). Hardcoded to Ctrl+Shift+Q
+(`MOD_CONTROL | MOD_SHIFT`, `VK_Q`). If registration fails (conflict), log
+the error. Do not crash or show a dialog.
 
 ## Panel
 

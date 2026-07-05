@@ -1,5 +1,7 @@
 # SPEC: Single-instance enforcement
 
+> _Last updated: 2026-07-05_
+
 ## What
 Ensure only one running copy of QuinSlate exists at any time. A second launch
 must hand off to the existing instance and exit immediately.

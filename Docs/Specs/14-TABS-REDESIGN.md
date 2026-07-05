@@ -1,5 +1,7 @@
 # Spec #14 — Tab System Redesign
 
+> _Last updated: 2026-07-05_
+
 ## Overview
 
 Replace the current numbered, colour-coded fixed buffers with a tab bar integrated into
@@ -187,21 +189,27 @@ The panel **always opens on Tab 1** on relaunch. Active tab state is not persist
 
 ```json
 {
-  "hotkey": "Ctrl+Shift+Space",
-  "pinned": false,
-  "recentEmoji": ["🔥", "⭐", "📌", "✏️", "🧠", "🗂️", "📎"],
-  "tabs": [
-    { "id": 1, "emoji": "📋", "title": "Scratch" },
-    { "id": 2, "emoji": "✅", "title": "Tasks"   },
-    { "id": 3, "emoji": "💡", "title": "Ideas"   },
-    { "id": 4, "emoji": "🔗", "title": "Links"   },
-    { "id": 5, "emoji": "📖", "title": "Notes"   }
+  "IsPinned": false,
+  "RecentEmoji": ["🔥", "⭐", "📌", "✏️", "🧠", "🗂️", "📎"],
+  "Tabs": [
+    { "Id": 1, "Emoji": "📋", "Title": "Scratch" },
+    { "Id": 2, "Emoji": "✅", "Title": "Tasks"   },
+    { "Id": 3, "Emoji": "💡", "Title": "Ideas"   },
+    { "Id": 4, "Emoji": "🔗", "Title": "Links"   },
+    { "Id": 5, "Emoji": "📖", "Title": "Notes"   }
   ]
 }
 ```
 
-Buffer content remains in `buffer_1.json` … `buffer_5.json`, keyed by `id`.
-**Renaming a tab does not rename or migrate its file.**
+Property names are serialized in PascalCase (the `System.Text.Json` default; no
+camelCase policy is applied). There is **no** `hotkey` field — the global hotkey is
+hardcoded to Ctrl+Shift+Q (see [01-CORE.md](01-CORE.md)). Other fields
+(`WindowLeft`/`WindowTop`/`WindowWidth`/`WindowHeight`, `TrayPeekEnabled`,
+`HasRegisteredStartup`, `HasShownTrayNotice`, `HasSavedPosition`) are omitted here for
+brevity.
+
+Buffer content remains in the plain-text files `buffer-1.txt` … `buffer-5.txt` (UTF-8
+with BOM), keyed by the tab `Id`. **Renaming a tab does not rename or migrate its file.**
 
 ---
 

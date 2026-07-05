@@ -85,3 +85,6 @@ BundleArtifacts/
 # Benchmark run artifacts
 QuinSlate.EmojiPickerBench/results/
 QuinSlate.EmojiPickerBench/crash.log
+
+# Claude Code local settings
+.claude/settings.local.json

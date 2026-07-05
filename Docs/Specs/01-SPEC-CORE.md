@@ -1,7 +1,7 @@
 # SPEC: Core buffers, tray icon, hotkey, autosave
 
 ## What
-The foundation of the app. Seven persistent text buffers displayed in a
+The foundation of the app. Five persistent text buffers displayed in a
 floating panel, a system tray icon, a global show/hide hotkey, and
 automatic saving to plain text files.
 
@@ -12,7 +12,7 @@ automatic saving to plain text files.
   window is shown. (The launch kind is read via
   `AppInstance.GetActivatedEventArgs` — a `StartupTask` kind means a login launch.)
 - A global hotkey (Ctrl+Shift+Q) toggles the panel visible/hidden. If the panel is visible but not the active foreground window, it brings the panel to the foreground instead of hiding it. If the window has been minimized (e.g. by "Show Desktop"/Win+D), the hotkey and tray click restore it rather than toggling — `AppWindow.Show()`/`SetForegroundWindow` alone do not un-minimize a window, so the panel is explicitly restored (`OverlappedPresenter.Restore`).
-- The panel contains 7 tabs, numbered 1–7, each with a distinct colour.
+- The panel contains 5 tabs, numbered 1–5, each with a distinct colour.
 - Each tab holds a plain multiline text box. No formatting controls.
 - Text is saved automatically. There is no save button.
 - On next launch all buffer content is restored to the state at last write.
@@ -24,7 +24,7 @@ Buffers persist as UTF-8 text files (with BOM):
     %AppData%\QuinSlate\buffer-1.txt
     %AppData%\QuinSlate\buffer-2.txt
     ...
-    %AppData%\QuinSlate\buffer-7.txt
+    %AppData%\QuinSlate\buffer-5.txt
 
 The directory is created on first launch if it does not exist.
 A missing buffer file on startup is treated as an empty buffer — no error.

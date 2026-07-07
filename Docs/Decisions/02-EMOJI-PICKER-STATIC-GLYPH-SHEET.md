@@ -1,9 +1,15 @@
 # ADR 0002: Emoji picker as a static glyph sheet
 
-> _Last updated: 2026-07-05_
+> _Last updated: 2026-07-07_
 
 ## Status
-Accepted — 2026-07-03
+Accepted — 2026-07-03. Amended by
+[03-EMOJI-PICKER-PRERASTERIZED-ATLAS.md](03-EMOJI-PICKER-PRERASTERIZED-ATLAS.md)
+— the static-sheet architecture stands, but the glyph TextBlocks were replaced
+by pre-rasterized atlas sprites, and the glyph-cache warmer and paced reveal
+described below were deleted (the warmer could not run reliably in a tray app:
+`CompositionTarget.Rendering` does not tick while the window is hidden, and on
+slow hardware the warm needed ~17 s of visible window time per launch).
 
 ## Context
 The emoji picker (a flyout over ~630 emoji in 7 fixed groups) was built on

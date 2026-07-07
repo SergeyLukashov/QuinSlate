@@ -561,7 +561,7 @@ public sealed partial class BufferPanel : UserControl
     private void OnPanelLoaded(object sender, RoutedEventArgs e)
     {
         ApplyDitheredBackground();
-        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => emojiPicker.Prewarm(RootGrid));
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => emojiPicker.Prewarm(RootGrid.XamlRoot));
     }
 
     private void OnPanelActualThemeChanged(FrameworkElement sender, object args)

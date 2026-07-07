@@ -18,6 +18,13 @@
     <ProjectReference Include="..\QuinSlate.Ui\QuinSlate.Ui.csproj" />
   </ItemGroup>
 
+  <!-- The shipped emoji atlas assets, so the consistency tests can verify the
+       checked-in atlas still matches the current EmojiData content. -->
+  <ItemGroup>
+    <Content Include="..\QuinSlate.Ui\Assets\EmojiAtlas.png" Link="Assets\EmojiAtlas.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\QuinSlate.Ui\Assets\EmojiAtlas.json" Link="Assets\EmojiAtlas.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="10.0.1">
       <PrivateAssets>all</PrivateAssets>

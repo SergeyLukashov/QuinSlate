@@ -14,7 +14,7 @@ namespace QuinSlate.Ui.Components;
 /// <summary>
 /// Hosts the <see cref="EmojiPickerView"/> inside a flyout and raises
 /// <see cref="EmojiSelected"/> when the user picks an emoji. Building the view
-/// builds the entire static glyph sheet, so <see cref="Prewarm"/> can pay that
+/// builds the entire static sprite sheet, so <see cref="Prewarm"/> can pay that
 /// one-time cost during idle time instead of on the first open.
 /// </summary>
 public sealed class EmojiPicker
@@ -24,7 +24,7 @@ public sealed class EmojiPicker
     private const double SettleTimeoutMs = 8000;
     private const double MillisecondsPerSecond = 1000;
 
-    private readonly EmojiGlyphCacheWarmer glyphCacheWarmer = new EmojiGlyphCacheWarmer();
+    private readonly EmojiSpriteAtlas spriteAtlas = new EmojiSpriteAtlas();
 
     private Flyout cachedFlyout;
     private EmojiPickerView cachedView;
@@ -36,20 +36,21 @@ public sealed class EmojiPicker
 
     /// <summary>
     /// Builds the picker ahead of time so the first open pays no construction
-    /// cost, and starts the invisible glyph-cache warm-up. The view is
-    /// constructed disconnected (building the glyph sheet and measuring every
-    /// glyph) and given a disconnected measure/arrange pass to force the
-    /// remaining text and template layout. Glyph rasterization — the dominant
-    /// first-open cost — is warmed by <see cref="EmojiGlyphCacheWarmer"/>
-    /// inside <paramref name="warmHostPanel"/>, a few glyphs per frame, so
-    /// the first open draws cached glyphs. Safe to call at any time; a no-op
-    /// once the picker is built, including when a first open beat the prewarm
-    /// to it.
+    /// cost, and starts decoding the pre-rasterized sprite atlas for
+    /// <paramref name="xamlRoot"/>'s rasterization scale — the sprites replace
+    /// runtime colour-glyph font rasterization, the historically dominant
+    /// first-open cost. The view is constructed disconnected and given a
+    /// disconnected measure/arrange pass to force the remaining text and
+    /// template layout. Safe to call at any time; a no-op once the picker is
+    /// built, including when a first open beat the prewarm to it.
     /// </summary>
-    /// <param name="warmHostPanel">A panel in the live window that hosts the hidden warm-up surface.</param>
-    public void Prewarm(Panel warmHostPanel)
+    /// <param name="xamlRoot">The XAML root whose rasterization scale the sprites are decoded for.</param>
+    public void Prewarm(XamlRoot xamlRoot)
     {
-        glyphCacheWarmer.Start(warmHostPanel);
+        if (xamlRoot != null)
+        {
+            spriteAtlas.EnsureLoaded(xamlRoot.RasterizationScale);
+        }
 
         if (cachedFlyout != null)
         {
@@ -76,6 +77,11 @@ public sealed class EmojiPicker
         if (anchor == null)
         {
             return;
+        }
+
+        if (anchor.XamlRoot != null)
+        {
+            spriteAtlas.EnsureLoaded(anchor.XamlRoot.RasterizationScale);
         }
 
         bool isFirstOpen = !hasOpenedOnce;
@@ -155,12 +161,12 @@ public sealed class EmojiPicker
             {
                 CompositionTarget.Rendering -= handler;
                 Log.ForContext<EmojiPicker>().Information(
-                    "Emoji picker first open: first frame {FirstFrameMs:F1} ms, settled {SettleMs:F1} ms, max frame delta {MaxDeltaMs:F1} ms (prewarmed: {WasPrewarmed}, glyph cache warm: {GlyphCacheWarm}).",
+                    "Emoji picker first open: first frame {FirstFrameMs:F1} ms, settled {SettleMs:F1} ms, max frame delta {MaxDeltaMs:F1} ms (prewarmed: {WasPrewarmed}, sprite atlas loaded: {AtlasLoaded}).",
                     firstTickMs,
                     settleCandidateMs,
                     maxDeltaMs,
                     wasPrewarmed,
-                    glyphCacheWarmer.IsCompleted);
+                    spriteAtlas.IsLoaded);
             }
         };
         CompositionTarget.Rendering += handler;
@@ -173,7 +179,7 @@ public sealed class EmojiPicker
             return;
         }
 
-        cachedView = new EmojiPickerView();
+        cachedView = new EmojiPickerView(spriteAtlas);
         cachedView.EmojiClicked += OnEmojiClicked;
 
         var presenterStyle = new Style(typeof(FlyoutPresenter));

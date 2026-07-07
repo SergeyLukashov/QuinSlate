@@ -1,4 +1,5 @@
 using QuinSlate.AssetGenerator.Catalog;
+using QuinSlate.AssetGenerator.Emoji;
 using QuinSlate.AssetGenerator.Imaging;
 using System;
 using System.Collections.Generic;
@@ -14,9 +15,18 @@ internal static class Program
     private const int ExitSuccess = 0;
     private const int ExitFailure = 1;
     private const string SvgExtension = ".svg";
+    private const string EmojiAtlasCommand = "emoji-atlas";
+    private const string DefaultOutputDirectory = "GeneratedAssets";
 
     private static async Task<int> Main(string[] args)
     {
+        if (args.Length > 0 && args[0].Equals(EmojiAtlasCommand, StringComparison.OrdinalIgnoreCase))
+        {
+            string outputDirectory = args.Length > 1 ? args[1] : DefaultOutputDirectory;
+            Console.WriteLine($"Generating the emoji sprite atlas into '{outputDirectory}'.");
+            return await EmojiAtlasGenerator.RunAsync(outputDirectory) ? ExitSuccess : ExitFailure;
+        }
+
         if (GeneratorOptions.TryParse(args, out var options, out var error) == false)
         {
             Console.Error.WriteLine($"Error: {error}");
@@ -102,6 +112,7 @@ internal static class Program
     private static void PrintUsage()
     {
         Console.WriteLine("Usage: QuinSlate.AssetGenerator <input-image> [output-directory] [options]");
+        Console.WriteLine("       QuinSlate.AssetGenerator emoji-atlas [output-directory]");
         Console.WriteLine();
         Console.WriteLine("Generates the full WinUI 3 / MSIX asset set (all tiles across display scales,");
         Console.WriteLine("Square44x44 target sizes, store logo, wide tile, splash screen) plus a");
@@ -115,6 +126,9 @@ internal static class Program
         Console.WriteLine("  --interpolation <mode>   Raster only: lanczos | fant | cubic | linear | nearestneighbor (default: lanczos).");
         Console.WriteLine("  --lobes <2-4>            Raster only: Lanczos kernel radius; higher is sharper (default: 3).");
         Console.WriteLine("  --no-icon                Skip .ico generation.");
+        Console.WriteLine();
+        Console.WriteLine("The emoji-atlas command renders every picker emoji from EmojiData into a");
+        Console.WriteLine("single sprite atlas PNG plus its metadata JSON (see EmojiAtlasFormat).");
         Console.WriteLine();
         Console.WriteLine("If no output directory is given, assets are written to ./GeneratedAssets.");
     }

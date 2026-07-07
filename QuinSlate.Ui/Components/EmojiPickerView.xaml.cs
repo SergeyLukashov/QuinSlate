@@ -12,11 +12,11 @@ namespace QuinSlate.Ui.Components;
 
 /// <summary>
 /// The emoji-picker surface: a search box, a pooled recent strip, and a single
-/// pre-built glyph sheet (plain TextBlocks on a Canvas inside a ScrollViewer).
-/// The sheet is built exactly once and never rebuilt: searching repositions
-/// the existing glyphs synchronously per keystroke, and scrolling the static
-/// sheet is pure composition work, so no user action pays element creation or
-/// container realization costs.
+/// pre-built sprite sheet (pre-rasterized emoji Images on a Canvas inside a
+/// ScrollViewer). The sheet is built exactly once and never rebuilt: searching
+/// repositions the existing sprites synchronously per keystroke, and scrolling
+/// the static sheet is pure composition work, so no user action pays element
+/// creation, container realization, or font rasterization costs.
 /// </summary>
 public sealed partial class EmojiPickerView : UserControl
 {
@@ -32,17 +32,17 @@ public sealed partial class EmojiPickerView : UserControl
     /// <summary>Raised when the user picks an emoji. The argument is the emoji string.</summary>
     public event EventHandler<string> EmojiClicked;
 
-    /// <summary>Builds the picker surface, including the entire glyph sheet, up front.</summary>
-    public EmojiPickerView()
+    /// <summary>Builds the picker surface, including the entire sprite sheet, up front.</summary>
+    internal EmojiPickerView(EmojiSpriteAtlas atlas)
     {
         InitializeComponent();
 
         var headerStyle = (Style)Resources["CategoryHeaderStyle"];
 
-        sheetPresenter = new EmojiSheetPresenter(SheetCanvas, SheetHoverHighlight, SheetPressedHighlight, headerStyle);
+        sheetPresenter = new EmojiSheetPresenter(SheetCanvas, SheetHoverHighlight, SheetPressedHighlight, headerStyle, atlas);
         sheetPresenter.EmojiChosen += OnEmojiChosen;
 
-        recentStrip = new RecentEmojiStrip(RecentCanvas, RecentHoverHighlight, RecentPressedHighlight);
+        recentStrip = new RecentEmojiStrip(RecentCanvas, RecentHoverHighlight, RecentPressedHighlight, atlas);
         recentStrip.EmojiChosen += OnEmojiChosen;
 
         sheetPresenter.Build();
@@ -93,8 +93,7 @@ public sealed partial class EmojiPickerView : UserControl
 
         if (EmojiSearch.IsBrowseQuery(query))
         {
-            double browseViewportTop = isInSearchMode ? savedBrowseScrollOffset : SheetScroller.VerticalOffset;
-            sheetPresenter.ShowBrowse(browseViewportTop);
+            sheetPresenter.ShowBrowse();
             MatchesHeader.Visibility = Visibility.Collapsed;
 
             if (isInSearchMode)

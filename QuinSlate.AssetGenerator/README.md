@@ -4,6 +4,10 @@ A command-line tool that turns **one source image** — a raster (PNG/JPG/…) *
 into the **complete WinUI 3 / MSIX asset set** plus a multi-resolution `.ico`. It is how
 QuinSlate's app icons and tiles are (re)generated — don't hand-roll resizing scripts.
 
+It also generates the **emoji picker sprite atlas** (see
+[Emoji atlas](#emoji-atlas) below and
+`Docs/Decisions/03-EMOJI-PICKER-PRERASTERIZED-ATLAS.md`).
+
 SVG sources get rasterised **natively at each target size**, so every output is razor-sharp
 with no downscaling at all. Raster sources are downscaled with a high-quality Lanczos filter.
 
@@ -104,6 +108,34 @@ kept as fallbacks:
 For crisp app icons from a raster source, stick with the `lanczos` default. If you need
 extra bite, try `--lobes 4`.
 
+## Emoji atlas
+
+```bash
+dotnet run --project QuinSlate.AssetGenerator -p:Platform=x64 -- emoji-atlas [output-directory]
+```
+
+Renders every emoji from the app's `EmojiData` (compiled in via linked sources, so the
+order can never drift) with **Segoe UI Emoji via Win2D (Direct2D/DWriteCore)** into a
+single sprite atlas. DWrite matters: it draws the modern COLRv1 gradient glyphs exactly
+like XAML/RichEdit do, whereas Skia only draws the flat COLRv0 fallback layers, which
+look noticeably more saturated than the emoji rendered in the app (tried and rejected).
+
+Outputs:
+
+- `EmojiAtlas.png` — a 25-column grid of 128 px cells at 4× scale (32 logical px per
+  sprite, glyph font size 19.8 × 4), each glyph ink-centred in its cell. The app decodes
+  this once per session at the display's exact rasterization scale; 4× covers every
+  standard Windows display scale by downscaling.
+- `EmojiAtlas.json` — geometry plus a SHA-256 hash of the ordered emoji list. The
+  `EmojiAtlasConsistencyTests` unit tests compare it against the current `EmojiData`,
+  so a stale atlas fails `dotnet test` instead of silently showing wrong sprites.
+
+After any `EmojiData` change, regenerate and copy **both** files into
+`QuinSlate.Ui/Assets/`. The grid/geometry contract lives in
+`QuinSlate.Ui/Models/EmojiAtlasFormat.cs` and is shared by the generator, the app, and
+the tests. Generation fails loudly if a glyph is missing, overflows its cell, or would
+need a shaping engine (ZWJ sequences).
+
 ## Using the output in QuinSlate.Ui
 
 `QuinSlate.Ui` only references a subset of the full set (the `scale-200` variants, one
@@ -118,6 +150,7 @@ copy the needed files into `QuinSlate.Ui/Assets/`, mapping `StoreLogo.scale-100.
 
 - [`Program.cs`](Program.cs) — entry point, orchestration, console output.
 - [`GeneratorOptions.cs`](GeneratorOptions.cs) — command-line parsing and defaults.
+- [`Emoji/`](Emoji/) — `EmojiAtlasGenerator`, the Win2D/DWrite-based emoji sprite atlas renderer.
 - [`Catalog/`](Catalog/) — the asset table: `AssetSpecification`, `AssetPlacement`, and
   `WinUiAssetCatalog` (computes every file name and size from base dimensions × scales).
 - [`Imaging/`](Imaging/) — the rendering pipeline:
@@ -129,6 +162,7 @@ copy the needed files into `QuinSlate.Ui/Assets/`, mapping `StoreLogo.scale-100.
   - `IconFileWriter` — assembles the multi-frame `.ico`.
 
 The project targets `net10.0-windows10.0.19041.0` and runs unpackaged
-(`WindowsPackageType=None`). It uses WIC (in-box) for raster decode and PNG encode, and
-**SkiaSharp + Svg.Skia** for SVG rasterisation. These NuGet packages are confined to this
-build-time tool and are **not** referenced by the shipping `QuinSlate.Ui` app.
+(`WindowsPackageType=None`, Windows App SDK self-contained). It uses WIC (in-box) for
+raster decode and PNG encode, **SkiaSharp + Svg.Skia** for SVG rasterisation, and
+**Microsoft.Graphics.Win2D** for the emoji atlas. These NuGet packages are confined to
+this build-time tool and are **not** referenced by the shipping `QuinSlate.Ui` app.

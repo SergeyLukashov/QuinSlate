@@ -25,16 +25,22 @@
   <ItemGroup>
     <Compile Include="..\QuinSlate.Ui\Components\EmojiSheetPresenter.cs" Link="Linked\EmojiSheetPresenter.cs" />
     <Compile Include="..\QuinSlate.Ui\Components\EmojiCanvasInteraction.cs" Link="Linked\EmojiCanvasInteraction.cs" />
-    <Compile Include="..\QuinSlate.Ui\Components\EmojiGlyphFactory.cs" Link="Linked\EmojiGlyphFactory.cs" />
-    <Compile Include="..\QuinSlate.Ui\Components\EmojiGlyphCacheWarmer.cs" Link="Linked\EmojiGlyphCacheWarmer.cs" />
+    <Compile Include="..\QuinSlate.Ui\Components\EmojiSpriteAtlas.cs" Link="Linked\EmojiSpriteAtlas.cs" />
+    <Compile Include="..\QuinSlate.Ui\Components\EmojiSpriteFactory.cs" Link="Linked\EmojiSpriteFactory.cs" />
     <Compile Include="..\QuinSlate.Ui\Layout\EmojiSheetLayoutCalculator.cs" Link="Linked\EmojiSheetLayoutCalculator.cs" />
     <Compile Include="..\QuinSlate.Ui\Layout\EmojiSheetLayout.cs" Link="Linked\EmojiSheetLayout.cs" />
     <Compile Include="..\QuinSlate.Ui\Layout\EmojiSheetSection.cs" Link="Linked\EmojiSheetSection.cs" />
     <Compile Include="..\QuinSlate.Ui\Layout\EmojiCellPosition.cs" Link="Linked\EmojiCellPosition.cs" />
-    <Compile Include="..\QuinSlate.Ui\Layout\EmojiSheetRevealPlanner.cs" Link="Linked\EmojiSheetRevealPlanner.cs" />
     <Compile Include="..\QuinSlate.Ui\Models\EmojiData.cs" Link="Linked\EmojiData.cs" />
     <Compile Include="..\QuinSlate.Ui\Models\EmojiEntry.cs" Link="Linked\EmojiEntry.cs" />
     <Compile Include="..\QuinSlate.Ui\Models\EmojiGroup.cs" Link="Linked\EmojiGroup.cs" />
     <Compile Include="..\QuinSlate.Ui\Models\EmojiSearch.cs" Link="Linked\EmojiSearch.cs" />
+    <Compile Include="..\QuinSlate.Ui\Models\EmojiAtlasFormat.cs" Link="Linked\EmojiAtlasFormat.cs" />
+  </ItemGroup>
+
+  <!-- The bench runs unpackaged, so the atlas asset is copied beside the exe where
+       EmojiSpriteAtlas resolves it (AppContext.BaseDirectory\Assets). -->
+  <ItemGroup>
+    <Content Include="..\QuinSlate.Ui\Assets\EmojiAtlas.png" Link="Assets\EmojiAtlas.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

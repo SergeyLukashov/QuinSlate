@@ -13,6 +13,7 @@
     <Nullable>disable</Nullable>
     <IsPackable>false</IsPackable>
     <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <WindowsAppSdkBootstrapInitialize>false</WindowsAppSdkBootstrapInitialize>
     <WindowsAppSdkBuildInitialize>false</WindowsAppSdkBuildInitialize>
   </PropertyGroup>
@@ -20,6 +21,19 @@
   <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="4.148.0" />
     <PackageReference Include="Svg.Skia" Version="5.1.1" />
+    <!-- Win2D renders the emoji atlas through D2D/DWriteCore so the sprites are
+         pixel-faithful to how XAML/RichEdit render Segoe UI Emoji (COLRv1
+         gradient glyphs; Skia only draws the flat COLRv0 fallback). -->
+    <PackageReference Include="Microsoft.Graphics.Win2D" Version="1.4.0" />
+  </ItemGroup>
+
+  <!-- Compile the real emoji data and atlas contract so the generated atlas
+       always matches what the app ships (same entries, order, and geometry). -->
+  <ItemGroup>
+    <Compile Include="..\QuinSlate.Ui\Models\EmojiData.cs" Link="Linked\EmojiData.cs" />
+    <Compile Include="..\QuinSlate.Ui\Models\EmojiEntry.cs" Link="Linked\EmojiEntry.cs" />
+    <Compile Include="..\QuinSlate.Ui\Models\EmojiGroup.cs" Link="Linked\EmojiGroup.cs" />
+    <Compile Include="..\QuinSlate.Ui\Models\EmojiAtlasFormat.cs" Link="Linked\EmojiAtlasFormat.cs" />
   </ItemGroup>
 
 </Project>

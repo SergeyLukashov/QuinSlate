@@ -20,6 +20,7 @@ public sealed partial class App : Application
     private Grid host;
     private string scenario;
     private string outFile;
+    private EmojiSpriteAtlas atlas;
 
     public App()
     {
@@ -55,6 +56,8 @@ public sealed partial class App : Application
             // numbers measure picker cost only.
             await Task.Delay(1000);
 
+            atlas = new EmojiSpriteAtlas();
+
             var result = new Dictionary<string, object>
             {
                 ["scenario"] = scenario,
@@ -64,15 +67,10 @@ public sealed partial class App : Application
             switch (scenario)
             {
                 case "cold-all": await RunColdAll(result); break;
-                case "cold-paced": await RunColdPaced(result); break;
+                case "cold-paced": await RunColdOpen(result); break;
                 case "warm-repeat": await RunWarmRepeat(result); break;
                 case "search": await RunSearch(result); break;
                 case "scroll": await RunScroll(result); break;
-                case "warm-opacity": await RunWarmTrick(result, WrapOpacity); break;
-                case "warm-cover": await RunWarmTrick(result, WrapCovered); break;
-                case "warm-clip": await RunWarmTrick(result, WrapClipped); break;
-                case "warm-offscreen": await RunWarmTrick(result, WrapOffscreen); break;
-                case "warm-rtb": await RunWarmTrickRtb(result); break;
                 case "warmed-open": await RunWarmedOpen(result); break;
                 default: result["error"] = "unknown scenario"; break;
             }
@@ -93,28 +91,40 @@ public sealed partial class App : Application
 
     // ---------- scenarios ----------
 
+    /// <summary>
+    /// Attaches a fully visible sprite sheet the moment atlas decoding is
+    /// kicked off — the realistic worst case of an open racing the prewarm
+    /// (sprite sources pop in when the decode lands).
+    /// </summary>
     private async Task RunColdAll(Dictionary<string, object> result)
     {
         var recorder = new FrameRecorder();
         recorder.Start();
+        StartAtlasLoad();
         AttachSurface(BuildManualSheet());
         await recorder.WaitForSettleAsync();
         recorder.Stop();
         recorder.Report(result, "attach");
+        result["atlasLoaded"] = atlas.IsLoaded;
     }
 
-    private async Task RunColdPaced(Dictionary<string, object> result)
+    /// <summary>The real production open path (presenter sheet), same cold race.</summary>
+    private async Task RunColdOpen(Dictionary<string, object> result)
     {
         var recorder = new FrameRecorder();
         recorder.Start();
+        StartAtlasLoad();
         AttachSurface(BuildPresenterSheet(out _));
         await recorder.WaitForSettleAsync();
         recorder.Stop();
         recorder.Report(result, "attach");
+        result["atlasLoaded"] = atlas.IsLoaded;
     }
 
     private async Task RunWarmRepeat(Dictionary<string, object> result)
     {
+        await LoadAtlasAsync(result);
+
         var first = new FrameRecorder();
         first.Start();
         AttachSurface(BuildManualSheet());
@@ -125,9 +135,8 @@ public sealed partial class App : Application
         host.Children.Clear();
         await Task.Delay(500);
 
-        // Brand-new TextBlocks for the same emoji: if this attach is cheap, glyph
-        // rasterization is cached process-wide and warming strategies can work;
-        // if it is as slow as the first, the cost is per-element visual overhead.
+        // Brand-new Image elements over the same decoded sprites: measures the
+        // pure per-element attach cost with no decode in the mix.
         var second = new FrameRecorder();
         second.Start();
         AttachSurface(BuildManualSheet());
@@ -138,6 +147,8 @@ public sealed partial class App : Application
 
     private async Task RunSearch(Dictionary<string, object> result)
     {
+        await LoadAtlasAsync(result);
+
         var warmup = new FrameRecorder();
         warmup.Start();
         AttachSurface(BuildPresenterSheet(out EmojiSheetPresenter presenter));
@@ -155,7 +166,7 @@ public sealed partial class App : Application
             var sw = Stopwatch.StartNew();
             if (query.Length == 0)
             {
-                presenter.ShowBrowse(0);
+                presenter.ShowBrowse();
             }
             else
             {
@@ -173,6 +184,8 @@ public sealed partial class App : Application
 
     private async Task RunScroll(Dictionary<string, object> result)
     {
+        await LoadAtlasAsync(result);
+
         var warmup = new FrameRecorder();
         warmup.Start();
         FrameworkElement surface = BuildPresenterSheet(out _);
@@ -199,29 +212,13 @@ public sealed partial class App : Application
     }
 
     /// <summary>
-    /// The real app flow: the invisible paced warmer runs to completion in the
-    /// window, then the picker sheet is attached â€” expected to settle fast and
-    /// clean because every glyph draws from the warmed cache.
+    /// The real app flow: the atlas decode runs to completion first (the
+    /// prewarm), then the picker sheet is attached — expected to settle fast
+    /// and clean because every sprite draws a decoded bitmap.
     /// </summary>
     private async Task RunWarmedOpen(Dictionary<string, object> result)
     {
-        var warmPhase = new FrameRecorder();
-        warmPhase.Start();
-
-        var warmer = new EmojiGlyphCacheWarmer();
-        warmer.Start(host);
-
-        var warmClock = Stopwatch.StartNew();
-        while (!warmer.IsCompleted && warmClock.ElapsedMilliseconds < 30000)
-        {
-            await Task.Delay(100);
-        }
-
-        warmPhase.Stop();
-        warmPhase.Report(result, "warmPhase");
-        result["warmerCompleted"] = warmer.IsCompleted;
-        result["warmWallMs"] = Math.Round(warmClock.Elapsed.TotalMilliseconds, 0);
-
+        await LoadAtlasAsync(result);
         await Task.Delay(300);
 
         var open = new FrameRecorder();
@@ -232,99 +229,24 @@ public sealed partial class App : Application
         open.Report(result, "attach");
     }
 
-    /// <summary>
-    /// Tests whether a hidden-render technique warms the process glyph cache:
-    /// attach the sheet wrapped in the trick for a few seconds, detach, then
-    /// attach a fresh, fully visible sheet. If the second attach is as cheap
-    /// as warm-repeat's, the trick rasterizes despite being invisible.
-    /// </summary>
-    private async Task RunWarmTrick(Dictionary<string, object> result, Func<FrameworkElement, FrameworkElement> wrap)
+    // ---------- atlas ----------
+
+    private void StartAtlasLoad()
     {
-        var trickPhase = new FrameRecorder();
-        trickPhase.Start();
-        AttachSurface(wrap(BuildManualSheet()));
-        await Task.Delay(4500);
-        trickPhase.Stop();
-        trickPhase.Report(result, "trickPhase");
-
-        host.Children.Clear();
-        await Task.Delay(400);
-
-        var second = new FrameRecorder();
-        second.Start();
-        AttachSurface(BuildManualSheet());
-        await second.WaitForSettleAsync();
-        second.Stop();
-        second.Report(result, "secondAttach");
+        atlas.EnsureLoaded(host.XamlRoot.RasterizationScale);
     }
 
-    private async Task RunWarmTrickRtb(Dictionary<string, object> result)
+    private async Task LoadAtlasAsync(Dictionary<string, object> result)
     {
-        FrameworkElement sheet = BuildManualSheet();
-        FrameworkElement wrapped = WrapOpacity(sheet);
-        AttachSurface(wrapped);
-        await Task.Delay(600);
-
-        var trickPhase = new FrameRecorder();
-        trickPhase.Start();
-        try
+        var loadClock = Stopwatch.StartNew();
+        StartAtlasLoad();
+        while (!atlas.IsLoaded && loadClock.ElapsedMilliseconds < 30000)
         {
-            var bitmap = new Microsoft.UI.Xaml.Media.Imaging.RenderTargetBitmap();
-            await bitmap.RenderAsync(sheet);
-            result["rtbPixelSize"] = bitmap.PixelWidth + "x" + bitmap.PixelHeight;
+            await Task.Delay(50);
         }
-        catch (Exception ex)
-        {
-            result["rtbError"] = ex.Message;
-        }
-        trickPhase.Stop();
-        trickPhase.Report(result, "trickPhase");
 
-        host.Children.Clear();
-        await Task.Delay(400);
-
-        var second = new FrameRecorder();
-        second.Start();
-        AttachSurface(BuildManualSheet());
-        await second.WaitForSettleAsync();
-        second.Stop();
-        second.Report(result, "secondAttach");
-    }
-
-    private static FrameworkElement WrapOpacity(FrameworkElement sheet)
-    {
-        return new Border { Child = sheet, Opacity = 0.01 };
-    }
-
-    private static FrameworkElement WrapCovered(FrameworkElement sheet)
-    {
-        var grid = new Grid();
-        grid.Children.Add(sheet);
-        grid.Children.Add(new Border
-        {
-            Background = new SolidColorBrush(Color.FromArgb(255, 32, 32, 32)),
-        });
-        return grid;
-    }
-
-    private static FrameworkElement WrapClipped(FrameworkElement sheet)
-    {
-        return new Border
-        {
-            Child = sheet,
-            Clip = new Microsoft.UI.Xaml.Media.RectangleGeometry
-            {
-                Rect = new Windows.Foundation.Rect(0, 0, 1, 1),
-            },
-        };
-    }
-
-    private static FrameworkElement WrapOffscreen(FrameworkElement sheet)
-    {
-        var offscreenHost = new Canvas { Width = 1, Height = 1 };
-        Canvas.SetLeft(sheet, -20000);
-        offscreenHost.Children.Add(sheet);
-        return offscreenHost;
+        result["atlasLoaded"] = atlas.IsLoaded;
+        result["atlasLoadWallMs"] = Math.Round(loadClock.Elapsed.TotalMilliseconds, 0);
     }
 
     // ---------- surface builders ----------
@@ -335,18 +257,18 @@ public sealed partial class App : Application
         host.Children.Add(surface);
     }
 
-    /// <summary>The real production path: presenter with collapsed build + paced reveal.</summary>
+    /// <summary>The real production path: presenter over the shared sprite atlas.</summary>
     private FrameworkElement BuildPresenterSheet(out EmojiSheetPresenter presenter)
     {
         Canvas canvas = MakeCanvas();
         ScrollViewer scroller = MakeScroller(canvas);
-        presenter = new EmojiSheetPresenter(canvas, MakeHighlight(canvas), MakeHighlight(canvas), MakeHeaderStyle());
+        presenter = new EmojiSheetPresenter(canvas, MakeHighlight(canvas), MakeHighlight(canvas), MakeHeaderStyle(), atlas);
         presenter.Build();
-        presenter.ShowBrowse(0);
+        presenter.ShowBrowse();
         return Wrap(scroller);
     }
 
-    /// <summary>Replicates the pre-paced-reveal behavior: every glyph visible from the start.</summary>
+    /// <summary>A hand-rolled sheet of sprite Images, bypassing the presenter.</summary>
     private FrameworkElement BuildManualSheet()
     {
         Canvas canvas = MakeCanvas();
@@ -373,9 +295,10 @@ public sealed partial class App : Application
         IReadOnlyList<EmojiEntry> entries = EmojiData.GetAllEntries();
         for (int i = 0; i < entries.Count; i++)
         {
-            TextBlock glyph = EmojiGlyphFactory.CreateGlyph(entries[i].Emoji);
-            EmojiGlyphFactory.PlaceGlyph(glyph, layout.Cells[i], glyph.DesiredSize);
-            canvas.Children.Add(glyph);
+            Image sprite = EmojiSpriteFactory.CreateSprite();
+            sprite.Source = atlas.GetSprite(i);
+            EmojiSpriteFactory.PlaceSprite(sprite, layout.Cells[i]);
+            canvas.Children.Add(sprite);
         }
 
         canvas.Height = layout.TotalHeight;

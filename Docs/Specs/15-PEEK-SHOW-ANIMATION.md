@@ -1,11 +1,20 @@
 # 15 — SPEC: Tray Peek Show Animation
 
-> _Last updated: 2026-07-05_
+> _Last updated: 2026-07-07_
 
 > **Status: Implemented.** The entrance animation is a hybrid transition combining a
 > stationary window-level fade-in (via `SetLayeredWindowAttributes` over a timer) with a
 > content-level slide-up/down. This fades the entire window smoothly into view without
 > janky window position updates.
+>
+> **Update 2026-07-07 — `WS_EX_LAYERED` is permanent, not per-show.** The style used to
+> be added before each show and stripped when the fade finished. Toggling the layered
+> bit while the XAML island is mid-composition intermittently fail-fasted the process
+> inside `Microsoft.UI.Xaml.dll` (stowed exception `0xc000027b` / `E_UNEXPECTED`) on
+> slower GPUs — see
+> [04-TRAY-PEEK-HOVER-FAILFAST-CRASH.md](../Investigations/04-TRAY-PEEK-HOVER-FAILFAST-CRASH.md).
+> The window is now layered from creation with alpha resting at 0; the fade ramp is
+> unchanged. Do not reintroduce the style toggle.
 >
 > **Update — backdrop is now the dithered gradient, not Mica.** The whole app (including
 > the peek window) later dropped Mica/Acrylic system backdrops for the opaque, in-tree

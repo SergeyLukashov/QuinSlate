@@ -51,7 +51,10 @@ public sealed class TrayPeekWindow : IDisposable
     private int windowHeight;
     private const int AnimationSteps = 6;
     private const int AnimationIntervalMs = 15;
+    private const byte OpacityTransparent = 0;
+    private const byte OpacityOpaque = 255;
     private bool isVisible;
+    private bool warmUpInFlight;
     private bool disposed;
     private bool iconRectUnavailable;
     private float dpiScale = 1.0f;
@@ -62,8 +65,9 @@ public sealed class TrayPeekWindow : IDisposable
     private SettingsService storedSettingsService;
 
     /// <summary>
-    /// Creates the peek window container. The underlying WinUI 3 <see cref="Window"/>
-    /// is created lazily on the first call to <see cref="Show"/>.
+    /// Creates the peek window container. The underlying WinUI 3 <see cref="Window"/> is
+    /// created by <see cref="WarmUp"/> at startup, or lazily on the first call to
+    /// <see cref="Show"/> if no warm-up ran (e.g. peek was enabled from the tray menu later).
     /// </summary>
     public TrayPeekWindow()
     {
@@ -102,6 +106,68 @@ public sealed class TrayPeekWindow : IDisposable
     }
 
     /// <summary>
+    /// Creates the peek window and runs its XAML island through a first composition pass at
+    /// startup, off the hover path. The window is shown non-activated and fully transparent
+    /// (it is permanently layered with alpha 0 at rest, so nothing is painted on screen) and
+    /// hidden again once its content has loaded. Without this, the island's first-ever
+    /// bring-up — window class registration, content load, compositor/swap-chain creation —
+    /// all runs when the user first hovers the tray icon; on slow integrated GPUs that cold
+    /// start both lags the first peek and is the window where the layered-fade crash was
+    /// observed (see Docs/Investigations/04-TRAY-PEEK-HOVER-FAILFAST-CRASH.md). Safe to call
+    /// once after the main window is up; a hover arriving mid-warm-up simply takes over the
+    /// already-created window.
+    /// </summary>
+    public void WarmUp()
+    {
+        if (disposed || peekWindow != null)
+        {
+            return;
+        }
+
+        EnsureWindowCreated();
+        if (peekHwnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        warmUpInFlight = true;
+        panel.Loaded += OnWarmUpPanelLoaded;
+        NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_SHOWNOACTIVATE);
+        Log.ForContext<TrayPeekWindow>().Debug("Peek warm-up started.");
+    }
+
+    private void OnWarmUpPanelLoaded(object sender, RoutedEventArgs e)
+    {
+        if (panel != null)
+        {
+            panel.Loaded -= OnWarmUpPanelLoaded;
+        }
+
+        if (warmUpInFlight == false)
+        {
+            return;
+        }
+
+        warmUpInFlight = false;
+        NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_HIDE);
+        Log.ForContext<TrayPeekWindow>().Debug("Peek warm-up complete; window hidden.");
+    }
+
+    private void CancelWarmUp()
+    {
+        if (warmUpInFlight == false)
+        {
+            return;
+        }
+
+        warmUpInFlight = false;
+        if (panel != null)
+        {
+            panel.Loaded -= OnWarmUpPanelLoaded;
+        }
+    }
+
+    /// <summary>
     /// Hides the peek window and stops the hover-check timer.
     /// </summary>
     public void Hide()
@@ -130,6 +196,7 @@ public sealed class TrayPeekWindow : IDisposable
 
         disposed = true;
 
+        CancelWarmUp();
         StopShowDelayTimer();
         StopAnimationTimer();
         StopHoverTimer();
@@ -185,9 +252,21 @@ public sealed class TrayPeekWindow : IDisposable
     {
         IntPtr exStyle = NativeMethods.GetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE);
         long bits = exStyle.ToInt64();
-        bits |= NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TOOLWINDOW;
+
+        // WS_EX_LAYERED is set once here and never removed. It used to be added before each
+        // show and stripped when the entrance fade finished, but flipping the style bit while
+        // the XAML island is mid-composition intermittently fail-fasts the process inside
+        // Microsoft.UI.Xaml.dll (stowed exception 0xc000027b / E_UNEXPECTED) on slower GPUs —
+        // see Docs/Investigations/04-TRAY-PEEK-HOVER-FAILFAST-CRASH.md. A permanently layered
+        // window renders identically; only the style *transition* raced the renderer.
+        bits |= NativeMethods.WS_EX_NOACTIVATE | NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_LAYERED;
         bits &= ~(long)NativeMethods.WS_EX_APPWINDOW;
         NativeMethods.SetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(bits));
+
+        // A layered window is not displayed until SetLayeredWindowAttributes is called, so the
+        // alpha must be initialised here; transparent is the correct resting state (every show
+        // fades in from 0).
+        SetWindowOpacity(OpacityTransparent);
 
         NativeMethods.SetWindowPos(
             peekHwnd,
@@ -282,6 +361,12 @@ public sealed class TrayPeekWindow : IDisposable
         TrayPeekRow[] rows = TrayPeekRowBuilder.Build(storedBufferService, storedSettingsService);
         EnsureWindowCreated();
 
+        // A hover during the startup warm-up takes over the window: the warm-up's pending
+        // hide-on-loaded must not fire later and hide a peek the user is looking at. The
+        // window may still be in its warm-up show (transparent), which the normal flow below
+        // handles — it repositions, replays the fade from alpha 0, and re-shows.
+        CancelWarmUp();
+
         if (peekHwnd == IntPtr.Zero || isVisible)
         {
             return;
@@ -307,8 +392,7 @@ public sealed class TrayPeekWindow : IDisposable
 
         appWindow.MoveAndResize(new RectInt32(targetX, targetY, windowWidth, windowHeight));
 
-        ApplyLayeredStyle();
-        SetWindowOpacity(0);
+        SetWindowOpacity(OpacityTransparent);
 
         bool slideUp = targetY < iconRect.Top;
         panel.PlayShowAnimation(slideUp);
@@ -374,31 +458,14 @@ public sealed class TrayPeekWindow : IDisposable
         if (animationStep > AnimationSteps)
         {
             StopAnimationTimer();
-            SetWindowOpacity(255);
-            RemoveLayeredStyle();
+            SetWindowOpacity(OpacityOpaque);
             return;
         }
 
         float t = (float)animationStep / AnimationSteps;
         float ease = 1.0f - (1.0f - t) * (1.0f - t);
-        byte opacity = (byte)(255 * ease);
+        byte opacity = (byte)(OpacityOpaque * ease);
         SetWindowOpacity(opacity);
-    }
-
-    private void ApplyLayeredStyle()
-    {
-        IntPtr exStyle = NativeMethods.GetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE);
-        long bits = exStyle.ToInt64();
-        bits |= (long)NativeMethods.WS_EX_LAYERED;
-        NativeMethods.SetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(bits));
-    }
-
-    private void RemoveLayeredStyle()
-    {
-        IntPtr exStyle = NativeMethods.GetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE);
-        long bits = exStyle.ToInt64();
-        bits &= ~(long)NativeMethods.WS_EX_LAYERED;
-        NativeMethods.SetWindowLongPtr(peekHwnd, NativeMethods.GWL_EXSTYLE, new IntPtr(bits));
     }
 
     private void SetWindowOpacity(byte opacity)

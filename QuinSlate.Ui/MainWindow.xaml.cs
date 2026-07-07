@@ -1,4 +1,5 @@
 using Microsoft.UI;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -208,6 +209,20 @@ public sealed partial class MainWindow : Window
             // foreground.
             this.Activate();
             ShowPanel();
+        }
+
+        if (settingsService.TrayPeekEnabled)
+        {
+            // Run the peek window's first-ever XAML composition now, off the tray-hover path
+            // (see TrayPeekWindow.WarmUp). Deferred at low priority so the panel's own first
+            // paint is not delayed by building a second window.
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
+            {
+                if (isTornDown == false && trayPeekWindow != null)
+                {
+                    trayPeekWindow.WarmUp();
+                }
+            });
         }
     }
 

@@ -1,6 +1,6 @@
 # SPEC: Buffer peek
 
-> _Last updated: 2026-07-05_
+> _Last updated: 2026-07-07_
 
 ## What
 Hovering the tray icon shows a preview of the first line of each buffer
@@ -72,6 +72,17 @@ window is created once and reused, and "Show Desktop" (Win+D) — along
 with other shell actions that hide all windows — clears `WS_EX_TOPMOST`.
 Without re-asserting it each time, a demoted peek reappears behind every
 other window and stays there until the app restarts.
+
+The window is created and **warmed up at startup** when tray peek is
+enabled (`TrayPeekWindow.WarmUp`, enqueued at low dispatcher priority
+from `MainWindow.Initialise`): it is shown once non-activated and fully
+transparent so the XAML island's first composition — the heaviest,
+most failure-prone moment — happens off the hover path, then hidden
+when its content loads. It is permanently `WS_EX_LAYERED` with alpha
+resting at 0; see
+[15-PEEK-SHOW-ANIMATION.md](15-PEEK-SHOW-ANIMATION.md) and
+[04-TRAY-PEEK-HOVER-FAILFAST-CRASH.md](../Investigations/04-TRAY-PEEK-HOVER-FAILFAST-CRASH.md)
+for why the layered style must never be toggled per show.
 
 `Shell_NotifyIconGetRect` can fail at runtime (transient shell state,
 the icon moving into the overflow flyout, a taskbar/DPI reshuffle) and

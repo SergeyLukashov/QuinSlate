@@ -5,7 +5,7 @@ system tray and gives you five persistent text slates you can summon with a
 global hotkey. Jot notes, stash clipboard snippets, do quick inline math, and
 have it all autosaved to plain text.
 
-<a href="https://get.microsoft.com/installer/download/9PF611LPJMJJ?referrer=appbadge" target="_self">
+<a href="https://apps.microsoft.com/detail/9PF611LPJMJJ?referrer=appbadge&mode=full" target="_blank" rel="noopener noreferrer">
   <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Download from the Microsoft Store"/>
 </a>
 

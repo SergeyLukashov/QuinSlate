@@ -28,6 +28,12 @@ public sealed class TrayPeekWindow : IDisposable
     private const int LogicalPaddingY = 6;
     private const int LogicalFooterSeparatorHeight = 12;
     private const int LogicalFooterHeight = 26;
+
+    // The nominal content height in DIPs. Since TrayPeekPanel's middle buffer-list region is
+    // star-sized, this no longer has to match the client height pixel-for-pixel: any few-pixel
+    // difference (DPI rounding, DWM frame inset) is absorbed by that star region rather than
+    // clipping the footer. It still drives the window's on-screen size, so keep it a faithful
+    // sum of the panel's fixed vertical bands.
     private const int LogicalWindowHeight = (BufferCount * LogicalLineHeight) + (LogicalPaddingY * 2) + LogicalHeaderHeight + LogicalSeparatorHeight + LogicalFooterSeparatorHeight + LogicalFooterHeight;
     private const int GapAboveTray = 8;
     private const int HoverCheckIntervalMs = 150;
@@ -577,7 +583,12 @@ public sealed class TrayPeekWindow : IDisposable
     private (int Width, int Height) CalculatePhysicalWindowSize()
     {
         int width = (int)(LogicalWindowWidth * dpiScale);
-        int height = (int)(LogicalWindowHeight * dpiScale);
+
+        // Round the outer height UP. Truncating (as the width still does) can leave the client
+        // area a pixel or two shorter than the content, which previously clipped the footer at
+        // low DPI. With the panel's star-sized middle region absorbing any surplus, rounding up
+        // only ever adds a sub-pixel of slack to that region and never clips header or footer.
+        int height = (int)Math.Ceiling(LogicalWindowHeight * dpiScale);
         return (width, height);
     }
 

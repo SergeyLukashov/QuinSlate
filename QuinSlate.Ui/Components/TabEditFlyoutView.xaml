@@ -110,6 +110,7 @@
                 Width="{StaticResource EmojiButtonSize}"
                 Height="{StaticResource EmojiButtonSize}"
                 FontSize="{StaticResource EmojiButtonFontSize}"
+                FontFamily="Segoe UI Emoji"
                 CornerRadius="{ThemeResource ControlCornerRadius}"
                 Padding="{StaticResource EmojiButtonPadding}"
                 HorizontalContentAlignment="Center"

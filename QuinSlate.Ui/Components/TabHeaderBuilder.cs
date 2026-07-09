@@ -19,6 +19,11 @@ internal static class TabHeaderBuilder
     private const double TabEmojiSize = 16;
     private const double TabTitleFontSize = 13;
 
+    // Without this the emoji inherits the UI font and DirectWrite's fallback resolves
+    // enclosed-alphanumeric emoji (U+1F170..U+1F19A, e.g. 🅰️🅱️🅾️) to the monochrome
+    // Segoe UI Symbol glyph rather than the colour one. TrayPeekPanel.xaml pins the same font.
+    private const string EmojiFontFamily = "Segoe UI Emoji";
+
     /// <summary>
     /// Builds the header UI for the given <paramref name="buffer"/> and its
     /// <paramref name="tab"/> metadata.
@@ -36,6 +41,7 @@ internal static class TabHeaderBuilder
         {
             Text = tab.Emoji,
             FontSize = TabEmojiSize,
+            FontFamily = new FontFamily(EmojiFontFamily),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, TabStripCalculator.TabEmojiMarginRight, 0),
         };

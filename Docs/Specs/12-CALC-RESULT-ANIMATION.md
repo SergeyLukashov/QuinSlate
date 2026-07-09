@@ -1,6 +1,6 @@
 # SPEC: Calculation result highlight animation
 
-> _Last updated: 2026-07-05_
+> _Last updated: 2026-07-09_
 
 ## What
 When a line is evaluated by the inline calculator, the appended result
@@ -25,9 +25,11 @@ The background color fades linearly from the accent color to the
 Windows theme background color over 1600 ms. The result ends up visually
 identical to the rest of the line.
 
-Note: WinRT's `ITextCharacterFormat.BackgroundColor` ignores the alpha
-channel, so the fade is implemented by interpolating the RGB toward the
-editor's surface color rather than by fading alpha to transparent.
+Note: the fade is a true alpha fade of the highlight background from the accent
+colour to transparent (a CodeMirror decoration; the earlier RichEditBox path
+faded RGB toward the surface colour because `ITextCharacterFormat.BackgroundColor`
+ignores the alpha channel). The end state is identical: indistinguishable from
+plain text.
 
 Total animation duration: ~1600 ms.
 
@@ -40,6 +42,20 @@ Use the accent color from the active Windows theme
 color. This ensures the highlight looks intentional and on-brand in both
 light and dark mode, and respects any custom accent the user has set in
 Windows Settings.
+
+Read it from `UISettings`, **not** from the `SystemAccentColor` XAML resource:
+`UISettings.ColorValuesChanged` can fire before XAML has refreshed its theme
+resources, so a handler that reads the resource may still see the old accent.
+The panel subscribes to that event (marshalling to the UI thread) and re-sends
+the editor colors, so a live accent change applies without restarting the app.
+
+The same accent, fully opaque, is the editor's **text selection** color — the
+retired `RichEditBox` took its `SelectionHighlightColor` from
+`TextControlSelectionHighlightColor`, which resolves to
+`AccentFillColorSelectedTextBackgroundBrush` and thus to `SystemAccentColor`.
+In CodeMirror the override must mirror the base theme's full selector
+(`&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`);
+a shorter selector loses on CSS specificity while the editor has focus.
 
 The fade target is the Windows theme background color
 (`UISettings.GetColorValue(UIColorType.Background)`). The result is
@@ -63,15 +79,14 @@ any surrounding spaces.
 
 ### Approach
 
-Apply character-level background color formatting to the result range
-in the `ITextDocument` immediately after the line rewrite. Use a
-`DispatcherTimer` to step the background color's alpha from the accent
-color to fully transparent over 1600 ms.
-
-On each timer tick (aim for ~16 ms intervals for 60 fps), interpolate
-the color (including alpha) linearly and re-apply it to the result
-range via `ITextCharacterFormat.BackgroundColor`. Release the timer
-when the fade completes.
+The highlight is a CodeMirror **mark decoration** over the result range,
+applied by the editor page immediately after the line rewrite. The decoration
+carries a CSS animation that fades its `background-color` from the accent colour
+to `transparent` over 1600 ms, then the decoration is removed so the end state
+is plain text. The accent colour is supplied by the host (sampled per animation)
+and captured on the decoration element (an inline `--calc-accent` custom
+property), so it is stable across a mid-fade theme change. No per-tick timer or
+per-frame reformatting is needed — the browser compositor drives the fade.
 
 ### Only one animation at a time
 
@@ -88,10 +103,8 @@ signal — not a persistent result style.
 ### Cancel on user edit
 
 If the user types or deletes text in the same editor while a fade is in
-progress, snap the animation immediately to its end state (transparent
-background, no highlight) and let the edit proceed. Distinguish real
-edits from format-only `TextChanged` events by comparing document text
-length against the length captured immediately after the rewrite.
+progress, the highlight decoration is cleared immediately (any document-changing
+transaction that is not the calc rewrite drops it) and the edit proceeds.
 
 ---
 

@@ -1,6 +1,6 @@
 # SPEC: Core buffers, tray icon, hotkey, autosave
 
-> _Last updated: 2026-07-05_
+> _Last updated: 2026-07-08_
 
 ## What
 The foundation of the app. Five persistent text buffers displayed in a
@@ -17,9 +17,12 @@ automatic saving to plain text files.
 - The panel contains 5 tabs. (Originally numbered 1–5 with a distinct colour each;
   superseded by the emoji + editable-title tab design — see
   [14-TABS-REDESIGN.md](14-TABS-REDESIGN.md).)
-- Each tab holds a plain multiline editor. No formatting controls. (The control is a
-  `RichEditBox` rather than a `TextBox` so programmatic edits preserve the undo stack —
-  see [11-INLINE-CALC.md](11-INLINE-CALC.md).)
+- Each tab holds a plain multiline editor. No formatting controls. (All five buffers are
+  edited in one WebView2 hosting CodeMirror 6 — one CM6 state per buffer — which preserves
+  per-buffer undo across tab switches and keeps programmatic edits, e.g. the inline calc, as
+  clean undo steps. See [11-INLINE-CALC.md](11-INLINE-CALC.md) and the migration spec
+  [17-EDITOR-CODEMIRROR-MIGRATION.md](17-EDITOR-CODEMIRROR-MIGRATION.md). Earlier builds used a
+  `RichEditBox`.)
 - Text is saved automatically. There is no save button.
 - On next launch all buffer content is restored to the state at last write.
 

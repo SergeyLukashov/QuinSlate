@@ -1,6 +1,6 @@
 # SPEC: Inline calculator
 
-> _Last updated: 2026-07-05_
+> _Last updated: 2026-07-08_
 
 ## What
 When a line ends with `=` (with or without a preceding space) and the user
@@ -111,53 +111,51 @@ expected exponentiation behaviour.
 
 ---
 
-## Control: RichEditBox, not TextBox
+## Control: CodeMirror 6 in a WebView2
 
-Use `RichEditBox` for all buffer text areas.
-
-Reason: `TextBox` loses its undo history when `.Text` is assigned
-programmatically. `RichEditBox` exposes `ITextDocument`, which supports
-range-based replacement via `GetRange()` → `SetText()`. This preserves
-the undo stack — Ctrl+Z after an evaluation correctly reverts to the
-un-evaluated line.
+The buffer editor is CodeMirror 6 in a WebView2 (see
+[17-EDITOR-CODEMIRROR-MIGRATION.md](17-EDITOR-CODEMIRROR-MIGRATION.md)). CM6
+edits plain text through transactions; a programmatic line rewrite is one
+undoable transaction, so Ctrl+Z after an evaluation reverts to the un-evaluated
+line. (Earlier builds used a `RichEditBox` with `ITextDocument` range replacement
+for the same reason.)
 
 ---
 
 ## Implementation
 
-### Hook point
+The trigger detection lives in the editor page; `CalcService` (the guard,
+heuristic, and evaluation) stays in C# and is unchanged.
 
-Attach to `CharacterReceived` on the `RichEditBox` to detect the `=` keystroke.
-`CharacterReceived` delivers the composed character for the active keyboard
-layout, so the trigger fires for `=` no matter where it sits on the physical
-keyboard or whether it needs Shift/AltGr (a US-layout `VK_OEM_PLUS` virtual-key
-check does **not** work for non-US layouts such as Spanish, German, or French).
-The event fires after `KeyDown` and before the asynchronous `TextChanged`, so
-record that `=` was typed, then on the subsequent `TextChanged` read the current
-line via `ITextDocument`, apply the adjacent guard and heuristic, and either
-rewrite the line in place or leave the inserted `=` untouched.
+### Hook point (page side)
 
-### Line rewrite
+The page detects the `=` from the CM6 transaction itself — an inserted `=` at
+the caret from user input. This is the composed character for the active
+keyboard layout, so the trigger fires for `=` regardless of where it sits on the
+physical keyboard or whether it needs Shift/AltGr (a US-layout virtual-key check
+does **not** work for non-US layouts). When a `=` ends the current line, the page
+sends a `calcRequest` with the line content over the bridge.
 
-Use `ITextDocument.GetRange()` expanded to the current line, then
-`SetText()` on that range to replace the line content with the evaluated
-result. Do not assign to the control's `Text` property — that nukes
-the undo stack.
+### Evaluation (host side)
 
-Place the cursor at the end of the rewritten line after replacement.
+The host handles `calcRequest` by calling `CalcService.TryEvaluate` and replies
+with `calcResult`. `CalcService` lives in `Services/CalcService.cs` as
+`internal static` methods; keep all evaluation logic there, out of the bridge
+and view code.
 
-### CalcService
+### Line rewrite (page side)
 
-Put the guard, heuristic, and evaluate logic in `Services/CalcService.cs`
-as `internal static` methods. Keep all evaluation logic out of the view
-code-behind.
+On a successful reply the page rewrites the line in place as one CM6 transaction
+(replacing the line range with the result appended after the `=`), places the
+caret at the end of the line, and starts the result highlight
+([12-CALC-RESULT-ANIMATION.md](12-CALC-RESULT-ANIMATION.md)). On failure the `=`
+is left exactly as typed. If the user types again before the reply lands, the
+reply is discarded (the line changed).
 
 ### Undo
 
-Range-based `SetText()` preserves the undo stack on `RichEditBox`. If
-testing reveals it does not on the shipping WinUI 3 version, bracket the
-replacement with `BeginUndoGroup()` / `EndUndoGroup()` — verify before
-shipping.
+The single rewrite transaction is one undo step that reverts to the un-evaluated
+line.
 
 ---
 

@@ -1,0 +1,112 @@
+/*
+  QuinSlate editor page styling. The editor surface itself (font, line-height, padding, caret,
+  selection, text colour) is styled by a CodeMirror theme in the bundle (EditorView.theme) so it
+  reliably overrides CM6's injected base theme. This file styles only the page shell: the fixed
+  dithered-gradient background, the overlay scrollbar, the tab-entrance animation, and the calc
+  highlight.
+*/
+
+/* Pre-theme-message fallbacks only: the host overwrites all three via the `theme` message. The text
+   pair mirrors the dark theme (WinUI TextFillColorPrimary = #FFFFFF; light's is rgba(0,0,0,.894)).
+   Selection falls back to the `Highlight` CSS system colour rather than a guessed blue, so a missed
+   theme message degrades to the OS selection colour instead of the wrong accent. */
+:root {
+  --text: rgb(255, 255, 255);
+  --caret: rgb(255, 255, 255);
+  --selection: Highlight;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: transparent; /* WebView2 DefaultBackgroundColor (mid-tone) shows until #bg is set */
+}
+
+/* Host-rendered dithered gradient PNG, sized to the viewport in CSS px and shown 1:1 with the
+   native-resolution bitmap (background-size: 100% 100%). Fixed so it does not scroll with the text,
+   exactly like the editor's background brush, and separate from the editor so the entrance
+   animation fades the text over a static gradient. */
+#bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
+#editor {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+}
+
+/* Tab-content entrance: fade + 12px slide-up over 180 ms (ease-out cubic), matching the retired
+   XAML entrance. Applied to the editor, not the WebView2 element, so nothing flashes. */
+.cm-editor.cm-entering {
+  animation: editor-enter 180ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+@keyframes editor-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Inline-calc result highlight: snaps to the sampled accent, then fades to transparent over
+   1600 ms. The accent is captured per animation via the inline --calc-accent custom property so a
+   mid-fade theme change keeps the colour. */
+.cm-calc-highlight {
+  border-radius: 2px;
+  animation: calc-fade 1600ms linear forwards;
+}
+
+@keyframes calc-fade {
+  from {
+    background-color: var(--calc-accent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+/* Thin scrollbar approximating the WinUI editor scrollbar: faint idle thumb, brighter on hover.
+   Its track is transparent and its gutter is reserved unconditionally (`scrollbar-gutter: stable`
+   in the CM6 theme), so the text inset does not change when a buffer becomes scrollable. The
+   WebView2's right margin is `16 - 12 = 4` DIPs: the reserved 12px gutter fills the rest of the
+   16px edge gap, putting the scrollbar in the gap rather than beside it. Keep the three numbers —
+   this width, that margin, and the intended 16px inset — in step. */
+.cm-scroller::-webkit-scrollbar {
+  width: 12px;
+}
+
+.cm-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cm-scroller::-webkit-scrollbar-thumb {
+  background-color: rgba(150, 150, 150, 0.35);
+  border: 4px solid transparent;
+  border-radius: 8px;
+  background-clip: content-box;
+  min-height: 32px;
+}
+
+.cm-scroller::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(150, 150, 150, 0.65);
+  border-width: 3px;
+}

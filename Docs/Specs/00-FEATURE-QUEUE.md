@@ -1,6 +1,6 @@
 # Feature Queue
 
-> _Last updated: 2026-07-05_
+> _Last updated: 2026-07-08_
 
 - [x] 01 Core buffers, tray icon, hotkey, autosave — [SPEC](01-CORE.md)
 - [x] 02 Launch on startup — [SPEC](02-STARTUP.md)
@@ -18,4 +18,5 @@
 - [x] 14 Tab System Redesign — [SPEC](14-TABS-REDESIGN.md)
 - [x] 15 Tray peek show animation — [SPEC](15-PEEK-SHOW-ANIMATION.md)
 - [x] 16 Application logging — [SPEC](16-LOGGING.md)
+- [ ] 17 Editor migration to CodeMirror 6 in WebView2 — [SPEC](17-EDITOR-CODEMIRROR-MIGRATION.md)
 

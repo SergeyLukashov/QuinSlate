@@ -1,46 +1,60 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using QuinSlate.Ui.Interop;
 using System;
+using Windows.Foundation;
 
 namespace QuinSlate.Ui.Components;
 
 /// <summary>
-/// Creates and manages the custom context menu for the RichEditBox editor.
+/// The editor's right-click context menu: the same native <see cref="MenuFlyout"/> the RichEditBox
+/// showed (Undo / Redo / — / Cut / Copy / Paste / — / Select All, matching icons and 135px min
+/// width). Because the editor now lives in a WebView2, the menu is opened by the host at the page's
+/// reported click position and its actions are routed back over the bridge.
 /// </summary>
-internal static class EditorContextMenu
+internal sealed class EditorContextMenu
 {
-    /// <summary>
-    /// Creates and assigns a custom context menu to the given RichEditBox editor
-    /// containing standard editing actions with matching SymbolIcon icons.
-    /// </summary>
-    /// <param name="editor">The RichEditBox editor to configure.</param>
-    public static void Create(RichEditBox editor)
-    {
-        if (editor == null)
-        {
-            throw new ArgumentNullException(nameof(editor));
-        }
+    private const double MenuMinWidth = 135;
 
-        var menu = new MenuFlyout();
+    private readonly MenuFlyout menu;
+    private readonly MenuFlyoutItem undoItem;
+    private readonly MenuFlyoutItem redoItem;
+    private readonly MenuFlyoutItem cutItem;
+    private readonly MenuFlyoutItem copyItem;
+    private readonly MenuFlyoutItem pasteItem;
+
+    /// <summary>
+    /// Builds the menu, wiring each item to a host callback that forwards the action to the editor
+    /// page (paste is host-driven so it reuses the STA clipboard path and cap clamp).
+    /// </summary>
+    public EditorContextMenu(
+        Action onUndo,
+        Action onRedo,
+        Action onCut,
+        Action onCopy,
+        Action onPaste,
+        Action onSelectAll)
+    {
+        menu = new MenuFlyout();
 
         var presenterStyle = new Style(typeof(MenuFlyoutPresenter));
-        presenterStyle.Setters.Add(new Setter(Control.MinWidthProperty, 135));
+        presenterStyle.Setters.Add(new Setter(Control.MinWidthProperty, MenuMinWidth));
         menu.MenuFlyoutPresenterStyle = presenterStyle;
 
-        var undoItem = new MenuFlyoutItem { Text = "Undo", Icon = new SymbolIcon(Symbol.Undo) };
-        var redoItem = new MenuFlyoutItem { Text = "Redo", Icon = new SymbolIcon(Symbol.Redo) };
-        var cutItem = new MenuFlyoutItem { Text = "Cut", Icon = new SymbolIcon(Symbol.Cut) };
-        var copyItem = new MenuFlyoutItem { Text = "Copy", Icon = new SymbolIcon(Symbol.Copy) };
-        var pasteItem = new MenuFlyoutItem { Text = "Paste", Icon = new SymbolIcon(Symbol.Paste) };
+        undoItem = new MenuFlyoutItem { Text = "Undo", Icon = new SymbolIcon(Symbol.Undo) };
+        redoItem = new MenuFlyoutItem { Text = "Redo", Icon = new SymbolIcon(Symbol.Redo) };
+        cutItem = new MenuFlyoutItem { Text = "Cut", Icon = new SymbolIcon(Symbol.Cut) };
+        copyItem = new MenuFlyoutItem { Text = "Copy", Icon = new SymbolIcon(Symbol.Copy) };
+        pasteItem = new MenuFlyoutItem { Text = "Paste", Icon = new SymbolIcon(Symbol.Paste) };
         var selectAllItem = new MenuFlyoutItem { Text = "Select All", Icon = new SymbolIcon(Symbol.SelectAll) };
 
-        undoItem.Click += (s, e) => editor.Document.Undo();
-        redoItem.Click += (s, e) => editor.Document.Redo();
-        cutItem.Click += (s, e) => editor.Document.Selection.Cut();
-        copyItem.Click += (s, e) => editor.Document.Selection.Copy();
-        pasteItem.Click += async (s, e) => await EditorPaste.PasteClampedAsync(editor);
-        selectAllItem.Click += (s, e) => editor.Document.Selection.SetRange(0, int.MaxValue);
+        undoItem.Click += (s, e) => onUndo?.Invoke();
+        redoItem.Click += (s, e) => onRedo?.Invoke();
+        cutItem.Click += (s, e) => onCut?.Invoke();
+        copyItem.Click += (s, e) => onCopy?.Invoke();
+        pasteItem.Click += (s, e) => onPaste?.Invoke();
+        selectAllItem.Click += (s, e) => onSelectAll?.Invoke();
 
         menu.Items.Add(undoItem);
         menu.Items.Add(redoItem);
@@ -51,26 +65,27 @@ internal static class EditorContextMenu
         menu.Items.Add(new MenuFlyoutSeparator());
         menu.Items.Add(selectAllItem);
 
-        menu.Opening += (s, e) =>
-        {
-            var doc = editor.Document;
-            undoItem.IsEnabled = doc.CanUndo();
-            redoItem.IsEnabled = doc.CanRedo();
-
-            var sel = doc.Selection;
-            bool hasSelection = sel.StartPosition != sel.EndPosition;
-            cutItem.IsEnabled = hasSelection;
-            copyItem.IsEnabled = hasSelection;
-            pasteItem.IsEnabled = true;
-        };
-
-        // Forces the arrow cursor the instant the menu's windowed popup appears so the
-        // busy/app-starting cursor never shows. See microsoft-ui-xaml#8829.
+        // Forces the arrow cursor the instant the menu's windowed popup appears so the busy/
+        // app-starting cursor never shows over it. See microsoft-ui-xaml#8829.
         menu.Opened += (s, e) =>
         {
             NativeMethods.SetCursor(NativeMethods.LoadCursor(IntPtr.Zero, NativeMethods.IDC_ARROW));
         };
+    }
 
-        editor.ContextFlyout = menu;
+    /// <summary>
+    /// Shows the menu at <paramref name="position"/> (in DIPs relative to <paramref name="target"/>)
+    /// with the given enablement: Undo/Redo per the page's history state, Cut/Copy only with a
+    /// selection, Paste always enabled.
+    /// </summary>
+    public void ShowAt(FrameworkElement target, Point position, bool canUndo, bool canRedo, bool hasSelection)
+    {
+        undoItem.IsEnabled = canUndo;
+        redoItem.IsEnabled = canRedo;
+        cutItem.IsEnabled = hasSelection;
+        copyItem.IsEnabled = hasSelection;
+        pasteItem.IsEnabled = true;
+
+        menu.ShowAt(target, new FlyoutShowOptions { Position = position });
     }
 }

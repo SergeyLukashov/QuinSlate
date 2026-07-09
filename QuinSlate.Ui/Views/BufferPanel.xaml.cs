@@ -1,12 +1,10 @@
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
 using QuinSlate.Ui.Components;
-using QuinSlate.Ui.Constants;
 using QuinSlate.Ui.Helpers;
 using QuinSlate.Ui.Interop;
 using QuinSlate.Ui.Layout;
@@ -14,22 +12,24 @@ using QuinSlate.Ui.Models;
 using QuinSlate.Ui.Services;
 using System;
 using System.Collections.Generic;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Foundation;
+using Windows.UI;
+using Windows.UI.ViewManagement;
 using Buffer = QuinSlate.Ui.Models.Buffer;
 
 namespace QuinSlate.Ui.Views;
 
 /// <summary>
-/// The 5-tab buffer UI surface. Each tab has a user-editable emoji + title header
-/// and contains a monospace multiline rich-edit box bound to a single <see cref="Buffer"/>.
+/// The 5-tab buffer UI surface. Each tab has a user-editable emoji + title header; all five buffers
+/// are edited in a single <see cref="EditorHost"/> (a WebView2 hosting CodeMirror 6, one CM6 state
+/// per buffer). The web editor is a fixed overlay covering the TabView content area; tab switches
+/// tell the page which buffer state to activate.
 ///
 /// Title-bar layout: the pin and close buttons are a top-level overlay anchored to the
 /// window's top-right corner, so they can never be clipped by the TabView's internal
 /// columns. The TabView's TabStripFooter holds a fixed-width transparent spacer reserving
-/// exactly the overlay cluster's width so the tabs stop where the buttons begin. Each tab's
-/// header is given an explicit width (see <see cref="UpdateEqualTabMaxWidth"/>) so the five
-/// equal-mode tabs fill the row at every practical width. The scroll (overflow) buttons
-/// surface only on genuine overflow, once the row is too narrow to give every tab its 100px
-/// minimum.
+/// exactly the overlay cluster's width so the tabs stop where the buttons begin.
 /// </summary>
 public sealed partial class BufferPanel : UserControl
 {
@@ -42,6 +42,31 @@ public sealed partial class BufferPanel : UserControl
     private const string FluentIconFontFamily = "Segoe Fluent Icons";
     private const string ClearTabMenuText = "Clear tab";
     private const string ClearTabIconGlyph = "";
+    private const string TabContentPresenterPartName = "TabContentPresenter";
+
+    // Panel-shortcut command names forwarded from the CodeMirror keymap over the bridge.
+    private const string KeyCommandCycleNext = "cycle-next";
+    private const string KeyCommandCyclePrev = "cycle-prev";
+    private const string KeyCommandSelectPrefix = "select-";
+    private const string KeyCommandEditFlyout = "edit-flyout";
+
+    // Context-menu command names sent to the editor page.
+    private const string EditorCommandUndo = "undo";
+    private const string EditorCommandRedo = "redo";
+    private const string EditorCommandCut = "cut";
+    private const string EditorCommandCopy = "copy";
+    private const string EditorCommandSelectAll = "selectAll";
+
+    // WinUI's TextControlForeground resolves to TextFillColorPrimaryBrush, the foreground the retired
+    // RichEditBox inherited. Dark is opaque white; light is black at 0xE4 alpha, *not* an opaque near-
+    // black. The alpha matters: it lets the warm gradient mesh tint the glyphs instead of flattening
+    // them to a neutral grey, and it must survive the trip across the bridge as rgba().
+    private static readonly Color EditorTextColorDark = Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
+    private static readonly Color EditorTextColorLight = Color.FromArgb(0xE4, 0x00, 0x00, 0x00);
+
+    // Must stay rooted in a field: UISettings raises ColorValuesChanged off a weak reference, so a
+    // collected instance silently stops delivering accent changes.
+    private readonly UISettings uiSettings = new UISettings();
 
     /// <summary>
     /// Name of the floating pill <c>Border</c> template part inside the TabViewItem
@@ -58,65 +83,46 @@ public sealed partial class BufferPanel : UserControl
 
     private TabViewItem firstTabWithZeroedGap;
 
-    /// <summary>
-    /// Duration, in milliseconds, of the tab-content entrance animation (fade + slide-up)
-    /// that plays when the active tab changes.
-    /// </summary>
-    private const int ContentEntranceDurationMs = 180;
-
-    /// <summary>
-    /// Vertical offset, in pixels, the newly-shown tab content slides up from during its
-    /// entrance animation.
-    /// </summary>
-    private const double ContentEntranceSlideOffset = 12;
-
     private BufferService bufferService;
     private SettingsService settingsService;
     private IReadOnlyList<TabDefinition> tabDefinitions;
+    private IReadOnlyList<Buffer> initialBuffers;
 
-    private readonly Dictionary<int, RichEditBox> editorsByBufferIndex = new Dictionary<int, RichEditBox>();
     private readonly Dictionary<int, Grid> headerContainersByIndex = new Dictionary<int, Grid>();
-    private readonly Dictionary<int, Grid> editorContainersByIndex = new Dictionary<int, Grid>();
     private readonly Dictionary<int, MenuFlyoutItem> clearMenuItemsByIndex = new Dictionary<int, MenuFlyoutItem>();
     private readonly Dictionary<int, TextBlock> tabEmojiBlocksByIndex = new Dictionary<int, TextBlock>();
     private readonly Dictionary<int, TextBlock> tabTitleBlocksByIndex = new Dictionary<int, TextBlock>();
 
     private readonly EmojiPicker emojiPicker = new EmojiPicker();
-    private readonly EditorFocusController focusController = new EditorFocusController();
-    private readonly CalcResultAnimator calcResultAnimator = new CalcResultAnimator();
+    private EditorHost editorHost;
+    private EditorContextMenu editorContextMenu;
+    private bool wantFocusOnReady;
+
     private TabEditFlyout tabEditFlyout;
     private BufferKeyboardController keyboardController;
     private bool preventMenuClosing;
-    private bool isEnforcingMaxLength;
     private DateTime clearTransitionTime;
     private const int ClearConfirmCooldownMs = 500;
 
     /// <summary>
-    /// Buffer indices whose editor text changed since the last extraction to the buffer service.
-    /// Drained by <see cref="contentExtractTimer"/>. Touched only on the UI thread.
-    /// </summary>
-    private readonly HashSet<int> dirtyBufferIndices = new HashSet<int>();
-
-    /// <summary>
-    /// Debounces reading editor text into the buffer service. <c>RichEditBox.Document.GetText</c>
-    /// allocates the entire document, so it runs once per typing burst rather than on every
-    /// keystroke; the extracted text is what feeds the buffer service's own persistence debounce.
-    /// </summary>
-    private DispatcherTimer contentExtractTimer;
-    private const int ContentExtractDebounceMs = 300;
-
-    /// <summary>
-    /// Debounces rebuilding the Win2D dithered background brushes while the window is being
-    /// resized. The dithered surfaces must be re-rendered at the new native pixel size (a
-    /// stretched dithered bitmap re-bands), but doing so on every <c>SizeChanged</c> tick
-    /// would thrash the GPU, so the rebuild is coalesced to the end of the resize.
+    /// Debounces rebuilding the dithered background surfaces while the window is being resized.
+    /// The surfaces must be re-rendered at the new native pixel size (a stretched dithered bitmap
+    /// re-bands), but doing so on every <c>SizeChanged</c> tick would thrash, so the rebuild is
+    /// coalesced to the end of the resize.
     /// </summary>
     private DispatcherTimer ditheredRebuildTimer;
     private const int DitheredRebuildDebounceMs = 90;
 
     /// <summary>
-    /// True while a one-shot retry of <see cref="ApplyDitheredBackground"/> is pending because
-    /// the active editor was not laid out yet (see <see cref="ScheduleDitheredRetry"/>).
+    /// Fallback that drops the startup cover even if the page never reports its first paint (e.g. a
+    /// WebView2 creation failure), so the editor area can never stay stuck showing the flat cover.
+    /// </summary>
+    private DispatcherTimer startupCoverTimer;
+    private const int StartupCoverFallbackMs = 2500;
+
+    /// <summary>
+    /// True while a one-shot retry of <see cref="ApplyDitheredBackground"/> is pending because the
+    /// editor host was not laid out yet (see <see cref="ScheduleDitheredRetry"/>).
     /// </summary>
     private bool isDitheredRetryScheduled;
 
@@ -162,20 +168,20 @@ public sealed partial class BufferPanel : UserControl
     }
 
     /// <summary>
-    /// Places keyboard focus into the rich-edit box of the currently selected
-    /// tab so the user can type immediately after the panel is shown. When the
-    /// editor's visual tree is not yet realized (for example on app startup),
-    /// focus is deferred until the editor raises its <c>Loaded</c> event.
+    /// Places keyboard focus into the active buffer's editor so the user can type immediately after
+    /// the panel is shown. When the editor page is not yet ready, focus is deferred until it reports
+    /// <c>ready</c> (only the latest request wins, since there is a single shared editor).
     /// </summary>
     public void FocusActiveEditor()
     {
-        int bufferIndex = BufferTabView.SelectedIndex + 1;
-        if (editorsByBufferIndex.TryGetValue(bufferIndex, out RichEditBox editor) == false)
+        wantFocusOnReady = true;
+        if (editorHost == null)
         {
             return;
         }
 
-        focusController.FocusWhenReady(editor);
+        EditorWebView.Focus(FocusState.Programmatic);
+        editorHost.FocusEditor();
     }
 
     /// <summary>
@@ -210,15 +216,22 @@ public sealed partial class BufferPanel : UserControl
         this.bufferService = bufferService;
         this.settingsService = settingsService;
         this.tabDefinitions = tabDefinitions;
+        this.initialBuffers = buffers;
 
         tabEditFlyout = new TabEditFlyout(emojiPicker, settingsService);
         tabEditFlyout.Saved += OnTabEditSaved;
         tabEditFlyout.FlyoutClosed += OnTabEditFlyoutClosed;
 
-        keyboardController = new BufferKeyboardController(
-            BufferTabView,
-            editorsByBufferIndex);
+        keyboardController = new BufferKeyboardController(BufferTabView);
         keyboardController.EditFlyoutRequested += OnEditFlyoutRequested;
+
+        editorContextMenu = new EditorContextMenu(
+            onUndo: () => editorHost?.SendCommand(EditorCommandUndo),
+            onRedo: () => editorHost?.SendCommand(EditorCommandRedo),
+            onCut: () => editorHost?.SendCommand(EditorCommandCut),
+            onCopy: () => editorHost?.SendCommand(EditorCommandCopy),
+            onPaste: OnEditorPasteRequested,
+            onSelectAll: () => editorHost?.SendCommand(EditorCommandSelectAll));
 
         ClearAllDictionaries();
 
@@ -247,15 +260,24 @@ public sealed partial class BufferPanel : UserControl
         BufferTabView.Loaded += OnBufferTabViewLoaded;
         RootGrid.PreviewKeyDown += OnPanelPreviewKeyDown;
 
-        // The dithered background brushes are built once the panel is loaded (so ActualTheme,
-        // sizes and XamlRoot are resolved) and rebuilt on theme change and on resize. Until
-        // then a flat mid-tone fill stands in (applied synchronously here, before the window is
-        // first shown) — never the XAML linear gradient, which would show 8-bit banding and a
-        // window/editor seam for the frames before the dithered mesh is ready.
+        editorHost = new EditorHost(EditorWebView, bufferService.AppDataDirectory);
+        editorHost.Ready += OnEditorReady;
+        editorHost.ContentSynced += OnEditorContentSynced;
+        editorHost.KeyCommandReceived += OnEditorKeyCommand;
+        editorHost.ContextMenuRequested += OnEditorContextMenuRequested;
+        editorHost.Painted += OnEditorPainted;
+
+        // A flat mid-tone stands in on every surface until the dithered mesh swaps in (the window
+        // via the fallback brush here; the editor via the WebView2 DefaultBackgroundColor set on
+        // the editor host below). Never the XAML linear gradient, which bands on this field.
         ApplyFallbackBackground();
         Loaded += OnPanelLoaded;
         ActualThemeChanged += OnPanelActualThemeChanged;
+        uiSettings.ColorValuesChanged += OnColorValuesChanged;
         RootGrid.SizeChanged += OnRootGridSizeChanged;
+
+        bool isDark = ActualTheme == ElementTheme.Dark;
+        _ = editorHost.InitializeAsync(DitheredGradientBrushFactory.MidColor(isDark));
 
         UpdateEqualTabMaxWidth();
         RecomputeFirstTabLeadingGap();
@@ -265,11 +287,39 @@ public sealed partial class BufferPanel : UserControl
     {
         UpdateEqualTabMaxWidth();
         PinRightContentColumnReservation();
+        PositionEditorHost();
     }
 
     private void OnBufferTabViewLoaded(object sender, RoutedEventArgs e)
     {
         PinRightContentColumnReservation();
+        PositionEditorHost();
+    }
+
+    /// <summary>
+    /// Positions the editor host overlay to cover exactly the TabView's content presenter, so the
+    /// tab strip stays interactive above it. Walks the live template (matching the panel's other
+    /// template-part lookups) and sets margins from the presenter's bounds relative to the root.
+    /// </summary>
+    private void PositionEditorHost()
+    {
+        if (EditorHostLayer == null)
+        {
+            return;
+        }
+
+        ContentPresenter presenter = VisualTreeHelpers.FindVisualChild<ContentPresenter>(BufferTabView, TabContentPresenterPartName);
+        if (presenter == null || presenter.ActualWidth <= 0 || presenter.ActualHeight <= 0)
+        {
+            return;
+        }
+
+        GeneralTransform transform = presenter.TransformToVisual(RootGrid);
+        Point origin = transform.TransformPoint(new Point(0, 0));
+
+        double right = RootGrid.ActualWidth - origin.X - presenter.ActualWidth;
+        double bottom = RootGrid.ActualHeight - origin.Y - presenter.ActualHeight;
+        EditorHostLayer.Margin = new Thickness(origin.X, origin.Y, Math.Max(0, right), Math.Max(0, bottom));
     }
 
     /// <summary>
@@ -379,65 +429,19 @@ public sealed partial class BufferPanel : UserControl
 
     private void OnBufferTabSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        AnimateActiveContentEntrance();
+        // The tab-content entrance animation is replayed inside the editor page when it activates
+        // the buffer (a WebView2's own opacity cannot be animated from XAML without flashing black).
+        if (editorHost != null)
+        {
+            editorHost.Activate(GetActiveBufferIndex());
+        }
         FocusActiveEditor();
-    }
-
-    /// <summary>
-    /// Plays a fast fade + slide-up entrance on the newly-selected tab's content so the
-    /// editor area animates in rather than appearing instantly. Operates purely on a
-    /// <see cref="TranslateTransform"/> and <see cref="UIElement.Opacity"/>, leaving layout
-    /// and focus untouched.
-    /// </summary>
-    private void AnimateActiveContentEntrance()
-    {
-        int bufferIndex = BufferTabView.SelectedIndex + 1;
-        if (editorContainersByIndex.TryGetValue(bufferIndex, out Grid container) == false)
-        {
-            return;
-        }
-
-        var translate = container.RenderTransform as TranslateTransform;
-        if (translate == null)
-        {
-            return;
-        }
-
-        var duration = new Duration(TimeSpan.FromMilliseconds(ContentEntranceDurationMs));
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-
-        var fade = new DoubleAnimation
-        {
-            From = 0,
-            To = 1,
-            Duration = duration,
-            EasingFunction = ease,
-        };
-        Storyboard.SetTarget(fade, container);
-        Storyboard.SetTargetProperty(fade, "Opacity");
-
-        var slide = new DoubleAnimation
-        {
-            From = ContentEntranceSlideOffset,
-            To = 0,
-            Duration = duration,
-            EasingFunction = ease,
-        };
-        Storyboard.SetTarget(slide, translate);
-        Storyboard.SetTargetProperty(slide, "Y");
-
-        var storyboard = new Storyboard();
-        storyboard.Children.Add(fade);
-        storyboard.Children.Add(slide);
-        storyboard.Begin();
     }
 
     private void ClearAllDictionaries()
     {
         BufferTabView.TabItems.Clear();
-        editorsByBufferIndex.Clear();
         headerContainersByIndex.Clear();
-        editorContainersByIndex.Clear();
         clearMenuItemsByIndex.Clear();
         tabEmojiBlocksByIndex.Clear();
         tabTitleBlocksByIndex.Clear();
@@ -454,22 +458,18 @@ public sealed partial class BufferPanel : UserControl
         tabEmojiBlocksByIndex[buffer.Index] = header.EmojiBlock;
         tabTitleBlocksByIndex[buffer.Index] = header.TitleBlock;
 
-        EditorView editorView = EditorViewBuilder.Build(buffer, GetThemeBrush);
-
-        RichEditBox editor = editorView.Editor;
-        editor.TextChanged += OnEditorTextChanged;
-        editor.KeyDown += keyboardController.HandleEditorKey;
-        editor.CharacterReceived += OnEditorCharacterReceived;
-        editor.Paste += OnEditorPaste;
-        editorsByBufferIndex[buffer.Index] = editor;
-
-        Grid editorContainer = editorView.Container;
-        editorContainersByIndex[buffer.Index] = editorContainer;
+        // The editor is the shared WebView2 overlay, not per-tab content. A lightweight transparent
+        // placeholder keeps the content presenter sized; the overlay paints over it.
+        var placeholder = new Grid
+        {
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+        };
 
         var tabItem = new TabViewItem
         {
             Header = header.HeaderContainer,
-            Content = editorContainer,
+            Content = placeholder,
             IsClosable = false,
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             VerticalContentAlignment = VerticalAlignment.Stretch,
@@ -561,6 +561,7 @@ public sealed partial class BufferPanel : UserControl
     private void OnPanelLoaded(object sender, RoutedEventArgs e)
     {
         ApplyDitheredBackground();
+        PositionEditorHost();
         DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => emojiPicker.Prewarm(RootGrid.XamlRoot));
     }
 
@@ -571,6 +572,8 @@ public sealed partial class BufferPanel : UserControl
 
     private void OnRootGridSizeChanged(object sender, SizeChangedEventArgs e)
     {
+        PositionEditorHost();
+
         if (ditheredRebuildTimer == null)
         {
             ditheredRebuildTimer = new DispatcherTimer
@@ -590,27 +593,66 @@ public sealed partial class BufferPanel : UserControl
         ApplyDitheredBackground();
     }
 
-    /// <summary>
-    /// Builds the dithered gradient at each surface's native pixel size and applies it to the
-    /// window background and every editor (in all visual states) in the same pass. Rendering at
-    /// native size is required: a stretched dithered bitmap re-bands.
-    ///
-    /// The swap is all-or-nothing. At startup the panel's <c>Loaded</c> fires before the TabView
-    /// has realized the selected tab's content, so the active editor has no size yet and its brush
-    /// cannot be built. Applying the window mesh alone at that point flashes the full-window
-    /// gradient through the still-unpainted editor area for a few frames, which then visibly
-    /// snaps when the editor paints its flat fallback over it. Instead the uniform flat fallback
-    /// stays on every surface and the whole swap is retried once the editor is laid out.
-    /// </summary>
-    private void ApplyDitheredBackground()
+    private void OnEditorReady(object sender, EventArgs e)
     {
-        // Every editor fills the same tab-content area, so one brush sized to the active editor
-        // is 1:1 for whichever tab is shown.
-        RichEditBox activeEditor = GetActiveEditor();
-        ImageBrush editorBrush = DitheredGradientBrushFactory.CreateForElement(activeEditor);
-        if (editorBrush == null && editorsByBufferIndex.Count > 0)
+        var payload = new List<KeyValuePair<int, string>>();
+        if (initialBuffers != null)
         {
-            ScheduleDitheredRetry(activeEditor);
+            foreach (Buffer buffer in initialBuffers)
+            {
+                payload.Add(new KeyValuePair<int, string>(buffer.Index, buffer.Content ?? string.Empty));
+            }
+        }
+
+        editorHost.InitBuffers(payload);
+        editorHost.Activate(GetActiveBufferIndex());
+        ApplyDitheredBackground();
+        StartStartupCoverFallback();
+
+        if (wantFocusOnReady)
+        {
+            EditorWebView.Focus(FocusState.Programmatic);
+            editorHost.FocusEditor();
+        }
+    }
+
+    private void StartStartupCoverFallback()
+    {
+        if (startupCoverTimer != null || EditorStartupCover == null || EditorStartupCover.Visibility != Visibility.Visible)
+        {
+            return;
+        }
+
+        startupCoverTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(StartupCoverFallbackMs) };
+        startupCoverTimer.Tick += (s, e) => DropStartupCover();
+        startupCoverTimer.Start();
+    }
+
+    /// <summary>
+    /// Builds the dithered gradient at each surface's native pixel size and applies it to the window
+    /// background (a brush) and the editor page (a PNG shown 1:1) in the same pass. The swap is
+    /// all-or-nothing: until the editor page is ready and its bitmap is built, every surface keeps
+    /// the flat mid-tone (the window fallback brush and the WebView2 DefaultBackgroundColor), so no
+    /// window-mesh-before-editor-mesh snap can occur.
+    /// </summary>
+    private async void ApplyDitheredBackground()
+    {
+        if (editorHost == null || editorHost.IsReady == false)
+        {
+            ApplyFallbackBackground();
+            return;
+        }
+
+        // The foreground colours do not depend on the gradient bitmap, so send them first. Gating them
+        // on the bitmap would leave the page on the previous theme's text colour whenever the bitmap
+        // is late (editor not yet laid out) or fails outright.
+        ApplyEditorThemeColors();
+
+        DitheredBackground background = await DitheredGradientBrushFactory.CreateElementBackgroundAsync(EditorWebView);
+        if (background == null)
+        {
+            ApplyFallbackBackground();
+            ScheduleDitheredRetry();
             return;
         }
 
@@ -620,21 +662,14 @@ public sealed partial class BufferPanel : UserControl
             RootGrid.Background = windowBrush;
         }
 
-        if (editorBrush != null)
-        {
-            foreach (RichEditBox editor in editorsByBufferIndex.Values)
-            {
-                ApplyEditorDitheredBackground(editor, editorBrush);
-            }
-        }
+        editorHost.SetBackground(background);
     }
 
     /// <summary>
-    /// Re-runs <see cref="ApplyDitheredBackground"/> once the active editor can provide a size:
-    /// on its next <c>SizeChanged</c> when the editor element exists, or on the next layout pass
-    /// when the TabView has not yet realized it (the retry then repeats until it has).
+    /// Re-runs <see cref="ApplyDitheredBackground"/> once the editor host can provide a size, on its
+    /// next <c>SizeChanged</c>.
     /// </summary>
-    private void ScheduleDitheredRetry(RichEditBox activeEditor)
+    private void ScheduleDitheredRetry()
     {
         if (isDitheredRetryScheduled)
         {
@@ -642,95 +677,109 @@ public sealed partial class BufferPanel : UserControl
         }
 
         isDitheredRetryScheduled = true;
-
-        if (activeEditor != null)
+        SizeChangedEventHandler onSized = null;
+        onSized = (s, e) =>
         {
-            SizeChangedEventHandler onEditorSized = null;
-            onEditorSized = (s, e) =>
-            {
-                activeEditor.SizeChanged -= onEditorSized;
-                isDitheredRetryScheduled = false;
-                ApplyDitheredBackground();
-            };
-            activeEditor.SizeChanged += onEditorSized;
-            return;
-        }
-
-        EventHandler<object> onLayoutUpdated = null;
-        onLayoutUpdated = (s, e) =>
-        {
-            LayoutUpdated -= onLayoutUpdated;
+            EditorWebView.SizeChanged -= onSized;
             isDitheredRetryScheduled = false;
             ApplyDitheredBackground();
         };
-        LayoutUpdated += onLayoutUpdated;
+        EditorWebView.SizeChanged += onSized;
     }
 
     /// <summary>
-    /// Paints the window and every editor with the flat mid-tone of the gradient mesh (the same
-    /// colour the bare-window erase fill uses). This is applied synchronously before the panel is
-    /// first shown, so the very first composited frame is a uniform flat tone rather than the XAML
-    /// linear-gradient fallback — which bands on this dark, low-contrast field and shows a seam
-    /// where the window and editor gradients meet. The dithered mesh swaps in on load; a
-    /// flat-to-mesh transition is imperceptible because the mesh barely deviates from its mid-tone.
+    /// Paints the window with the flat mid-tone of the gradient mesh. Applied synchronously before
+    /// the panel is first shown (and whenever the dithered mesh is not yet available), so the first
+    /// composited frame is a uniform flat tone rather than the banding XAML linear-gradient
+    /// fallback. The editor's own flat tone comes from the WebView2 DefaultBackgroundColor.
     /// </summary>
     private void ApplyFallbackBackground()
     {
         bool isDark = ActualTheme == ElementTheme.Dark;
-        var flat = new SolidColorBrush(DitheredGradientBrushFactory.MidColor(isDark));
+        Color mid = DitheredGradientBrushFactory.MidColor(isDark);
+        RootGrid.Background = new SolidColorBrush(mid);
 
-        RootGrid.Background = flat;
-        foreach (RichEditBox editor in editorsByBufferIndex.Values)
+        // Keep the startup cover matched to the mid-tone until the page reports its first paint, so
+        // dropping it is imperceptible (mid-tone -> the barely-different mesh).
+        if (EditorStartupCover != null && EditorStartupCover.Visibility == Visibility.Visible)
         {
-            ApplyEditorDitheredBackground(editor, flat);
+            EditorStartupCover.Background = new SolidColorBrush(mid);
         }
     }
 
-    private RichEditBox GetActiveEditor()
+    private void OnEditorPainted(object sender, EventArgs e)
     {
-        if (BufferTabView.SelectedItem is TabViewItem item && item.Tag is int index
-            && editorsByBufferIndex.TryGetValue(index, out RichEditBox editor))
-        {
-            return editor;
-        }
-
-        return null;
+        DropStartupCover();
     }
 
     /// <summary>
-    /// Paints a single editor with the dithered brush in every visual state. The default
-    /// <c>RichEditBox</c> template swaps its border background to the
-    /// <c>TextControlBackground*</c> theme resources on pointer-over/focus, so those keys are
-    /// overridden in the editor's own resource scope to keep the surface constant.
+    /// Hides the flat startup cover once the editor page has painted its first real frame (or after
+    /// a bounded fallback delay), revealing the gradient + text without the black WebView2 swapchain
+    /// ever showing. Idempotent.
     /// </summary>
-    private static void ApplyEditorDitheredBackground(RichEditBox editor, Brush brush)
+    private void DropStartupCover()
     {
-        editor.Background = brush;
-        editor.Resources["TextControlBackground"] = brush;
-        editor.Resources["TextControlBackgroundPointerOver"] = brush;
-        editor.Resources["TextControlBackgroundFocused"] = brush;
-
-        // The Focused/PointerOver visual states pin BorderElement.Background to the
-        // TextControlBackground* resources through ThemeResource, which is resolved when the
-        // state is entered — not when the resource is later swapped. The panel opens with the
-        // editor already focused, so re-enter the current state to force the setter to
-        // re-resolve to the freshly applied brush. Without this the focused editor keeps
-        // showing the stale (un-dithered) gradient.
-        if (editor.FocusState != FocusState.Unfocused)
+        if (startupCoverTimer != null)
         {
-            VisualStateManager.GoToState(editor, "Normal", false);
-            VisualStateManager.GoToState(editor, "Focused", false);
+            startupCoverTimer.Stop();
+            startupCoverTimer = null;
+        }
+
+        if (EditorStartupCover != null)
+        {
+            EditorStartupCover.Visibility = Visibility.Collapsed;
         }
     }
 
-    private Brush GetThemeBrush(string key)
+    /// <summary>
+    /// Sends the editor's per-theme colours (text, caret, selection, calc accent) to the page. Read
+    /// from the current theme so the surface matches the RichEditBox foreground, and the Windows
+    /// accent so selection and the calc highlight match the rest of the shell.
+    /// </summary>
+    private void ApplyEditorThemeColors()
     {
-        if (this.Resources.TryGetValue(key, out var localValue) && localValue is Brush localBrush)
+        if (editorHost == null)
         {
-            return localBrush;
+            return;
         }
 
-        return (Brush)Application.Current.Resources[key];
+        bool isDark = ActualTheme == ElementTheme.Dark;
+        Color text = isDark ? EditorTextColorDark : EditorTextColorLight;
+
+        // The RichEditBox took its SelectionHighlightColor from TextControlSelectionHighlightColor,
+        // which resolves to AccentFillColorSelectedTextBackgroundBrush -> the opaque SystemAccentColor.
+        // CodeMirror paints .cm-selectionBackground beneath the text, so an opaque fill reproduces it.
+        Color accent = ReadAccentColor();
+        editorHost.SetTheme(text, text, accent, accent);
+    }
+
+    /// <summary>
+    /// Re-sends the editor colours when the user changes their Windows accent (or the system theme)
+    /// while the app is running. Raised on a background thread, so it must hop to the UI thread.
+    /// </summary>
+    private void OnColorValuesChanged(UISettings sender, object args)
+    {
+        DispatcherQueue.TryEnqueue(ApplyEditorThemeColors);
+    }
+
+    /// <summary>
+    /// The live Windows accent colour. Read straight from <see cref="UISettings"/> rather than the
+    /// <c>SystemAccentColor</c> XAML resource: <c>ColorValuesChanged</c> can fire before XAML has
+    /// refreshed its theme resources, so the resource may still hold the previous accent.
+    /// </summary>
+    private Color ReadAccentColor()
+    {
+        return uiSettings.GetColorValue(UIColorType.Accent);
+    }
+
+    private int GetActiveBufferIndex()
+    {
+        if (BufferTabView.SelectedItem is TabViewItem item && item.Tag is int index)
+        {
+            return index;
+        }
+
+        return BufferTabView.SelectedIndex + 1;
     }
 
     private void OnTabItemGettingFocus(UIElement sender, GettingFocusEventArgs e)
@@ -1037,9 +1086,9 @@ public sealed partial class BufferPanel : UserControl
 
     private void OnClearConfirmed(int bufferIndex)
     {
-        if (editorsByBufferIndex.TryGetValue(bufferIndex, out RichEditBox editor))
+        if (editorHost != null)
         {
-            editor.Document.SetText(TextSetOptions.None, string.Empty);
+            editorHost.SetText(bufferIndex, string.Empty);
         }
 
         if (bufferService != null)
@@ -1047,176 +1096,94 @@ public sealed partial class BufferPanel : UserControl
             bufferService.UpdateContent(bufferIndex, string.Empty);
         }
 
-        // The SetText above marks the buffer dirty via TextChanged; drop it since the clear is
-        // already persisted here, so the debounce does not re-extract the same empty document.
-        dirtyBufferIndices.Remove(bufferIndex);
-
         UpdateClearButtonState(bufferIndex, isEmpty: true);
         ResetClearMenuItem(bufferIndex);
     }
 
-    private async void OnEditorPaste(object sender, TextControlPasteEventArgs e)
+    private async void OnEditorPasteRequested()
     {
-        e.Handled = true;
-        var editor = sender as RichEditBox;
-        if (editor == null)
+        // Text-only, host-driven paste: reuses the STA WinRT clipboard path; the page clamps the
+        // insertion to the cap and normalises line endings, matching the retired paste path.
+        if (editorHost == null)
         {
             return;
         }
 
-        await EditorPaste.PasteClampedAsync(editor);
+        DataPackageView dataView = Clipboard.GetContent();
+        if (!dataView.Contains(StandardDataFormats.Text))
+        {
+            return;
+        }
+
+        string text = await dataView.GetTextAsync();
+        editorHost.InsertText(text);
     }
 
-    private void OnEditorTextChanged(object sender, RoutedEventArgs e)
+    private void OnEditorContentSynced(object sender, EditorContentEventArgs e)
     {
         if (bufferService == null)
         {
             return;
         }
 
-        var editor = sender as RichEditBox;
-        if (editor == null)
-        {
-            return;
-        }
+        // The page sends "\n"-joined text; the buffer file uses CRLF. Convert and trim trailing
+        // breaks exactly as the retired ExtractDirtyBuffers did.
+        string text = e.Text ?? string.Empty;
+        text = text.Replace("\n", "\r\n").TrimEnd('\r', '\n');
 
-        if (isEnforcingMaxLength)
-        {
-            return;
-        }
-
-        if (editor.Tag is int index)
-        {
-            // The calc animator watches every keystroke for an armed '='; it does no full-document
-            // read except briefly while its result highlight is animating, so it stays inline.
-            calcResultAnimator.HandleTextChanged(editor);
-
-            // Defer the expensive document read to the debounce: mark this editor dirty and (re)arm
-            // the timer so a burst of keystrokes yields a single extraction once typing settles.
-            dirtyBufferIndices.Add(index);
-            ArmContentExtractTimer();
-        }
+        bufferService.UpdateContent(e.Index, text);
+        UpdateClearButtonState(e.Index, isEmpty: string.IsNullOrEmpty(text));
     }
 
-    private void ArmContentExtractTimer()
+    private void OnEditorKeyCommand(object sender, string command)
     {
-        if (contentExtractTimer == null)
+        if (keyboardController == null)
         {
-            contentExtractTimer = new DispatcherTimer
+            return;
+        }
+
+        if (command == KeyCommandCycleNext)
+        {
+            keyboardController.CycleBuffer(1);
+        }
+        else if (command == KeyCommandCyclePrev)
+        {
+            keyboardController.CycleBuffer(-1);
+        }
+        else if (command == KeyCommandEditFlyout)
+        {
+            keyboardController.RequestEditFlyout();
+        }
+        else if (command.StartsWith(KeyCommandSelectPrefix, StringComparison.Ordinal))
+        {
+            if (int.TryParse(command.Substring(KeyCommandSelectPrefix.Length), out int oneBased))
             {
-                Interval = TimeSpan.FromMilliseconds(ContentExtractDebounceMs),
-            };
-            contentExtractTimer.Tick += OnContentExtractTimerTick;
+                keyboardController.SelectBuffer(oneBased - 1);
+            }
         }
-
-        contentExtractTimer.Stop();
-        contentExtractTimer.Start();
     }
 
-    private void OnContentExtractTimerTick(object sender, object e)
+    private void OnEditorContextMenuRequested(object sender, EditorContextMenuEventArgs e)
     {
-        contentExtractTimer.Stop();
-        ExtractDirtyBuffers();
+        if (editorContextMenu == null)
+        {
+            return;
+        }
+
+        editorContextMenu.ShowAt(EditorWebView, new Point(e.X, e.Y), e.CanUndo, e.CanRedo, e.HasSelection);
     }
 
     /// <summary>
-    /// Reads the text of every editor marked dirty since the last extraction and hands it to the
-    /// buffer service, enforcing the length cap. One <c>GetText</c> per editor per typing burst,
-    /// on the UI thread (the only thread that may touch an editor).
-    /// </summary>
-    private void ExtractDirtyBuffers()
-    {
-        if (bufferService == null || dirtyBufferIndices.Count == 0)
-        {
-            return;
-        }
-
-        int[] indices = new int[dirtyBufferIndices.Count];
-        dirtyBufferIndices.CopyTo(indices);
-        dirtyBufferIndices.Clear();
-
-        foreach (int index in indices)
-        {
-            if (editorsByBufferIndex.TryGetValue(index, out RichEditBox editor) == false)
-            {
-                continue;
-            }
-
-            editor.Document.GetText(TextGetOptions.UseCrlf, out string text);
-            text = text.TrimEnd('\r', '\n');
-
-            if (text.Length > AppConstants.MaxBufferLength)
-            {
-                text = TruncateToMaxLength(editor);
-            }
-
-            bufferService.UpdateContent(index, text);
-            UpdateClearButtonState(index, isEmpty: string.IsNullOrEmpty(text));
-        }
-    }
-
-    /// <summary>
-    /// Forces any keystrokes still held by the extraction debounce to be read out and handed to
-    /// the buffer service immediately. Call on shutdown, before the buffer service's own flush, so
-    /// the exit write persists the very latest edits rather than the last debounced snapshot.
+    /// Asks the editor page to push any pending content immediately. Called on shutdown, before the
+    /// buffer service's own flush. The host-side mirror (fed by the debounced/blur/hide content sync)
+    /// is the authoritative flush source; this is a best-effort nudge.
     /// </summary>
     public void FlushPendingContent()
     {
-        if (contentExtractTimer != null)
+        if (editorHost != null)
         {
-            contentExtractTimer.Stop();
+            editorHost.RequestFlush();
         }
-
-        try
-        {
-            ExtractDirtyBuffers();
-        }
-        catch (Exception ex)
-        {
-            Serilog.Log.ForContext<BufferPanel>().Warning(ex, "Failed to flush pending editor content on shutdown.");
-        }
-    }
-
-    /// <summary>
-    /// Trims the editor's document so its persisted length matches
-    /// <see cref="AppConstants.MaxBufferLength"/>. The editor's own <c>MaxLength</c>
-    /// counts each line break as a single character, but the buffer is stored and
-    /// clamped with CRLF line endings where each break is two characters; without
-    /// this a buffer of short lines would render content past the cap that the disk
-    /// clamp silently discards, leaving the editor and the file out of sync. Returns
-    /// the resulting CRLF text with trailing breaks trimmed, matching how the normal
-    /// path stores content.
-    /// </summary>
-    private string TruncateToMaxLength(RichEditBox editor)
-    {
-        editor.Document.GetText(TextGetOptions.UseCrlf, out string full);
-        string kept = full.Substring(0, AppConstants.MaxBufferLength);
-
-        // RichEdit uses a single CR as its paragraph separator; collapse CRLF before
-        // writing back so the paragraph count (and therefore caret positions) match.
-        string native = kept.Replace("\r\n", "\r").Replace('\n', '\r');
-
-        var selection = editor.Document.Selection;
-        int caret = Math.Min(selection.EndPosition, native.Length);
-
-        isEnforcingMaxLength = true;
-        try
-        {
-            editor.Document.SetText(TextSetOptions.None, native);
-            editor.Document.Selection.SetRange(caret, caret);
-        }
-        finally
-        {
-            isEnforcingMaxLength = false;
-        }
-
-        editor.Document.GetText(TextGetOptions.UseCrlf, out string result);
-        return result.TrimEnd('\r', '\n');
-    }
-
-    private void OnEditorCharacterReceived(UIElement sender, CharacterReceivedRoutedEventArgs args)
-    {
-        calcResultAnimator.TrackCharacter(args.Character);
     }
 
     private void OnPanelPreviewKeyDown(object sender, KeyRoutedEventArgs e)

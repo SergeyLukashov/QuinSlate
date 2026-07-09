@@ -23,6 +23,25 @@
     <Content Include="Assets\TrayIcon.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <!-- Vendored CodeMirror 6 editor page served to the WebView2 via a virtual
+         host mapping. Only these three built/authored files ship; the build
+         tooling and node_modules under WebEditor\build are dev-only. -->
+    <Content Include="WebEditor\editor.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="WebEditor\editor.css">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="WebEditor\editor.bundle.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- The editor build folder (npm sources, lockfile, node_modules) is never
+       compiled or packaged. Exclude it from all default item globs. -->
+  <ItemGroup>
+    <None Remove="WebEditor\build\**" />
+    <Content Remove="WebEditor\build\**" />
   </ItemGroup>
 
   <ItemGroup>

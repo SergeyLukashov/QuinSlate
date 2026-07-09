@@ -11,17 +11,18 @@ public static class AppConstants
     public const string AppName = "QuinSlate";
 
     /// <summary>
-    /// The maximum number of characters a single buffer (tab) may hold. This
-    /// caps the editor's <c>MaxLength</c>, bounds paste truncation, and acts as
-    /// the final safeguard before content is written to disk.
+    /// The maximum number of characters a single buffer (tab) may hold. Enforced
+    /// in the editor by the CodeMirror transaction filter (counted in CRLF form),
+    /// and again as the final safeguard before content is written to disk.
     /// <para>
-    /// Kept at 50,000 to stay well clear of the <c>RichEditBox</c> render
-    /// ceiling: that control does not virtualize and stops painting glyphs past a
-    /// fixed rendered height (~260k px), while still keeping the characters in the
-    /// document and selectable. A larger cap let realistic buffers grow tall
-    /// enough to hit that ceiling, leaving the tail of long tabs invisible. See
+    /// Originally lowered to 50,000 to stay clear of the <c>RichEditBox</c> render
+    /// ceiling. The editor is now CodeMirror 6 in a WebView2, which virtualizes
+    /// rendering, so the ceiling no longer applies and the cap was raised to
+    /// 1,000,000. What remains is a sanity bound on a scratch buffer, not a
+    /// rendering limit. See
+    /// <c>Docs/Specs/17-EDITOR-CODEMIRROR-MIGRATION.md</c> and
     /// <c>Docs/Investigations/03-RICHEDITBOX-TALL-DOCUMENT-RENDER-CEILING.md</c>.
     /// </para>
     /// </summary>
-    public const int MaxBufferLength = 50_000;
+    public const int MaxBufferLength = 1_000_000;
 }

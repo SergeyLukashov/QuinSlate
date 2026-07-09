@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <link rel="stylesheet" href="editor.css" />
+    <title>QuinSlate editor</title>
+  </head>
+  <body>
+    <!-- Fixed layer showing the host-rendered dithered gradient PNG 1:1. It sits
+         behind the transparent editor surface, mirroring how the RichEditBox
+         painted the dithered brush as its own background. -->
+    <div id="bg"></div>
+    <div id="editor"></div>
+    <script src="editor.bundle.js"></script>
+  </body>
+</html>

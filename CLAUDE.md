@@ -3,15 +3,27 @@
 | Layer | Choice |
 |---|---|
 | UI framework | WinUI 3 (.NET 10) |
+| Buffer editor | CodeMirror 6 hosted in a single `WebView2` (vendored bundle under `QuinSlate.Ui/WebEditor/`, served via a virtual-host mapping) |
 | Tray icon | Win32 `Shell_NotifyIcon` via P/Invoke |
 | Global hotkeys | Win32 `RegisterHotKey` via P/Invoke |
 | Persistence | Plain `.txt` files in `%AppData%\QuinSlate\` |
 | Always-on-top | Win32 `SetWindowPos` via P/Invoke |
 | Single instance | Named Mutex (`Local\QuinSlateSingleInstance`) |
 | Clipboard | WinRT `Windows.ApplicationModel.DataTransfer.Clipboard` (read/write via managed API) |
-| Window/editor background | Per-pixel TPDF-dithered gradient into a `WriteableBitmap` (no external deps) |
+| Window background | Per-pixel TPDF-dithered gradient into a `WriteableBitmap` (no external deps); the editor page shows the same mesh as a host-rendered PNG |
 
 WinUI 3 has no native tray API. All tray behaviour is Win32 via P/Invoke.
+
+The five buffers are edited in one WebView2 hosting CodeMirror 6 (see ADR
+`Docs/Decisions/04-EDITOR-CODEMIRROR-WEBVIEW2.md` and spec
+`Docs/Specs/17-EDITOR-CODEMIRROR-MIGRATION.md`). CodeMirror 6 is the second
+sanctioned third-party dependency after Serilog: a vendored, pinned bundle under
+`QuinSlate.Ui/WebEditor/` (rebuild script in `build/`; the built
+`editor.bundle.js` is committed, so building QuinSlate never runs npm). Host and
+page talk over a `WebView2` JSON bridge (`EditorHost`). **The "never log buffer
+contents" rule extends across the bridge:** messages carrying buffer text
+(`init`, `setText`, `insert`, `contentSync`, `calcRequest`/`calcResult`) are
+never logged on either side — only message names, indices, and lengths.
 
 ---
 
@@ -171,6 +183,52 @@ To verify compilation during development, run:
 ```bash
 dotnet build QuinSlate.slnx -p:Platform=x64
 ```
+
+---
+
+## Web editor (CodeMirror 6 bundle)
+
+The buffer editor is a CodeMirror 6 web app hosted in a `WebView2`. Its sources
+and build tooling live under `QuinSlate.Ui/WebEditor/`, **not** in `Assets/`
+(which is image/icon assets only):
+
+```
+QuinSlate.Ui/WebEditor/
+├── editor.html          # page shell (shipped)
+├── editor.css           # page-shell styling: background, scrollbar, animations (shipped)
+├── editor.bundle.js     # BUILT CM6 + bridge bundle — committed, shipped, do NOT hand-edit
+└── build/               # dev-only, never compiled or packaged
+    ├── package.json      # pinned @codemirror/{state,view,commands} + esbuild
+    ├── package-lock.json # committed lockfile (exact versions)
+    ├── build.mjs         # esbuild bundler → ../editor.bundle.js
+    ├── src/main.js       # the editor source: CM6 setup + the host bridge
+    └── node_modules/     # gitignored
+```
+
+- **The built `editor.bundle.js` is committed**, so `dotnet build` never runs
+  npm. Only the three shipped files (`editor.html`, `editor.css`,
+  `editor.bundle.js`) are packaged as `Content`; everything under `build/` is
+  excluded.
+- **Edit the editor logic in `build/src/main.js`, never in the built
+  `editor.bundle.js`.** After changing `main.js` (or bumping a pinned CM6
+  version in `package.json`), rebuild the bundle and commit the regenerated
+  `editor.bundle.js`:
+
+  ```bash
+  cd QuinSlate.Ui/WebEditor/build
+  npm ci        # restore exact pinned versions from package-lock.json
+  npm run build # regenerate ../editor.bundle.js
+  ```
+
+- CodeMirror 6 is the **second sanctioned third-party dependency** after Serilog
+  — vendored and pinned (see ADR `Docs/Decisions/04-EDITOR-CODEMIRROR-WEBVIEW2.md`
+  and spec `Docs/Specs/17-EDITOR-CODEMIRROR-MIGRATION.md`). Do not add npm
+  packages casually; the "no third-party packages unless absolutely necessary"
+  rule applies to the JS side too.
+- The page is served to the WebView2 over a virtual-host mapping
+  (`https://quinslate.editor/`) from the app's install/output directory; the
+  host↔page contract is the JSON bridge in `Components/EditorHost.cs`. **Never
+  log buffer text across that bridge** (see the stack note above).
 
 ---
 

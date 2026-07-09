@@ -1,11 +1,19 @@
 # Investigation: Text Not Rendered at the Bottom of Long Tabs
 
-> _Last updated: 2026-07-05_
+> _Last updated: 2026-07-08_
 
 ## Status
 
-**KNOWN PLATFORM LIMITATION — mitigated, not eliminated** (2026-07-04). The editor is a
-`RichEditBox`, which does not virtualize and stops painting glyphs past a fixed rendered height
+**SUPERSEDED by the CodeMirror 6 migration (2026-07-08).** The `RichEditBox` render ceiling this
+document describes was a root motivation for replacing the editor with CodeMirror 6 in a WebView2
+(ADR [../Decisions/04-EDITOR-CODEMIRROR-WEBVIEW2.md](../Decisions/04-EDITOR-CODEMIRROR-WEBVIEW2.md),
+spec [../Specs/17-EDITOR-CODEMIRROR-MIGRATION.md](../Specs/17-EDITOR-CODEMIRROR-MIGRATION.md)). CM6
+virtualizes rendering, so the ceiling no longer exists. This document is kept as history; the
+50,000-char `AppConstants.MaxBufferLength` cap is retained for now (raising it is a follow-up, out of
+scope for the like-for-like migration).
+
+Original status — **KNOWN PLATFORM LIMITATION — mitigated, not eliminated** (2026-07-04): the editor
+was a `RichEditBox`, which does not virtualize and stops painting glyphs past a fixed rendered height
 while still keeping the characters in the document (they remain selectable). This is the documented
 Microsoft limitation, not a bug in QuinSlate. Mitigated by lowering `AppConstants.MaxBufferLength`
 from 100,000 to 50,000 chars so realistic buffers stay clear of the ceiling. It is a practical, not

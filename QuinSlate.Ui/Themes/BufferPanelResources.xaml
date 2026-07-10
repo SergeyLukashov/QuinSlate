@@ -291,6 +291,71 @@
                                     </VisualState.Setters>
                                 </VisualState>
                             </VisualStateGroup>
+
+                            <!-- Drag/reorder states, mirroring the SDK's own TabViewItem template
+                                 exactly. The tab-strip reorder depends on this group: while a tab is
+                                 carried, the items panel leaves it out of layout and re-arranges the
+                                 rest around the drop gap, and this group is what tells the carried
+                                 container how to render. Omit the group and it keeps painting,
+                                 opaque, at its pre-drag offset, colliding with whichever tab slides
+                                 into that slot.
+
+                                 Do NOT "simplify" Reordering to Opacity 0. The visual that follows
+                                 the pointer is a composition clone of this very element, so zeroing
+                                 the element blanks the clone too and the tab vanishes mid-drag.
+                                 ListViewItemReorderThemeOpacity (0.8) is what makes the carried tab
+                                 read as lifted rather than gone.
+
+                                 Every state name the SDK can request is declared even when empty:
+                                 VisualStateManager.GoToState on a name a group does not contain
+                                 fails and leaves the CURRENT state applied, so a missing name would
+                                 strand a tab in a faded state once the drag ended. -->
+                            <VisualStateGroup x:Name="DragStates">
+                                <VisualStateGroup.Transitions>
+                                    <VisualTransition GeneratedDuration="0:0:0.2" To="NotDragging" />
+                                </VisualStateGroup.Transitions>
+                                <VisualState x:Name="NotDragging" />
+                                <VisualState x:Name="Dragging">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="LayoutRoot"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="{ThemeResource ListViewItemDragThemeOpacity}"
+                                                         Duration="0" />
+                                        <DragItemThemeAnimation TargetName="LayoutRoot" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="DraggingTarget" />
+                                <VisualState x:Name="MultipleDraggingPrimary" />
+                                <VisualState x:Name="MultipleDraggingSecondary" />
+                                <VisualState x:Name="DraggedPlaceholder" />
+                                <VisualState x:Name="Reordering">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="LayoutRoot"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="{ThemeResource ListViewItemReorderThemeOpacity}"
+                                                         Duration="0:0:0.240" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="ReorderingTarget">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="LayoutRoot"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="{ThemeResource ListViewItemReorderTargetThemeOpacity}"
+                                                         Duration="0:0:0.240" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="MultipleReorderingPrimary" />
+                                <VisualState x:Name="ReorderedPlaceholder">
+                                    <Storyboard>
+                                        <FadeOutThemeAnimation TargetName="LayoutRoot" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="DragOver">
+                                    <Storyboard>
+                                        <DropTargetItemThemeAnimation TargetName="LayoutRoot" />
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
                         </VisualStateManager.VisualStateGroups>
                     </Grid>
                 </ControlTemplate>

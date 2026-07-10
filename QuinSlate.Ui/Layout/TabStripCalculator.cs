@@ -7,7 +7,7 @@ namespace QuinSlate.Ui.Layout;
 /// </summary>
 internal static class TabStripCalculator
 {
-    /// <summary>Per-tab floor in Equal mode (mirrors the <c>TabViewItemMinWidth</c> XAML resource).</summary>
+    /// <summary>Per-tab floor (mirrors the <c>TabViewItemMinWidth</c> XAML resource).</summary>
     internal const double TabMinWidth = 100;
 
     /// <summary>
@@ -22,11 +22,27 @@ internal static class TabStripCalculator
     /// <summary>Fallback width of the right-hand footer spacer (the <c>TitleBarButtonsClusterWidth</c> XAML resource).</summary>
     internal const double TitleBarFooterFallbackWidth = 92;
 
+    /// <summary>
+    /// Fixed horizontal chrome the tab strip consumes around the tab run itself, inside the region
+    /// left over once the title-bar icon and the footer spacer are accounted for. Measured from the
+    /// live SDK template: the strip <c>ScrollViewer</c>'s border eats 2 DIP of viewport, and its
+    /// <c>ItemsPresenter</c> pads the item run by a further 8 DIP; the remaining 2 DIP is headroom
+    /// for the layout engine snapping each tab's width up to a whole device pixel.
+    ///
+    /// Not subtracting this is what made the five tabs measure wider than the strip's viewport, so
+    /// the strip was always a few DIP scrollable even though the tabs looked like they fit. Nothing
+    /// scrolls it in ordinary use, but a drag-reorder does, and it then stayed parked at that
+    /// offset with the whole row drawn a few pixels to the left. The same overshoot also trips the
+    /// SDK's own overflow test (<c>itemsPresenter.ActualWidth &gt; availableWidth</c>) at some
+    /// window widths, surfacing the scroll chevrons on a strip whose tabs plainly fit.
+    /// </summary>
+    internal const double TabStripChrome = 12;
+
     /// <summary>Right margin applied to the emoji glyph inside each tab header.</summary>
     internal const double TabEmojiMarginRight = 5;
 
     /// <summary>
-    /// Horizontal chrome consumed by a tab around its header content in Equal mode:
+    /// Horizontal chrome consumed by a tab around its header content:
     /// the <c>TabViewItem</c> Padding (3 + 3) plus the <c>TabBackground</c> pill left Margin (0).
     /// </summary>
     internal const double TabHorizontalChrome = 6;
@@ -44,10 +60,13 @@ internal static class TabStripCalculator
     private const double TabTitleSafetyPadding = 6;
 
     /// <summary>
-    /// Returns the <c>MaxWidth</c> to apply to every tab so that equal-mode tabs fill
-    /// the row. The result is floored at <see cref="TabMinWidth"/> so that once the
-    /// strip is too narrow to fit every tab at its minimum the SDK overflows and surfaces
-    /// scroll buttons rather than clipping silently.
+    /// Returns the per-tab share of the strip that makes the tabs equal and fill the row, after
+    /// deducting the strip's own <see cref="TabStripChrome"/> so the tab run can never measure
+    /// wider than the strip's viewport. The share is truncated to a whole DIP for the same reason:
+    /// a fractional share is snapped up per tab at layout time and would claw the overshoot back.
+    /// The result is floored at <see cref="TabMinWidth"/> so that once the strip is too narrow to
+    /// fit every tab at its minimum it overflows and surfaces scroll buttons rather than clipping
+    /// silently.
     /// </summary>
     /// <param name="totalWidth">Measured width of the TabView control.</param>
     /// <param name="headerWidth">Measured width of the TabStripHeader (icon drag area).</param>
@@ -60,17 +79,17 @@ internal static class TabStripCalculator
             return TabMinWidth;
         }
 
-        double available = totalWidth - headerWidth - footerWidth;
-        double perTab = available / tabCount;
+        double available = totalWidth - headerWidth - footerWidth - TabStripChrome;
+        double perTab = System.Math.Floor(available / tabCount);
         return perTab < TabMinWidth ? TabMinWidth : perTab;
     }
 
     /// <summary>
     /// Returns the explicit <c>Width</c> to assign to a tab's header content so the
-    /// content-sized tab grows to its equal share. In <c>TabWidthMode="Equal"</c> the SDK
-    /// sizes each tab to its header's desired width and ignores the item's own width, so the
-    /// only way to make all tabs equal and fill the strip is to size the header itself. This
-    /// is the per-tab share minus the surrounding tab chrome (<see cref="TabHorizontalChrome"/>).
+    /// content-sized tab grows to its equal share. Under <c>TabWidthMode="SizeToContent"</c> a tab
+    /// takes its header's desired width, so sizing the header is what makes all tabs equal and
+    /// fill the strip. This is the per-tab share minus the surrounding tab chrome
+    /// (<see cref="TabHorizontalChrome"/>).
     /// </summary>
     /// <param name="perTabWidth">Stable equal-mode per-tab width (from <see cref="ComputePerTabMaxWidth"/>).</param>
     internal static double ComputeHeaderWidth(double perTabWidth)
@@ -81,8 +100,8 @@ internal static class TabStripCalculator
     /// <summary>
     /// Returns the <c>MaxWidth</c> for the title TextBlock inside a tab header so it
     /// truncates cleanly without overflowing the right padding of the header container.
-    /// The cap is derived from the stable equal-mode per-tab width (minus tab chrome)
-    /// rather than the live header-container width: in <c>TabWidthMode="Equal"</c> the
+    /// The cap is derived from the stable per-tab share (minus tab chrome)
+    /// rather than the live header-container width: the
     /// container width is itself influenced by the header's desired width, so deriving the
     /// title cap from the container creates a feedback spiral (shrinking the title shrinks
     /// the container, which shrinks the title again, collapsing to zero). The per-tab width

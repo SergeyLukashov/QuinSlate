@@ -9,15 +9,47 @@ public sealed class TabStripCalculatorTests
     [Fact]
     public void ComputePerTabMaxWidth_TypicalWidth_DistributesEvenlyAcrossTabs()
     {
-        // 800 - 32 - 92 = 676 / 5 = 135.2
+        // 800 - 32 - 92 - 12 (strip chrome) = 664 / 5 = 132.8 → floor 132
         double result = TabStripCalculator.ComputePerTabMaxWidth(800, 32, 92, 5);
-        Assert.Equal(135.2, result);
+        Assert.Equal(132, result);
+    }
+
+    [Fact]
+    public void ComputePerTabMaxWidth_TabRunNeverExceedsTheStripViewport()
+    {
+        // The whole point of TabStripChrome: tabCount * perTab, plus the chrome the strip itself
+        // consumes, must stay within the region left over after the header and footer. If it does
+        // not, the strip is permanently scrollable and a drag-reorder parks it off its left edge.
+        const double header = 35.2;
+        const double footer = 92;
+
+        for (double total = 640; total <= 1600; total += 0.4)
+        {
+            double perTab = TabStripCalculator.ComputePerTabMaxWidth(total, header, footer, 5);
+            if (perTab <= TabStripCalculator.TabMinWidth)
+            {
+                continue; // genuine overflow regime: the strip is meant to scroll
+            }
+
+            double tabRun = perTab * 5;
+            double available = total - header - footer;
+            Assert.True(
+                tabRun + TabStripCalculator.TabStripChrome <= available,
+                $"tab run {tabRun} + chrome overflows available {available} at total {total}");
+        }
+    }
+
+    [Fact]
+    public void ComputePerTabMaxWidth_AlwaysReturnsWholeDips()
+    {
+        double result = TabStripCalculator.ComputePerTabMaxWidth(887.2, 35.2, 92, 5);
+        Assert.Equal(Math.Floor(result), result);
     }
 
     [Fact]
     public void ComputePerTabMaxWidth_DefaultWindowWidth_FloorsAtTabMinWidth()
     {
-        // 560 - 32 - 92 = 436 / 5 = 87.2 < 100 → floor to 100
+        // 560 - 35 - 92 - 12 = 421 / 5 = 84.2 < 100 → floor to 100
         double result = TabStripCalculator.ComputePerTabMaxWidth(
             560,
             TabStripCalculator.TitleBarHeaderFallbackWidth,
@@ -29,7 +61,7 @@ public sealed class TabStripCalculatorTests
     [Fact]
     public void ComputePerTabMaxWidth_NarrowWindow_FloorsAtTabMinWidth()
     {
-        // 300 - 32 - 92 = 176 / 5 = 35.2 → floor to 100
+        // 300 - 32 - 92 - 12 = 164 / 5 = 32.8 → floor to 100
         double result = TabStripCalculator.ComputePerTabMaxWidth(300, 32, 92, 5);
         Assert.Equal(TabStripCalculator.TabMinWidth, result);
     }
@@ -37,17 +69,17 @@ public sealed class TabStripCalculatorTests
     [Fact]
     public void ComputePerTabMaxWidth_ExactlyAtMinWidth_ReturnsMinWidthWithoutFlooring()
     {
-        // 624 - 32 - 92 = 500 / 5 = 100 exactly — not floored, just at threshold
-        double result = TabStripCalculator.ComputePerTabMaxWidth(624, 32, 92, 5);
+        // 636 - 32 - 92 - 12 = 500 / 5 = 100 exactly — not floored, just at threshold
+        double result = TabStripCalculator.ComputePerTabMaxWidth(636, 32, 92, 5);
         Assert.Equal(100, result);
     }
 
     [Fact]
     public void ComputePerTabMaxWidth_OneTabAboveMin_ReturnsFullAvailableWidth()
     {
-        // 560 - 32 - 92 = 436 / 1 = 436
+        // 560 - 32 - 92 - 12 = 424 / 1 = 424
         double result = TabStripCalculator.ComputePerTabMaxWidth(560, 32, 92, 1);
-        Assert.Equal(436, result);
+        Assert.Equal(424, result);
     }
 
     [Fact]
@@ -87,18 +119,18 @@ public sealed class TabStripCalculatorTests
     }
 
     [Fact]
-    public void ComputePerTabMaxWidth_ZeroHeaderAndFooter_UsesFullTotalWidth()
+    public void ComputePerTabMaxWidth_ZeroHeaderAndFooter_UsesFullTotalWidthLessStripChrome()
     {
-        // 500 - 0 - 0 = 500 / 5 = 100
-        double result = TabStripCalculator.ComputePerTabMaxWidth(500, 0, 0, 5);
-        Assert.Equal(100, result);
+        // 712 - 0 - 0 - 12 = 700 / 5 = 140
+        double result = TabStripCalculator.ComputePerTabMaxWidth(712, 0, 0, 5);
+        Assert.Equal(140, result);
     }
 
     [Theory]
-    [InlineData(1000, 32, 92, 1, 876)]   // single tab gets full available
-    [InlineData(1000, 32, 92, 2, 438)]   // two tabs split evenly
-    [InlineData(1000, 32, 92, 4, 219)]   // four tabs split evenly
-    [InlineData(1000, 32, 92, 5, 175.2)] // five tabs split evenly
+    [InlineData(1000, 32, 92, 1, 864)] // single tab gets full available
+    [InlineData(1000, 32, 92, 2, 432)] // two tabs split evenly
+    [InlineData(1000, 32, 92, 4, 216)] // four tabs split evenly
+    [InlineData(1000, 32, 92, 5, 172)] // five tabs split evenly (172.8 truncated to whole DIPs)
     public void ComputePerTabMaxWidth_WideWindow_SplitsAvailableWidthAcrossAllTabs(
         double total, double header, double footer, int count, double expected)
     {

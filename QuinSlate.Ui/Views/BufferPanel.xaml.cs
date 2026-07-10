@@ -14,6 +14,7 @@ using System;
 using System.Collections.Generic;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
+using Windows.Foundation.Collections;
 using Windows.UI;
 using Windows.UI.ViewManagement;
 using Buffer = QuinSlate.Ui.Models.Buffer;
@@ -81,7 +82,34 @@ public sealed partial class BufferPanel : UserControl
     /// </summary>
     private const string TabContainerGridPartName = "TabContainerGrid";
 
+    /// <summary>
+    /// Name of the <c>ScrollViewer</c> template part inside the SDK <c>TabView</c> template that
+    /// scrolls the tab strip and whose <c>ComputedHorizontalScrollBarVisibility</c> the two scroll
+    /// buttons' containers are template-bound to.
+    /// </summary>
+    private const string TabStripScrollViewerPartName = "ScrollViewer";
+
     private TabViewItem firstTabWithZeroedGap;
+
+    /// <summary>
+    /// The tab strip's <c>ScrollViewer</c> template part, resolved once and kept so its
+    /// <c>ViewChanged</c> stays hooked for the panel's lifetime.
+    /// </summary>
+    private ScrollViewer tabStripScrollViewer;
+
+    /// <summary>
+    /// Number of tabs once the strip is fully populated. A drag-reorder momentarily removes the
+    /// dragged item from <c>TabItems</c> before re-inserting it at its new slot, so a count that
+    /// differs from this marks a transient mid-reorder state that no handler should act on.
+    /// </summary>
+    private int expectedTabCount;
+
+    /// <summary>
+    /// Buffer index last handed to <see cref="EditorHost.Activate"/>, so a selection change that
+    /// resolves to the same buffer does not re-activate it (the page replays the tab-content
+    /// entrance animation on every activation).
+    /// </summary>
+    private int lastActivatedBufferIndex = -1;
 
     private BufferService bufferService;
     private SettingsService settingsService;
@@ -235,9 +263,8 @@ public sealed partial class BufferPanel : UserControl
 
         ClearAllDictionaries();
 
-        for (int i = 0; i < buffers.Count; i++)
+        foreach (Buffer buffer in OrderBuffersByTabOrder(buffers, tabDefinitions))
         {
-            var buffer = buffers[i];
             TabDefinition tab = FindTabDefinition(buffer.Index) ?? new TabDefinition
             {
                 Id = buffer.Index,
@@ -249,12 +276,14 @@ public sealed partial class BufferPanel : UserControl
             BufferTabView.TabItems.Add(item);
         }
 
+        expectedTabCount = BufferTabView.TabItems.Count;
+
         if (BufferTabView.TabItems.Count > 0)
         {
             BufferTabView.SelectedIndex = 0;
         }
 
-        BufferTabView.TabDragCompleted += OnTabDragCompleted;
+        BufferTabView.TabItemsChanged += OnTabItemsChanged;
         BufferTabView.SelectionChanged += OnBufferTabSelectionChanged;
         BufferTabView.SizeChanged += OnBufferTabViewSizeChanged;
         BufferTabView.Loaded += OnBufferTabViewLoaded;
@@ -283,10 +312,44 @@ public sealed partial class BufferPanel : UserControl
         RecomputeFirstTabLeadingGap();
     }
 
+    /// <summary>
+    /// Returns <paramref name="buffers"/> in the left-to-right order the persisted
+    /// <paramref name="tabs"/> describe. Any buffer no tab definition names is appended in buffer
+    /// order, so a truncated or hand-edited <c>settings.json</c> can never drop a buffer's tab.
+    /// </summary>
+    private static List<Buffer> OrderBuffersByTabOrder(IReadOnlyList<Buffer> buffers, IReadOnlyList<TabDefinition> tabs)
+    {
+        var byIndex = new Dictionary<int, Buffer>(buffers.Count);
+        foreach (Buffer buffer in buffers)
+        {
+            byIndex[buffer.Index] = buffer;
+        }
+
+        var ordered = new List<Buffer>(buffers.Count);
+        foreach (TabDefinition tab in tabs)
+        {
+            if (byIndex.TryGetValue(tab.Id, out Buffer buffer) && !ordered.Contains(buffer))
+            {
+                ordered.Add(buffer);
+            }
+        }
+
+        foreach (Buffer buffer in buffers)
+        {
+            if (!ordered.Contains(buffer))
+            {
+                ordered.Add(buffer);
+            }
+        }
+
+        return ordered;
+    }
+
     private void OnBufferTabViewSizeChanged(object sender, SizeChangedEventArgs e)
     {
         UpdateEqualTabMaxWidth();
         PinRightContentColumnReservation();
+        ResetStripScrollWhenTabsFit();
         PositionEditorHost();
     }
 
@@ -351,16 +414,14 @@ public sealed partial class BufferPanel : UserControl
     }
 
     /// <summary>
-    /// Sets each <see cref="TabViewItem.Width"/> to the equal share of the live tab-strip
-    /// width so the tabs fill the row exactly and shrink as the window narrows. In
-    /// <c>TabWidthMode="Equal"</c> the SDK sizes each tab to its own content (a <c>MaxWidth</c>
-    /// is only a ceiling and never forces a tab to grow), so without an explicit width the
-    /// tabs sit at their title width and leave unused space on the right. Assigning an explicit
-    /// per-tab width forces all of them to the same value and consumes the full strip. The
-    /// share is floored at <see cref="TabStripCalculator.TabMinWidth"/> so that once the tabs
-    /// can no longer fit at their minimum the SDK overflows and surfaces its scroll buttons
-    /// instead of clipping. The matching title <c>MaxWidth</c> is derived from the same stable
-    /// share.
+    /// Sizes every tab to the equal share of the live tab-strip width, so the tabs fill the row
+    /// exactly and shrink as the window narrows. The share is applied to each tab's <em>header</em>
+    /// (the tab sizes to its content under <c>TabWidthMode="SizeToContent"</c>), which is why the
+    /// tabs come out equal without the SDK stamping a width on them — see the sizing note in
+    /// BufferPanel.xaml for why Equal mode is not used. The share is floored at
+    /// <see cref="TabStripCalculator.TabMinWidth"/> so that once the tabs can no longer fit at
+    /// their minimum the strip overflows and surfaces its scroll buttons instead of clipping. The
+    /// matching title <c>MaxWidth</c> is derived from the same stable share.
     /// </summary>
     private void UpdateEqualTabMaxWidth()
     {
@@ -389,6 +450,7 @@ public sealed partial class BufferPanel : UserControl
         }
 
         double perTab = TabStripCalculator.ComputePerTabMaxWidth(totalWidth, headerWidth, footerWidth, count);
+        SuppressScrollButtonsWhenTabsFit(perTab);
 
         foreach (var obj in BufferTabView.TabItems)
         {
@@ -427,15 +489,160 @@ public sealed partial class BufferPanel : UserControl
         }
     }
 
+    /// <summary>
+    /// Hides the tab strip's scroll buttons whenever the five tabs fit at more than their minimum
+    /// width, and hands visibility back to the SDK once they are squeezed to that floor and the
+    /// strip must really scroll.
+    /// </summary>
+    /// <remarks>
+    /// The buttons' containers are template-bound to the strip <c>ScrollViewer</c>'s
+    /// <c>ComputedHorizontalScrollBarVisibility</c>, and the tabs are sized to fill the strip
+    /// exactly. A drag-reorder lifts the dragged tab out of <c>TabItems</c> and puts it back a
+    /// frame later; during that gap the strip measures as scrollable and the buttons appear. They
+    /// then occupy a column each, which shrinks the viewport below the tabs' width — so the strip
+    /// stays "scrollable" and the buttons stay up, shifting every tab sideways for the whole drag
+    /// and snapping back on drop. Pinning the scroll-bar visibility to <c>Hidden</c> while the tabs
+    /// fit denies that latch its first step. <c>Hidden</c> rather than <c>Disabled</c> keeps the
+    /// strip scrollable by wheel and by keyboard.
+    /// </remarks>
+    private void SuppressScrollButtonsWhenTabsFit(double perTabWidth)
+    {
+        ScrollViewer scrollViewer = ResolveStripScrollViewer();
+        if (scrollViewer == null)
+        {
+            return;
+        }
+
+        bool tabsFit = perTabWidth > TabStripCalculator.TabMinWidth;
+        ScrollBarVisibility target = tabsFit ? ScrollBarVisibility.Hidden : ScrollBarVisibility.Auto;
+        if (scrollViewer.HorizontalScrollBarVisibility != target)
+        {
+            scrollViewer.HorizontalScrollBarVisibility = target;
+        }
+    }
+
+    /// <summary>
+    /// Resolves the tab strip's <c>ScrollViewer</c> from the live template, hooking its
+    /// <c>ViewChanged</c> the first time it is found.
+    /// </summary>
+    private ScrollViewer ResolveStripScrollViewer()
+    {
+        if (tabStripScrollViewer == null)
+        {
+            tabStripScrollViewer = VisualTreeHelpers.FindVisualChild<ScrollViewer>(BufferTabView, TabStripScrollViewerPartName);
+            if (tabStripScrollViewer != null)
+            {
+                tabStripScrollViewer.ViewChanged += OnStripViewChanged;
+            }
+        }
+
+        return tabStripScrollViewer;
+    }
+
+    private void OnStripViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
+    {
+        if (e.IsIntermediate)
+        {
+            return;
+        }
+
+        ResetStripScrollWhenTabsFit();
+    }
+
+    /// <summary>
+    /// Scrolls the tab strip back to its left edge whenever the five tabs are meant to fit, so the
+    /// row always starts where the tab strip starts.
+    /// </summary>
+    /// <remarks>
+    /// The tabs are sized to fill the strip, but each one lands a fraction of a pixel wider than
+    /// its computed share once layout snaps it to whole device pixels, so the strip's content
+    /// measures a handful of DIPs wider than its viewport and is technically scrollable at rest.
+    /// Nothing scrolls it in normal use — but a drag-reorder does, and the strip then stays parked
+    /// at that offset, drawing every tab a few pixels left of where it belongs. (It looks like it
+    /// heals itself when you switch tabs only because the SDK scrolls the newly selected tab back
+    /// into view.) This is the counterpart of <see cref="SuppressScrollButtonsWhenTabsFit"/>: in
+    /// the regime where the strip presents itself as unscrollable, it must not sit scrolled either.
+    /// Below the per-tab floor the strip genuinely scrolls and the offset is the user's to keep.
+    ///
+    /// Enforced from the strip's own <c>ViewChanged</c> rather than at the end of a reorder: the
+    /// SDK scrolls the dropped tab into view after the tab collection has settled, so a one-shot
+    /// reset driven off the collection change is overwritten a moment later.
+    /// </remarks>
+    private void ResetStripScrollWhenTabsFit()
+    {
+        ScrollViewer scrollViewer = ResolveStripScrollViewer();
+        if (scrollViewer == null || scrollViewer.HorizontalScrollBarVisibility != ScrollBarVisibility.Hidden)
+        {
+            return;
+        }
+
+        if (scrollViewer.HorizontalOffset > 0)
+        {
+            scrollViewer.ChangeView(0.0, null, null, true);
+        }
+    }
+
     private void OnBufferTabSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        SyncActiveBuffer();
+    }
+
+    /// <summary>
+    /// Points the shared editor at the selected tab's buffer and focuses it.
+    /// </summary>
+    /// <remarks>
+    /// Ignored while the strip is mid-reorder: pulling the dragged item out of <c>TabItems</c>
+    /// moves the selection onto whichever tab shifted into its slot, and activating that buffer
+    /// would swap the editor's text — and replay its entrance animation — under the user's pointer,
+    /// only to swap back on drop. A drop that lands the same buffer back under the selection is
+    /// likewise a no-op rather than a re-activation.
+    /// </remarks>
+    private void SyncActiveBuffer()
+    {
+        if (BufferTabView.TabItems.Count != expectedTabCount)
+        {
+            return;
+        }
+
+        if (!(BufferTabView.SelectedItem is TabViewItem selected) || !(selected.Tag is int bufferIndex))
+        {
+            return;
+        }
+
         // The tab-content entrance animation is replayed inside the editor page when it activates
         // the buffer (a WebView2's own opacity cannot be animated from XAML without flashing black).
-        if (editorHost != null)
+        if (editorHost != null && bufferIndex != lastActivatedBufferIndex)
         {
-            editorHost.Activate(GetActiveBufferIndex());
+            lastActivatedBufferIndex = bufferIndex;
+            editorHost.Activate(bufferIndex);
         }
+
         FocusActiveEditor();
+    }
+
+    /// <summary>
+    /// Runs when the tab strip's item vector changes, which for QuinSlate only ever means a
+    /// drag-reorder finished (tabs are never added or removed). Fires twice per reorder — once for
+    /// the dragged item's removal, once for its re-insertion — so the half-populated first pass is
+    /// skipped rather than persisted as a four-tab strip.
+    /// </summary>
+    private void OnTabItemsChanged(TabView sender, IVectorChangedEventArgs args)
+    {
+        if (expectedTabCount == 0 || BufferTabView.TabItems.Count != expectedTabCount)
+        {
+            return;
+        }
+
+        // The vector also fills in as the strip is first realized, raising a Reset plus one
+        // insertion per tab; only an actual change of order is worth reacting to.
+        if (!PersistTabOrder())
+        {
+            return;
+        }
+
+        RecomputeFirstTabLeadingGap();
+        SyncActiveBuffer();
+        ResetStripScrollWhenTabsFit();
     }
 
     private void ClearAllDictionaries()
@@ -605,7 +812,8 @@ public sealed partial class BufferPanel : UserControl
         }
 
         editorHost.InitBuffers(payload);
-        editorHost.Activate(GetActiveBufferIndex());
+        lastActivatedBufferIndex = GetActiveBufferIndex();
+        editorHost.Activate(lastActivatedBufferIndex);
         ApplyDitheredBackground();
         StartStartupCoverFallback();
 
@@ -874,9 +1082,21 @@ public sealed partial class BufferPanel : UserControl
         }
     }
 
-    private void OnTabDragCompleted(TabView sender, TabViewTabDragCompletedEventArgs args)
+    /// <summary>
+    /// Writes the strip's live left-to-right order back to <c>settings.json</c>, where the tab
+    /// array's order <em>is</em> the tab order, so a reorder survives relaunch. Returns
+    /// <c>true</c> only when the strip's order actually differs from the order already held, so
+    /// that neither the strip's initial realization nor a drag the user drops where it started
+    /// triggers a settings write.
+    /// </summary>
+    private bool PersistTabOrder()
     {
-        var reordered = new List<TabDefinition>();
+        if (settingsService == null)
+        {
+            return false;
+        }
+
+        var reordered = new List<TabDefinition>(BufferTabView.TabItems.Count);
         foreach (var obj in BufferTabView.TabItems)
         {
             var tabItem = obj as TabViewItem;
@@ -895,13 +1115,32 @@ public sealed partial class BufferPanel : UserControl
             }
         }
 
-        if (reordered.Count > 0 && settingsService != null)
+        if (reordered.Count != expectedTabCount || OrderMatches(reordered, tabDefinitions))
         {
-            tabDefinitions = reordered;
-            settingsService.SetTabs(reordered);
+            return false;
         }
 
-        RecomputeFirstTabLeadingGap();
+        tabDefinitions = reordered;
+        settingsService.SetTabs(reordered);
+        return true;
+    }
+
+    private static bool OrderMatches(IReadOnlyList<TabDefinition> left, IReadOnlyList<TabDefinition> right)
+    {
+        if (right == null || left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < left.Count; i++)
+        {
+            if (left[i].Id != right[i].Id)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>

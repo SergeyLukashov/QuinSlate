@@ -220,6 +220,63 @@ public sealed class SettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SetTabs_ReorderedTabs_RestoresInSameOrder()
+    {
+        var tabs = settingsService.GetTabs();
+        var reordered = new List<QuinSlate.Ui.Models.TabDefinition>
+        {
+            tabs[2], tabs[0], tabs[4], tabs[1], tabs[3]
+        };
+
+        settingsService.SetTabs(reordered);
+
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        var fresh = new SettingsService(tempDirectory);
+        await fresh.LoadAsync();
+        var restored = fresh.GetTabs();
+
+        Assert.Equal(new[] { 3, 1, 5, 2, 4 }, restored.Select(t => t.Id));
+        Assert.Equal("Ideas", restored[0].Title);
+        Assert.Equal("Scratch", restored[1].Title);
+    }
+
+    [Fact]
+    public void GetTabs_EntriesMissingFromSettings_AreAppendedInDefaultOrder()
+    {
+        var partial = new List<QuinSlate.Ui.Models.TabDefinition>
+        {
+            new QuinSlate.Ui.Models.TabDefinition { Id = 4, Emoji = "🔗", Title = "Links" },
+            new QuinSlate.Ui.Models.TabDefinition { Id = 2, Emoji = "✅", Title = "Tasks" },
+        };
+
+        settingsService.SetTabs(partial);
+
+        var tabs = settingsService.GetTabs();
+
+        Assert.Equal(new[] { 4, 2, 1, 3, 5 }, tabs.Select(t => t.Id));
+    }
+
+    [Fact]
+    public void GetTabs_DuplicateAndUnknownIds_AreDropped()
+    {
+        var malformed = new List<QuinSlate.Ui.Models.TabDefinition>
+        {
+            new QuinSlate.Ui.Models.TabDefinition { Id = 3, Emoji = "💡", Title = "Ideas" },
+            new QuinSlate.Ui.Models.TabDefinition { Id = 3, Emoji = "😀", Title = "Dupe" },
+            new QuinSlate.Ui.Models.TabDefinition { Id = 99, Emoji = "👻", Title = "Ghost" },
+        };
+
+        settingsService.SetTabs(malformed);
+
+        var tabs = settingsService.GetTabs();
+
+        Assert.Equal(5, tabs.Count);
+        Assert.Equal(new[] { 3, 1, 2, 4, 5 }, tabs.Select(t => t.Id));
+        Assert.Equal("Ideas", tabs[0].Title);
+    }
+
+    [Fact]
     public void AddRecentEmoji_KeepsMax7()
     {
         for (int i = 0; i < 10; i++)

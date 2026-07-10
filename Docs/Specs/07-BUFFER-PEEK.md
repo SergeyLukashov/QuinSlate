@@ -1,6 +1,6 @@
 # SPEC: Buffer peek
 
-> _Last updated: 2026-07-07_
+> _Last updated: 2026-07-09_
 
 ## What
 Hovering the tray icon shows a preview of the first line of each buffer
@@ -14,7 +14,9 @@ so the user can find content without opening the panel.
     🔗 Links     Meeting notes 14 May
     📖 Notes     ssh -i ~/.ssh/id_rsa user@ho…
 
-- One line per buffer (matching the active tabs — 5 in total).
+- One line per buffer (matching the active tabs — 5 in total), listed in the **same order the
+  tab strip shows**, so a drag-reorder of the tabs reorders the peek rows too. The leading row
+  number is therefore the tab's position (its `Ctrl+N` shortcut), not the buffer's id.
 - Formatted as `[emoji] [title]` for the label and the first line of buffer content for the preview.
 - Show only the first line of the buffer content (up to the first `\n`).
 - Visual truncation is handled by the UI TextBlock (`TextTrimming="CharacterEllipsis"`), so no hardcoded text-level character limit is enforced in code.

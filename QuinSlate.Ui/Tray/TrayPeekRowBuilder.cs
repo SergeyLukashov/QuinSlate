@@ -12,37 +12,29 @@ internal static class TrayPeekRowBuilder
     private const string EmptyPreview = "(empty)";
 
     /// <summary>
-    /// Returns one <see cref="TrayPeekRow"/> per buffer, combining the tab
-    /// emoji and title from <paramref name="settingsService"/> with the first
-    /// content line from <paramref name="bufferService"/>.
+    /// Returns one <see cref="TrayPeekRow"/> per tab, in the same left-to-right order the tab
+    /// strip shows (the user drag-reorders tabs, and settings stores that order), combining the
+    /// tab emoji and title from <paramref name="settingsService"/> with the first content line of
+    /// that tab's buffer from <paramref name="bufferService"/>.
     /// </summary>
     public static TrayPeekRow[] Build(BufferService bufferService, SettingsService settingsService)
     {
-        var tabs = settingsService.GetTabs();
-        var tabById = new Dictionary<int, QuinSlate.Ui.Models.TabDefinition>(tabs.Count);
-        foreach (var tab in tabs)
-        {
-            tabById[tab.Id] = tab;
-        }
+        IReadOnlyList<QuinSlate.Ui.Models.TabDefinition> tabs = settingsService.GetTabs();
+        var rows = new TrayPeekRow[tabs.Count];
 
-        int count = Buffer.MaxIndex - Buffer.MinIndex + 1;
-        var rows = new TrayPeekRow[count];
-
-        for (int i = Buffer.MinIndex; i <= Buffer.MaxIndex; i++)
+        for (int slot = 0; slot < tabs.Count; slot++)
         {
-            int slot = i - Buffer.MinIndex;
-            var buffer = bufferService.GetBuffer(i);
+            QuinSlate.Ui.Models.TabDefinition tab = tabs[slot];
+            Buffer buffer = bufferService.GetBuffer(tab.Id);
             string content = buffer != null ? buffer.Content : string.Empty;
 
-            QuinSlate.Ui.Models.TabDefinition tab;
-            tabById.TryGetValue(i, out tab);
-            string emoji = tab != null ? tab.Emoji : i.ToString();
-            string title = tab != null ? tab.Title : i.ToString();
-            string label = emoji + " " + title;
+            // The row number is the tab's position, matching the Ctrl+1..Ctrl+5 shortcuts (which
+            // select by position), not the buffer id behind it.
+            int number = slot + 1;
 
             if (string.IsNullOrEmpty(content))
             {
-                rows[slot] = new TrayPeekRow(i, emoji, title, EmptyPreview, true);
+                rows[slot] = new TrayPeekRow(number, tab.Emoji, tab.Title, EmptyPreview, true);
             }
             else
             {
@@ -53,7 +45,7 @@ internal static class TrayPeekRowBuilder
                     firstLine = content.Substring(0, newlineIndex);
                 }
 
-                rows[slot] = new TrayPeekRow(i, emoji, title, firstLine, false);
+                rows[slot] = new TrayPeekRow(number, tab.Emoji, tab.Title, firstLine, false);
             }
         }
 

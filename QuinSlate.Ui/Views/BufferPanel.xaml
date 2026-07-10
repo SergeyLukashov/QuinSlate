@@ -17,11 +17,18 @@
     </UserControl.Resources>
 
     <Grid x:Name="RootGrid" Background="{ThemeResource AppBackgroundGradient}">
+        <!-- Tabs reorder by drag inside the strip only. The SDK maps CanReorderTabs ->
+             ListView.CanReorderItems and AllowDropTabs -> ListView.AllowDrop, and an in-list
+             reorder needs both; CanDragTabs -> ListView.CanDragItems governs dragging a tab OUT
+             as a data payload, which QuinSlate has no target for (the five buffers are fixed), so
+             it stays off and no drag visual ever leaves the window. -->
         <TabView
             x:Name="BufferTabView"
             IsAddTabButtonVisible="False"
-            CanReorderTabs="False"
-            TabWidthMode="Equal"
+            CanReorderTabs="True"
+            CanDragTabs="False"
+            AllowDropTabs="True"
+            TabWidthMode="SizeToContent"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"
             HorizontalContentAlignment="Stretch"
@@ -36,24 +43,30 @@
                 <SolidColorBrush x:Key="TabViewBorderBrush" Color="Transparent" />
                 <SolidColorBrush x:Key="TabViewItemSeparatorBrush" Color="Transparent" />
 
-                <!-- Equal-mode tab sizing.
+                <!-- Tab sizing is entirely ours; TabWidthMode is SizeToContent, NOT Equal.
 
-                     IMPORTANT: in Equal mode the SDK does NOT shrink tabs to a star column.
-                     The tab items live inside a horizontally scrollable ScrollViewer, so each
-                     item is measured against its MaxWidth, not against (window - footer). A
-                     large static MaxWidth therefore does NOT make the tabs "stretch then
-                     shrink" — instead every tab measures near MaxWidth and the strip overflows
-                     and clips off the right edge (and the scroll-button visibility test, driven
-                     by the same comparison, never fires). That is exactly the overflow bug a
-                     static MaxWidth=1000 produced.
+                     Equal mode never did what the name suggests here: it does not shrink tabs to
+                     a star column. The tab items live inside a horizontally scrollable
+                     ScrollViewer, so each item is measured against its MaxWidth, not against
+                     (window - footer) — a large static MaxWidth makes every tab measure near
+                     MaxWidth, so the strip overflows and clips off the right edge (the overflow
+                     bug a static MaxWidth=1000 produced). Equal tabs therefore have always come
+                     from code-behind (UpdateEqualTabMaxWidth) sizing each tab's HEADER to
+                     available/count on every size change.
 
-                     The per-tab MaxWidth that actually fills the row without overflowing depends
-                     on the live window width, and TabViewItem resource keys are read once and
-                     cannot be runtime-injected. So the real cap is applied in code-behind
-                     (UpdateEqualTabMaxWidth) by setting TabViewItem.MaxWidth = available/count on
-                     every size change. These resources are only static bounds: MaxWidth here is a
-                     non-binding ceiling, and MinWidth is the 100px floor below which tabs stop
-                     shrinking, overflow, and the SDK surfaces the scroll buttons. -->
+                     Equal mode additionally stamps an explicit Width on every TabViewItem from
+                     its own UpdateTabWidths, which it re-runs on every TabItems change. A
+                     drag-reorder lifts the dragged tab out of the collection and puts it back a
+                     frame later, and the width it computes during that gap clamps to
+                     minTabWidth — so all five tabs visibly snapped narrow for the duration of
+                     every drag and sprang back on drop. SizeToContent leaves Width unset, so the
+                     tabs simply take their pinned header width and hold it across the drag.
+
+                     These two stay as static bounds: MinWidth is the 100px floor that
+                     TabStripCalculator enforces (below it the tabs stop shrinking, the strip
+                     overflows, and the SDK surfaces its scroll buttons), and MaxWidth is a
+                     non-binding ceiling kept well above any realistic per-tab share so it never
+                     caps the tabs on a wide window (the SDK's own default is 200). -->
                 <x:Double x:Key="TabViewItemMinWidth">100</x:Double>
                 <x:Double x:Key="TabViewItemMaxWidth">1000</x:Double>
 

@@ -139,47 +139,66 @@ public sealed partial class SettingsService
     }
 
     /// <summary>
-    /// Returns the five tab definitions from settings, falling back to defaults
-    /// when no <c>tabs</c> entry is present or entries are missing.
+    /// Returns the five tab definitions from settings, in the persisted order. The array order
+    /// <em>is</em> the left-to-right tab order (the user reorders tabs by dragging them), so the
+    /// stored sequence is preserved rather than re-sorted by <c>Id</c>. Unknown and duplicate ids
+    /// are dropped, missing emoji/title fields fall back to that id's default, and any tab absent
+    /// from the file is appended in default order so the result always holds all five ids exactly
+    /// once.
     /// </summary>
     public IReadOnlyList<TabDefinition> GetTabs()
     {
         var result = new List<TabDefinition>(DefaultTabEntries.Length);
+        var seenIds = new HashSet<int>();
 
-        for (int i = 0; i < DefaultTabEntries.Length; i++)
+        if (settings.Tabs != null)
         {
-            var def = DefaultTabEntries[i];
-            TabEntry entry = null;
-
-            if (settings.Tabs != null)
+            foreach (var entry in settings.Tabs)
             {
-                foreach (var e in settings.Tabs)
+                if (entry == null)
                 {
-                    if (e != null && e.Id == def.Id)
-                    {
-                        entry = e;
-                        break;
-                    }
+                    continue;
                 }
-            }
 
-            if (entry == null)
-            {
-                result.Add(new TabDefinition { Id = def.Id, Emoji = def.Emoji, Title = def.Title });
-            }
-            else
-            {
+                TabEntry def = FindDefaultTabEntry(entry.Id);
+                if (def == null || !seenIds.Add(entry.Id))
+                {
+                    continue;
+                }
+
                 string emoji = string.IsNullOrEmpty(entry.Emoji) ? def.Emoji : entry.Emoji;
                 string title = entry.Title != null ? entry.Title : def.Title;
                 result.Add(new TabDefinition { Id = entry.Id, Emoji = emoji, Title = title });
             }
         }
 
+        foreach (var def in DefaultTabEntries)
+        {
+            if (seenIds.Add(def.Id))
+            {
+                result.Add(new TabDefinition { Id = def.Id, Emoji = def.Emoji, Title = def.Title });
+            }
+        }
+
         return result;
     }
 
+    private static TabEntry FindDefaultTabEntry(int id)
+    {
+        foreach (var def in DefaultTabEntries)
+        {
+            if (def.Id == id)
+            {
+                return def;
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>
-    /// Replaces the persisted tab definitions and triggers an async save.
+    /// Replaces the persisted tab definitions and triggers an async save. The order of
+    /// <paramref name="tabs"/> is the left-to-right tab order and is written out as-is.
     /// </summary>
     public void SetTabs(IReadOnlyList<TabDefinition> tabs)
     {

@@ -101,13 +101,16 @@ public sealed class BufferKeyboardController
         }
     }
 
-    /// <summary>Raises <see cref="EditFlyoutRequested"/> for the selected tab, if any.</summary>
+    /// <summary>
+    /// Raises <see cref="EditFlyoutRequested"/> for the selected tab, if any. The buffer index is
+    /// read from the tab's <c>Tag</c>, not from its strip position: the two diverge as soon as the
+    /// user drag-reorders the tabs.
+    /// </summary>
     public void RequestEditFlyout()
     {
-        int selectedIndex = tabView.SelectedIndex;
-        if (selectedIndex >= 0)
+        if (tabView.SelectedItem is TabViewItem selected && selected.Tag is int bufferIndex)
         {
-            EditFlyoutRequested?.Invoke(this, selectedIndex + 1);
+            EditFlyoutRequested?.Invoke(this, bufferIndex);
         }
     }
 

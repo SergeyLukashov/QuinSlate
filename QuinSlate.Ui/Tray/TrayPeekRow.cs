@@ -5,7 +5,7 @@ namespace QuinSlate.Ui.Tray;
 /// </summary>
 internal sealed class TrayPeekRow
 {
-    /// <summary>The 1-based index/number of the buffer.</summary>
+    /// <summary>The 1-based position of the tab in the tab strip (the row's Ctrl+N shortcut).</summary>
     public int Number { get; }
 
     /// <summary>Emoji character(s) for the tab.</summary>

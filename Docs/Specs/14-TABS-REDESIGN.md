@@ -1,6 +1,6 @@
 # Spec #14 — Tab System Redesign
 
-> _Last updated: 2026-07-05_
+> _Last updated: 2026-07-09_
 
 ## Overview
 
@@ -51,6 +51,25 @@ not appear even in a disabled state.
 
 ---
 
+## 2.1 Reordering
+
+Tabs may be **dragged left or right within the strip** to change their order, with the SDK's
+standard reorder animation. The new order is persisted immediately (see §6) and restored on
+relaunch.
+
+- Tabs cannot be dragged **out** of the strip: there is no second window or external drop
+  target, so `CanDragTabs` stays `false` and no drag visual ever leaves the window. Reorder is
+  driven by `CanReorderTabs` + `AllowDropTabs` alone.
+- A tab's **buffer identity travels with the tab**: reordering never moves text between buffers,
+  and never renames or migrates a buffer file. Every place that needs the buffer behind a tab
+  reads the tab's `Tag`, never its strip position.
+- Reorder **does not change which buffer is active**. The SDK momentarily removes the dragged
+  item from the strip before re-inserting it, which transiently moves the selection; the panel
+  ignores selection changes while the strip is short an item, so the editor never swaps its text
+  mid-drag.
+
+---
+
 ## 3. Tab Anatomy
 
 Each tab renders as:
@@ -61,12 +80,30 @@ Each tab renders as:
 
 - Tab widths are **equal**, dividing the available title-bar width (the strip width minus
   the logo on the left and the reserved footer spacer on the right) evenly across all five
-  tabs. `TabViewItemMaxWidth` is raised well above any realistic per-tab share, so on wide
-  windows the five tabs **stretch to fill** the strip up to the footer reservation rather
-  than capping early and leaving a large empty void; the only empty region on the right is
-  the reserved footer (button cluster + gap). On narrow windows the tabs shrink to
-  `TabViewItemMinWidth` and then the strip scrolls. The tabs never overlap or render under
-  the button cluster.
+  tabs. This is done by sizing each tab's **header** to that share under
+  `TabWidthMode="SizeToContent"` — *not* with `TabWidthMode="Equal"`, whose own width pass
+  stamps a width on every tab and re-runs whenever the tab collection changes, squeezing all
+  five tabs to their minimum for the duration of a drag-reorder. `TabViewItemMaxWidth` is
+  raised well above any realistic per-tab share, so on wide windows the five tabs **stretch to
+  fill** the strip up to the footer reservation rather than capping early and leaving a large
+  empty void; the only empty region on the right is the reserved footer (button cluster + gap).
+  On narrow windows the tabs shrink to `TabViewItemMinWidth` and then the strip scrolls. The
+  tabs never overlap or render under the button cluster.
+- The per-tab share is computed from the strip width **less the strip's own chrome**
+  (`TabStripCalculator.TabStripChrome`: the strip `ScrollViewer`'s border plus the padding its
+  `ItemsPresenter` puts around the tab run) and is **truncated to a whole DIP**, because layout
+  snaps each tab's width up to a device pixel. Without this the five tabs measure a few DIP wider
+  than the strip's viewport, so the strip is permanently scrollable even though the tabs appear to
+  fit. Nothing scrolls it in ordinary use, but a **drag-reorder does, and it then stays parked at
+  that offset with the whole row drawn a few pixels left of where it belongs** (it appears to heal
+  itself on a tab switch only because the SDK scrolls the newly selected tab back into view). The
+  same overshoot trips the SDK's own overflow test at some window widths, surfacing scroll
+  chevrons on a strip whose tabs plainly fit.
+- Belt and braces on top of that: the strip's **scroll buttons are suppressed, and its scroll
+  offset pinned to 0, whenever the five tabs fit** above their minimum width; both are handed back
+  to the SDK once the tabs are squeezed to that floor and the strip must genuinely scroll. The
+  offset is re-pinned from the strip's own `ViewChanged`, since the SDK scrolls the dropped tab
+  into view *after* the tab collection has settled.
 - Long titles are **truncated with an ellipsis** (`…`) at the tab's inner boundary.
 - **Active tab** — uses the WinUI 3 `TabView` selected-state treatment; background
   matches the content area so tab and editor read as one continuous surface.
@@ -181,11 +218,16 @@ Requirements for the picker component:
 
 ### Active Tab on Relaunch
 
-The panel **always opens on Tab 1** on relaunch. Active tab state is not persisted.
+The panel **always opens on the leftmost tab** on relaunch. Active tab state is not persisted.
 
 ### settings.json Schema
 
 `settings.json` gains a `tabs` array. Buffer content files are unchanged.
+
+**The array's order is the left-to-right tab order** — that is how a drag-reorder is persisted.
+Entries are therefore never re-sorted by `Id` when read. Unknown and duplicate ids are dropped,
+and any of the five ids missing from the file is appended in default order, so the loaded list
+always holds each id exactly once.
 
 ```json
 {
@@ -225,7 +267,7 @@ When the peek preview window is disabled, the tray icon tooltip is set to the st
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+1` … `Ctrl+5` | Switch to tab N (active while panel is open) |
+| `Ctrl+1` … `Ctrl+5` | Switch to the Nth tab **by position**, so the shortcut follows a reorder (active while panel is open) |
 | `F2` with a tab focused | Open edit popover for that tab |
 | `Enter` in edit popover | Save and close popover |
 | `Esc` | Close edit popover without saving |

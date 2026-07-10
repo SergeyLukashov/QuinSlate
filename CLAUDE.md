@@ -39,7 +39,8 @@ QuinSlate/
 │   ├── Specs/                # Product specifications and feature queue
 │   ├── Investigations/       # Deep-dives into platform bugs, dead-end archaeology
 │   ├── Decisions/            # Architecture decision records (ADRs)
-│   └── Plans/                # Implementation plans for multi-step work
+│   ├── Plans/                # Implementation plans for multi-step work
+│   └── Wiki/                 # "Read this before you change X" — distilled platform knowledge
 ├── Scratch/                  # Local-only scratchpad for temporary code/scripts
 ```
 
@@ -264,14 +265,15 @@ If it is decided during implementation to drift away from the initial requiremen
 
 ## Docs conventions
 
-Everything under `Docs/` (`Specs/`, `Investigations/`, `Decisions/`, `Plans/`) follows one
-naming and stamping convention. Apply it to every new or renamed doc.
+Everything under `Docs/` (`Specs/`, `Investigations/`, `Decisions/`, `Plans/`, `Wiki/`) follows
+one naming and stamping convention. Apply it to every new or renamed doc.
 
 - **Filename:** `NN-KEBAB-NAME.md` — a two-digit ordinal prefix, then an UPPERCASE
   kebab-case name, `.md`. No type token in the name (the folder already conveys the type:
-  spec / investigation / decision / plan). The ordinal is per-folder and orders the files;
-  `00-` is reserved for a folder's index/queue (e.g. `Specs/00-FEATURE-QUEUE.md`). Pick the
-  next free number in that folder. Investigations and plans are numbered chronologically.
+  spec / investigation / decision / plan / wiki). The ordinal is per-folder and orders the files;
+  `00-` is reserved for a folder's index/queue (e.g. `Specs/00-FEATURE-QUEUE.md`,
+  `Wiki/00-INDEX.md`). Pick the next free number in that folder. Investigations and plans are
+  numbered chronologically.
 - **Date stamp:** every doc opens with its H1 title immediately followed by a
   `> _Last updated: YYYY-MM-DD_` blockquote. Refresh that date (ISO `YYYY-MM-DD`) whenever
   you edit the doc.

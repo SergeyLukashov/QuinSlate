@@ -30,6 +30,8 @@ internal sealed class EditorHost
     private const string EditorAssetsRelativePath = "WebEditor";
     private const string WebView2UserDataFolderName = "WebView2";
 
+    private static Task<CoreWebView2Environment> sharedEnvironmentTask;
+
     private readonly WebView2 webView;
     private readonly string appDataDirectory;
 
@@ -53,9 +55,16 @@ internal sealed class EditorHost
 
     /// <summary>
     /// Raised after the page has composited a frame with the gradient and text, so the host can
-    /// drop the startup cover that hides the black WebView2 swapchain.
+    /// start the reveal sequence (uncloak, then <see cref="BeginEntrance"/>).
     /// </summary>
     public event EventHandler Painted;
+
+    /// <summary>
+    /// Raised when the page has started the startup reveal entrance (see
+    /// <see cref="BeginEntrance"/>) on a frame presented while visible, so the host can drop the
+    /// startup cover onto the entrance's opacity-0 first frames.
+    /// </summary>
+    public event EventHandler EntranceStarted;
 
     /// <summary>Creates the host over <paramref name="webView"/>, storing data under <paramref name="appDataDirectory"/>.</summary>
     public EditorHost(WebView2 webView, string appDataDirectory)
@@ -78,6 +87,31 @@ internal sealed class EditorHost
     public bool IsReady => isReady;
 
     /// <summary>
+    /// Starts creating the shared <see cref="CoreWebView2Environment"/> (the browser-process
+    /// spawn — the longest single step of editor bring-up) without waiting for the window or the
+    /// <see cref="WebView2"/> control to exist. Called as the very first startup work so the
+    /// environment is created in parallel with settings/buffer loads and window construction;
+    /// <see cref="InitializeAsync"/> awaits the same task instead of starting from cold. A faulted
+    /// prewarm surfaces when awaited there and follows the normal <see cref="CreationFailed"/> path.
+    /// </summary>
+    public static void PrewarmEnvironment(string appDataDirectory)
+    {
+        if (sharedEnvironmentTask != null || appDataDirectory == null)
+        {
+            return;
+        }
+
+        sharedEnvironmentTask = CreateEnvironmentAsync(appDataDirectory);
+    }
+
+    private static Task<CoreWebView2Environment> CreateEnvironmentAsync(string appDataDirectory)
+    {
+        // The user data folder must live inside the app-data directory (required for MSIX).
+        string userDataFolder = Path.Combine(appDataDirectory, WebView2UserDataFolderName);
+        return CoreWebView2Environment.CreateWithOptionsAsync(null, userDataFolder, new CoreWebView2EnvironmentOptions()).AsTask();
+    }
+
+    /// <summary>
     /// Creates the WebView2 environment (user data folder inside the app-data directory, required
     /// for MSIX), applies the hardened settings, maps the editor assets over a virtual host, sets
     /// the flat mid-tone background so the first frame does not flash white, and navigates to the
@@ -98,9 +132,12 @@ internal sealed class EditorHost
             // never Chromium's white default.
             webView.DefaultBackgroundColor = defaultBackground;
 
-            string userDataFolder = Path.Combine(appDataDirectory, WebView2UserDataFolderName);
-            CoreWebView2Environment environment =
-                await CoreWebView2Environment.CreateWithOptionsAsync(null, userDataFolder, new CoreWebView2EnvironmentOptions());
+            if (sharedEnvironmentTask == null)
+            {
+                sharedEnvironmentTask = CreateEnvironmentAsync(appDataDirectory);
+            }
+
+            CoreWebView2Environment environment = await sharedEnvironmentTask;
             await webView.EnsureCoreWebView2Async(environment);
 
             CoreWebView2 core = webView.CoreWebView2;
@@ -215,6 +252,9 @@ internal sealed class EditorHost
             case "painted":
                 Painted?.Invoke(this, EventArgs.Empty);
                 break;
+            case "entranceStarted":
+                EntranceStarted?.Invoke(this, EventArgs.Empty);
+                break;
             case "contentSync":
                 ContentSynced?.Invoke(this, new EditorContentEventArgs(GetInt(root, "index"), GetString(root, "text")));
                 break;
@@ -294,6 +334,32 @@ internal sealed class EditorHost
     public void FocusEditor()
     {
         PostJson(writer => writer.WriteString("type", "focus"));
+    }
+
+    /// <summary>
+    /// Releases the page's caret-blink hold (or restarts the blink cycle when the hold is
+    /// already released) so the caret shows a full solid phase from the moment it first becomes
+    /// visible. Used by the non-entrance paths: the startup-cover fallback and a page reload
+    /// after an editor-process failure. The normal startup path releases the hold inside
+    /// <see cref="BeginEntrance"/>.
+    /// </summary>
+    public void ResetCaretBlink()
+    {
+        PostJson(writer => writer.WriteString("type", "resetBlink"));
+    }
+
+    /// <summary>
+    /// Asks the page to run the startup reveal entrance: after a frame that was demonstrably
+    /// presented while visible (the window has just been uncloaked with the flat startup cover
+    /// still up), the editor replays its fade-and-slide entrance from opacity zero, releases the
+    /// caret-blink hold, and reports <see cref="EntranceStarted"/> so the host can drop the
+    /// cover onto the animation's flat first frames. Sequencing the reveal through the page —
+    /// rather than trusting the uncloak instant — is what makes it immune to Chromium's
+    /// present-while-cloaked throttling, which otherwise pops the text in a few frames late.
+    /// </summary>
+    public void BeginEntrance()
+    {
+        PostJson(writer => writer.WriteString("type", "entrance"));
     }
 
     /// <summary>Asks the page to push any pending content immediately (blur / hide / shutdown).</summary>

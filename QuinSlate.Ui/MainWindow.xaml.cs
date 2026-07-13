@@ -46,6 +46,19 @@ public sealed partial class MainWindow : Window
     // reshuffle so the owner is still enabled when Windows reassigns the foreground.
     private const int AboutModalFinaliseDelayMilliseconds = 64;
 
+    // Upper bound on how long the startup reveal waits for the editor's first paint before
+    // uncloaking anyway (showing the flat cover, exactly the pre-reveal behaviour), so a slow
+    // or failed editor bring-up can never leave the window invisible.
+    private const int StartupRevealDeadlineMilliseconds = 800;
+
+    // How long after the startup render settles the tray-peek warm-up runs. The warm-up's
+    // first XAML-island composition momentarily steals Win32 focus (even from a disabled,
+    // non-activating window — the island's inner input window is not covered by the owner's
+    // WS_DISABLED), which blanks the editor caret for a frame. Right after the reveal that
+    // reads as a caret flash; two seconds in, the caret is mid-blink-cycle and a one-frame
+    // hide is indistinguishable from the blink itself.
+    private const int PeekWarmUpDelayMilliseconds = 2000;
+
     // One-time notice shown the first time the panel is hidden to the tray, so the user
     // learns the app keeps running rather than having quit.
     private const string TrayNoticeTitle = AppConstants.AppName + " is still running";
@@ -83,6 +96,9 @@ public sealed partial class MainWindow : Window
 
     private bool isPanelVisible;
     private bool isWindowActive;
+    private bool isStartupRevealComplete;
+    private DispatcherQueueTimer startupRevealTimer;
+    private DispatcherQueueTimer peekWarmUpTimer;
     private long lastDeactivatedTick;
     private const long RecentDeactivationThresholdMs = 800;
     private bool isPinned;
@@ -105,7 +121,7 @@ public sealed partial class MainWindow : Window
     /// Must be called once after construction. Calling it more than once is a no-op after
     /// the first successful call.
     /// </summary>
-    public void Initialise(BufferService bufferService, string trayIconFilePath, StartupService startupService, SettingsService settingsService, bool startHidden)
+    public void Initialise(BufferService bufferService, IReadOnlyList<Buffer> buffers, string trayIconFilePath, StartupService startupService, SettingsService settingsService, bool startHidden)
     {
         if (isInitialised)
         {
@@ -115,6 +131,11 @@ public sealed partial class MainWindow : Window
         if (bufferService == null)
         {
             throw new ArgumentNullException(nameof(bufferService));
+        }
+
+        if (buffers == null)
+        {
+            throw new ArgumentNullException(nameof(buffers));
         }
 
         if (startupService == null)
@@ -133,7 +154,6 @@ public sealed partial class MainWindow : Window
 
         Title = WindowTitle;
 
-        IReadOnlyList<Buffer> buffers = bufferService.LoadAll();
         IReadOnlyList<QuinSlate.Ui.Models.TabDefinition> tabDefinitions = settingsService.GetTabs();
         Panel.Initialise(bufferService, buffers, settingsService, tabDefinitions);
 
@@ -183,6 +203,8 @@ public sealed partial class MainWindow : Window
         Closed += OnWindowClosed;
         Panel.PinToggleRequested += OnPanelPinToggleRequested;
         Panel.CloseRequested += OnPanelCloseRequested;
+        Panel.EditorFirstPainted += OnPanelEditorFirstPainted;
+        Panel.StartupRenderSettled += OnPanelStartupRenderSettled;
 
         isPinned = settingsService.IsPinned;
         ApplyPinState();
@@ -202,28 +224,111 @@ public sealed partial class MainWindow : Window
             this.Activate();
             HidePanel();
             NativeMethods.SetWindowCloak(windowHandle, false);
+            isStartupRevealComplete = true;
         }
         else
         {
-            // Activate initialises the XAML island; ShowPanel then brings the panel to the
-            // foreground.
+            // Cloak through the first composition so the window appears once, complete. Shown
+            // uncloaked, it visibly assembles itself over several frames — bare frame and tab
+            // strip first, then the logo image, then the selected tab's indicator, and last the
+            // editor text — a stutter of pop-ins (captured frame-by-frame). Activate still runs
+            // immediately (the XAML island and the WebView2 cannot initialise without it); the
+            // uncloak happens once the editor page reports its first paint, or at a bounded
+            // deadline as the safety net. The editor text itself is handed off by the page's
+            // reveal entrance (see OnPanelEditorFirstPainted), not by the uncloak instant.
+            NativeMethods.SetWindowCloak(windowHandle, true);
             this.Activate();
             ShowPanel();
+            ScheduleStartupReveal();
+        }
+    }
+
+    /// <summary>
+    /// Arms the startup-reveal deadline. The reveal normally runs from
+    /// <see cref="OnPanelEditorFirstPainted"/>; the timer guarantees the window can never stay
+    /// cloaked longer than <see cref="StartupRevealDeadlineMilliseconds"/> (past it, the panel
+    /// shows the flat startup cover and the editor's entrance runs whenever its first paint
+    /// finally lands).
+    /// </summary>
+    private void ScheduleStartupReveal()
+    {
+        startupRevealTimer = DispatcherQueue.CreateTimer();
+        startupRevealTimer.Interval = TimeSpan.FromMilliseconds(StartupRevealDeadlineMilliseconds);
+        startupRevealTimer.Tick += (sender, args) =>
+        {
+            RevealStartupWindow();
+        };
+        startupRevealTimer.Start();
+    }
+
+    /// <summary>
+    /// Uncloaks the window. The panel is fully composed except the editor area, which still
+    /// shows the flat startup cover; the editor content is brought in by the page's reveal
+    /// entrance rather than this uncloak, because Chromium throttles frame presentation while
+    /// the window is cloaked and its surface at the uncloak instant cannot be trusted (the
+    /// text visibly popped in a few frames after the reveal — captured at 60 fps). Idempotent.
+    /// </summary>
+    private void RevealStartupWindow()
+    {
+        if (isStartupRevealComplete)
+        {
+            return;
         }
 
-        if (settingsService.TrayPeekEnabled)
+        isStartupRevealComplete = true;
+
+        if (startupRevealTimer != null)
         {
-            // Run the peek window's first-ever XAML composition now, off the tray-hover path
-            // (see TrayPeekWindow.WarmUp). Deferred at low priority so the panel's own first
-            // paint is not delayed by building a second window.
-            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () =>
-            {
-                if (isTornDown == false && trayPeekWindow != null)
-                {
-                    trayPeekWindow.WarmUp();
-                }
-            });
+            startupRevealTimer.Stop();
+            startupRevealTimer = null;
         }
+
+        NativeMethods.SetWindowCloak(windowHandle, false);
+    }
+
+    /// <summary>
+    /// Runs when the editor page reports its first composited frame: uncloak (the reveal), then
+    /// ask the page to run the reveal entrance. The entrance starts on a frame the page has
+    /// demonstrably presented while visible and fades the text in from the cover's flat tone,
+    /// so the hand-off contains no frame-exact races. On the deadline path the window is
+    /// already uncloaked and this just runs the entrance.
+    /// </summary>
+    private void OnPanelEditorFirstPainted(object sender, EventArgs e)
+    {
+        RevealStartupWindow();
+        Panel.BeginStartupEntrance();
+    }
+
+    /// <summary>
+    /// Runs the deferred startup warm-ups once the startup cover has dropped (the editor's
+    /// reveal entrance started, or the panel's bounded fallback fired). Until then the UI
+    /// thread and GPU belong to the critical launch path — window bring-up plus the
+    /// WebView2/CodeMirror cold start — and the peek window's first-ever XAML composition (see
+    /// <see cref="TrayPeekWindow.WarmUp"/>) is heavy enough to visibly delay it, so it waits
+    /// its turn instead of competing. The reveal call is the safety net for the fallback paths
+    /// (e.g. WebView2 creation failure), where no first paint ever arrives.
+    /// </summary>
+    private void OnPanelStartupRenderSettled(object sender, EventArgs e)
+    {
+        RevealStartupWindow();
+
+        if (settingsService == null || settingsService.TrayPeekEnabled == false)
+        {
+            return;
+        }
+
+        peekWarmUpTimer = DispatcherQueue.CreateTimer();
+        peekWarmUpTimer.Interval = TimeSpan.FromMilliseconds(PeekWarmUpDelayMilliseconds);
+        peekWarmUpTimer.Tick += (timerSender, args) =>
+        {
+            peekWarmUpTimer.Stop();
+            peekWarmUpTimer = null;
+            if (isTornDown == false && trayPeekWindow != null)
+            {
+                trayPeekWindow.WarmUp();
+            }
+        };
+        peekWarmUpTimer.Start();
     }
 
     private void ConfigureWindowAppearance()
@@ -763,6 +868,18 @@ public sealed partial class MainWindow : Window
     {
         isTornDown = true;
 
+        if (startupRevealTimer != null)
+        {
+            startupRevealTimer.Stop();
+            startupRevealTimer = null;
+        }
+
+        if (peekWarmUpTimer != null)
+        {
+            peekWarmUpTimer.Stop();
+            peekWarmUpTimer = null;
+        }
+
         if (originalWndProc != IntPtr.Zero)
         {
             NativeMethods.SetWindowLongPtr(windowHandle, NativeMethods.GWLP_WNDPROC, originalWndProc);
@@ -836,6 +953,18 @@ public sealed partial class MainWindow : Window
 
     private void ExitApplication()
     {
+        // Hide the window before tearing down. Teardown restores the original WndProc (dropping
+        // the WM_ERASEBKGND background fill) and disposes the background brush while synchronous
+        // shutdown writes run, so a still-visible window gets erased to the stock white by
+        // DefWindowProc for its final frames — a white flash on exit. Hidden directly via
+        // AppWindow rather than HidePanel, which would pop the "still running" tray notice.
+        if (appWindow != null)
+        {
+            appWindow.Hide();
+        }
+
+        isPanelVisible = false;
+
         Teardown();
         Environment.Exit(App.ExitCodeNormal);
     }

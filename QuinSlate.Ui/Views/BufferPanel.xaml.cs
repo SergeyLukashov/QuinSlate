@@ -142,8 +142,8 @@ public sealed partial class BufferPanel : UserControl
     private const int DitheredRebuildDebounceMs = 90;
 
     /// <summary>
-    /// Fallback that drops the startup cover even if the page never reports its first paint (e.g. a
-    /// WebView2 creation failure), so the editor area can never stay stuck showing the flat cover.
+    /// Fallback that drops the startup cover even if the reveal entrance never starts (e.g. the
+    /// page never paints), so the editor area can never stay stuck showing the flat cover.
     /// </summary>
     private DispatcherTimer startupCoverTimer;
     private const int StartupCoverFallbackMs = 2500;
@@ -153,6 +153,25 @@ public sealed partial class BufferPanel : UserControl
     /// editor host was not laid out yet (see <see cref="ScheduleDitheredRetry"/>).
     /// </summary>
     private bool isDitheredRetryScheduled;
+
+    /// <summary>
+    /// Whether <see cref="StartupRenderSettled"/> has already been raised, so repeat paint
+    /// notifications from the page (every background rebuild reposts one) raise it only once.
+    /// </summary>
+    private bool hasStartupRenderSettled;
+
+    /// <summary>
+    /// Whether <see cref="EditorFirstPainted"/> has already been raised (the page reposts a
+    /// paint notification after every background rebuild; only the first one is the startup
+    /// first paint).
+    /// </summary>
+    private bool hasSeenFirstPaint;
+
+    /// <summary>
+    /// Whether the page ran the startup reveal entrance. When it did, the entrance already
+    /// released the caret-blink hold; the fallback cover drop must release it itself.
+    /// </summary>
+    private bool hasEntranceRun;
 
     /// <summary>
     /// Raised when the user clicks the pin button. The caller should toggle
@@ -171,6 +190,37 @@ public sealed partial class BufferPanel : UserControl
     /// should refresh the tray tooltip when this event fires.
     /// </summary>
     public event EventHandler TabLabelChanged;
+
+    /// <summary>
+    /// Raised once, when the editor page reports its first composited frame. The window is
+    /// still cloaked (or, past the reveal deadline, showing the flat startup cover); the caller
+    /// should uncloak and then call <see cref="BeginStartupEntrance"/> to run the visible
+    /// hand-off.
+    /// </summary>
+    public event EventHandler EditorFirstPainted;
+
+    /// <summary>
+    /// Raised once, when the startup cover drops: the editor's reveal entrance has started (or
+    /// the bounded fallback fired, including on a WebView2 creation failure). This is the point
+    /// the launch-critical rendering is done, so deferred warm-up work that would otherwise
+    /// compete with it for the UI thread and GPU is scheduled from here.
+    /// </summary>
+    public event EventHandler StartupRenderSettled;
+
+    /// <summary>
+    /// Asks the editor page to run the startup reveal entrance (fade + slide from opacity
+    /// zero, caret-blink hold released). Called by the window right after it has uncloaked;
+    /// the page confirms on a frame presented while visible and the startup cover then drops
+    /// onto the animation's flat first frames — the sequencing that keeps Chromium's
+    /// present-while-cloaked throttling from popping the text in after the reveal.
+    /// </summary>
+    public void BeginStartupEntrance()
+    {
+        if (editorHost != null)
+        {
+            editorHost.BeginEntrance();
+        }
+    }
 
     /// <summary>
     /// The element to pass to <c>Window.SetTitleBar</c> as the drag region.
@@ -295,6 +345,8 @@ public sealed partial class BufferPanel : UserControl
         editorHost.KeyCommandReceived += OnEditorKeyCommand;
         editorHost.ContextMenuRequested += OnEditorContextMenuRequested;
         editorHost.Painted += OnEditorPainted;
+        editorHost.EntranceStarted += OnEditorEntranceStarted;
+        editorHost.CreationFailed += OnEditorCreationFailed;
 
         // A flat mid-tone stands in on every surface until the dithered mesh swaps in (the window
         // via the fallback brush here; the editor via the WebView2 DefaultBackgroundColor set on
@@ -769,7 +821,6 @@ public sealed partial class BufferPanel : UserControl
     {
         ApplyDitheredBackground();
         PositionEditorHost();
-        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => emojiPicker.Prewarm(RootGrid.XamlRoot));
     }
 
     private void OnPanelActualThemeChanged(FrameworkElement sender, object args)
@@ -802,6 +853,15 @@ public sealed partial class BufferPanel : UserControl
 
     private void OnEditorReady(object sender, EventArgs e)
     {
+        if (hasStartupRenderSettled)
+        {
+            // A repeat ready is a page reload after an editor-process failure. The reloaded
+            // page starts with the caret-blink hold applied (it cannot know it is already
+            // visible), and the startup cover flow that normally releases it will not run
+            // again — release it here or the caret stays frozen solid.
+            editorHost.ResetCaretBlink();
+        }
+
         var payload = new List<KeyValuePair<int, string>>();
         if (initialBuffers != null)
         {
@@ -917,11 +977,33 @@ public sealed partial class BufferPanel : UserControl
 
     private void OnEditorPainted(object sender, EventArgs e)
     {
+        if (hasSeenFirstPaint)
+        {
+            return;
+        }
+
+        hasSeenFirstPaint = true;
+        EditorFirstPainted?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void OnEditorEntranceStarted(object sender, EventArgs e)
+    {
+        hasEntranceRun = true;
         DropStartupCover();
     }
 
     /// <summary>
-    /// Hides the flat startup cover once the editor page has painted its first real frame (or after
+    /// Degrades to the flat panel when the WebView2 could not be created at all: the cover (and
+    /// the deferred warm-ups behind <see cref="StartupRenderSettled"/>) must not wait for a first
+    /// paint that will never come.
+    /// </summary>
+    private void OnEditorCreationFailed(object sender, EventArgs e)
+    {
+        DropStartupCover();
+    }
+
+    /// <summary>
+    /// Hides the flat startup cover once the editor page has started its reveal entrance (or after
     /// a bounded fallback delay), revealing the gradient + text without the black WebView2 swapchain
     /// ever showing. Idempotent.
     /// </summary>
@@ -937,6 +1019,28 @@ public sealed partial class BufferPanel : UserControl
         {
             EditorStartupCover.Visibility = Visibility.Collapsed;
         }
+
+        if (hasStartupRenderSettled)
+        {
+            return;
+        }
+
+        hasStartupRenderSettled = true;
+
+        // On the normal path the reveal entrance already released the page's caret-blink hold.
+        // When the cover drops without an entrance (the bounded fallback), release it here so
+        // the caret can never stay frozen solid.
+        if (hasEntranceRun == false && editorHost != null)
+        {
+            editorHost.ResetCaretBlink();
+        }
+
+        // The launch-critical rendering is done; warm-ups may now use the idle UI thread. The
+        // emoji picker prewarm runs here (not on Loaded) for the same reason the peek warm-up
+        // waits for StartupRenderSettled: at Low priority it still interleaves with the
+        // WebView2/CodeMirror cold start and stretches the time to a usable editor.
+        DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => emojiPicker.Prewarm(RootGrid.XamlRoot));
+        StartupRenderSettled?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>

@@ -50,6 +50,19 @@ body {
   height: 100%;
 }
 
+/* Caret blink hold: while set (from page load until released after the reveal entrance), the
+   caret's blink animation is suppressed entirely — a solid caret. The page comes up behind the
+   host's startup cloak/cover, so the blink cycle would otherwise start invisibly at focus and
+   be revealed mid-cycle: the caret cuts out (or in) moments after the window appears. Solid by
+   construction beats pausing: `animation-play-state: paused` resumed on this engine at the
+   wall-clock phase, not the frozen one, putting the release back in the phase lottery
+   (captured frame-by-frame). See resetCaretBlink in main.js for the two-step release that
+   anchors a fresh cycle without exposing a single mid-phase frame. !important beats the inline
+   animation-name the CM6 cursor layer maintains on itself. */
+.caret-hold .cm-cursorLayer {
+  animation-name: none !important;
+}
+
 /* Tab-content entrance: fade + 12px slide-up over 180 ms (ease-out cubic), matching the retired
    XAML entrance. Applied to the editor, not the WebView2 element, so nothing flashes. */
 .cm-editor.cm-entering {

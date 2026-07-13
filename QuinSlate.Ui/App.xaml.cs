@@ -1,12 +1,16 @@
 using Microsoft.UI.Xaml;
+using QuinSlate.Ui.Components;
 using QuinSlate.Ui.Constants;
 using QuinSlate.Ui.Interop;
 using QuinSlate.Ui.Logging;
 using QuinSlate.Ui.Services;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
+using Buffer = QuinSlate.Ui.Models.Buffer;
 
 namespace QuinSlate.Ui;
 
@@ -90,18 +94,28 @@ public partial class App : Application
 
         var appDataDirectory = ResolveAppDataDirectory();
         LogBootstrapper.Initialize(appDataDirectory);
+
+        // The browser-process spawn is the longest single step between launch and a usable
+        // editor; start it before anything else so it overlaps the loads and window bring-up.
+        EditorHost.PrewarmEnvironment(appDataDirectory);
+
         LogBootstrapper.LogStartupBanner();
 
         bufferService = new BufferService(appDataDirectory);
-
         settingsService = new SettingsService(appDataDirectory);
-        await settingsService.LoadAsync();
+
+        Task<IReadOnlyList<Buffer>> buffersTask = Task.Run(() => bufferService.LoadAll());
+        await Task.WhenAll(settingsService.LoadAsync(), buffersTask);
 
         startupService = new StartupService(settingsService);
-        await startupService.EnsureRegisteredOnFirstLaunchAsync();
 
         window = new MainWindow();
-        window.Initialise(bufferService, ResolveTrayIconPath(), startupService, settingsService, launchedAtStartup);
+        window.Initialise(bufferService, buffersTask.Result, ResolveTrayIconPath(), startupService, settingsService, launchedAtStartup);
+
+        // First-launch startup registration is a slow out-of-process broker call
+        // (StartupTask.GetAsync); it has no bearing on the UI, so it runs after the
+        // window is up rather than gating it.
+        await startupService.EnsureRegisteredOnFirstLaunchAsync();
     }
 
     private static string ResolveAppDataDirectory()

@@ -1,6 +1,6 @@
 # SPEC: Buffer peek
 
-> _Last updated: 2026-07-09_
+> _Last updated: 2026-07-10_
 
 ## What
 Hovering the tray icon shows a preview of the first line of each buffer
@@ -76,11 +76,23 @@ Without re-asserting it each time, a demoted peek reappears behind every
 other window and stays there until the app restarts.
 
 The window is created and **warmed up at startup** when tray peek is
-enabled (`TrayPeekWindow.WarmUp`, enqueued at low dispatcher priority
-from `MainWindow.Initialise`): it is shown once non-activated and fully
-transparent so the XAML island's first composition — the heaviest,
-most failure-prone moment — happens off the hover path, then hidden
-when its content loads. It is permanently `WS_EX_LAYERED` with alpha
+enabled (`TrayPeekWindow.WarmUp`, run from a one-shot timer two seconds
+after the buffer panel raises `StartupRenderSettled`): it is shown once
+non-activated and fully transparent so the XAML island's first
+composition — the heaviest, most failure-prone moment — happens off the
+hover path, then hidden when its content loads. The delay keeps the
+warm-up clear of both the launch-critical WebView2/CodeMirror bring-up
+and the caret hand-off right after the startup reveal: the island's
+first composition momentarily steals Win32 keyboard focus, which blanks
+the editor caret for a frame — imperceptible mid-blink two seconds in,
+a visible caret flash if it lands during the reveal.
+
+The window is permanently **disabled** (`EnableWindow(false)`, like a
+real tooltip): `WS_EX_NOACTIVATE`/`MA_NOACTIVATE` stop activation but
+not the island's keyboard-focus grab, and a disabled window rejects
+focus outright, so a hover can never pull typing focus out of the
+editor. Rendering, layering, and the cursor-polling hover tracking are
+unaffected. It is permanently `WS_EX_LAYERED` with alpha
 resting at 0; see
 [15-PEEK-SHOW-ANIMATION.md](15-PEEK-SHOW-ANIMATION.md) and
 [04-TRAY-PEEK-HOVER-FAILFAST-CRASH.md](../Investigations/04-TRAY-PEEK-HOVER-FAILFAST-CRASH.md)

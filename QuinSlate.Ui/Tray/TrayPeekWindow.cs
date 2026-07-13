@@ -279,6 +279,16 @@ public sealed class TrayPeekWindow : IDisposable
             NativeMethods.HWND_TOPMOST,
             0, 0, 0, 0,
             NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE);
+
+        // The peek is a tooltip: it must never take input. WS_EX_NOACTIVATE and MA_NOACTIVATE
+        // stop *activation*, but the XAML island still grabs Win32 keyboard focus when the
+        // window's content first loads — at startup (the warm-up) that blur reached the editor
+        // and blanked its caret for a few frames mid-reveal (captured at 60 fps), and a later
+        // first hover could steal a keystroke mid-typing the same way. A disabled window cannot
+        // receive focus at all, so the grab fails and focus never leaves the editor; rendering
+        // and composition are unaffected (the About modal relies on the same fact), and hover
+        // tracking is cursor-polling, not input.
+        NativeMethods.EnableWindow(peekHwnd, false);
     }
 
     private void ConfigurePresenter()

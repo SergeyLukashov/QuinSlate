@@ -1,6 +1,6 @@
 # 15 — SPEC: Tray Peek Show Animation
 
-> _Last updated: 2026-07-07_
+> _Last updated: 2026-07-14_
 
 > **Status: Implemented.** The entrance animation is a hybrid transition combining a
 > stationary window-level fade-in (via `SetLayeredWindowAttributes` over a timer) with a
@@ -18,8 +18,8 @@
 >
 > **Update — backdrop is now the dithered gradient, not Mica.** The whole app (including
 > the peek window) later dropped Mica/Acrylic system backdrops for the opaque, in-tree
-> `DitheredGradientBrushFactory` mesh (`TrayPeekPanel` paints `RootBorder` with it; see the
-> "Background gradient" section of `CLAUDE.md`). The Mica investigation below is retained as
+> `DitheredGradientBrushFactory` mesh (`TrayPeekPanel` paints `RootBorder` with it; see
+> [05-BACKGROUND-GRADIENT-DITHERING.md](../Wiki/05-BACKGROUND-GRADIENT-DITHERING.md)). The Mica investigation below is retained as
 > historical dead-end archaeology, but its central obstacle no longer applies: the gradient
 > is an ordinary in-tree `ImageBrush`, so a content composition animation moves it together
 > with the content — unlike external Mica, which DWM renders below the compositor. The

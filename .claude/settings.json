@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/block-bundle-edit.mjs",
+            "timeout": 15,
+            "statusMessage": "Checking editor.bundle.js guard"
+          }
+        ]
+      }
+    ]
+  }
+}

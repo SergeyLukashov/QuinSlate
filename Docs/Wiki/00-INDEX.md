@@ -1,6 +1,6 @@
 # Wiki index
 
-> _Last updated: 2026-07-10_
+> _Last updated: 2026-07-13_
 
 Durable, cross-cutting knowledge that is not a spec, a decision, or the record of a single
 investigation: platform behaviour worth knowing before you touch an area, and techniques that took
@@ -20,3 +20,4 @@ Use the other folders when they fit better:
 |---|------|----------------|
 | 01 | [TabView drag-reorder: the four SDK traps](01-TABVIEW-DRAG-REORDER.md) | touching the tab strip, its sizing, or the `TabViewItem` template |
 | 02 | [Verifying UI behaviour by driving the packaged app](02-SYNTHETIC-INPUT-VERIFICATION.md) | trying to confirm a mid-gesture or transient UI defect |
+| 03 | [OS text-services input: keep `autocorrect="on"`](03-EDITOR-OS-TEXT-INPUT.md) | touching the editor's `contentAttributes`, or any text input that isn't typing |

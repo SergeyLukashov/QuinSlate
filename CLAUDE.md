@@ -230,6 +230,15 @@ QuinSlate.Ui/WebEditor/
   (`https://quinslate.editor/`) from the app's install/output directory; the
   host↔page contract is the JSON bridge in `Components/EditorHost.cs`. **Never
   log buffer text across that bridge** (see the stack note above).
+- **The editor's `contentAttributes` must keep `autocorrect: "on"`.** Edge/WebView2
+  silently drops the Windows emoji panel's (Win+. / Win+;) insert into any
+  contenteditable that combines `autocorrect="off"` with block-level children —
+  which CodeMirror always has (`.cm-line` divs). The drop is browser-side: the page
+  sees zero DOM events, so no page-side code can detect or fix it. `main.js`
+  overrides CM6's built-in `"off"` for exactly this reason (`spellcheck` stays
+  `"false"`). Do not "restore" `autocorrect: "off"` for editor hygiene. See
+  `Docs/Wiki/03-EDITOR-OS-TEXT-INPUT.md` and
+  `Docs/Investigations/05-EMOJI-PANEL-AUTOCORRECT-OFF-DROP.md`.
 
 ---
 

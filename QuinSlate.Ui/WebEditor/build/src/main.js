@@ -370,7 +370,12 @@ const baseExtensions = [
   drawSelection(),
   editorTheme,
   // Parity with IsSpellCheckEnabled=false and the plain-text surface.
-  EditorView.contentAttributes.of({ spellcheck: "false", autocorrect: "off", autocapitalize: "off" }),
+  // autocorrect MUST stay "on" (overrides CM6's built-in "off"): Edge/WebView2
+  // silently drops Windows emoji-panel (Win+./Win+;) insertions into a
+  // contenteditable that has autocorrect="off" and block-level children (CM6's
+  // .cm-line divs) — the TSF commit never reaches the page. Verified by attribute
+  // bisection; see Docs/Investigations/05-EMOJI-PANEL-AUTOCORRECT-OFF-DROP.md.
+  EditorView.contentAttributes.of({ spellcheck: "false", autocorrect: "on", autocapitalize: "off" }),
   capFilter,
   calcHighlightField,
   EditorState.allowMultipleSelections.of(false),

@@ -131,10 +131,20 @@ public sealed class TrayPeekWindow : IDisposable
         }
 
         EnsureWindowCreated();
-        if (peekHwnd == IntPtr.Zero)
+        if (peekHwnd == IntPtr.Zero || appWindow == null)
         {
             return;
         }
+
+        // Size the window to the peek's real dimensions before its content loads. The panel fills
+        // the window and builds its dithered background from its own actual size on Loaded, once —
+        // so warming up at the default window size (~1139x659 DIP) both rasterises a ~4.7-megapixel
+        // dithered bitmap on the UI thread (three times the cost of the whole warm-up at the real
+        // size) and leaves that oversized brush to be stretched down into the 340x186 peek, which
+        // re-quantises the dither and brings the banding back.
+        dpiScale = NativeMethods.GetDpiForWindow(peekHwnd) / 96.0f;
+        (windowWidth, windowHeight) = CalculatePhysicalWindowSize();
+        appWindow.Resize(new SizeInt32(windowWidth, windowHeight));
 
         warmUpInFlight = true;
         panel.Loaded += OnWarmUpPanelLoaded;

@@ -17,6 +17,21 @@ public sealed class TrayIcon : IDisposable
     private const int HoverPollIntervalMs = 150;
     private const int RearmQuietTicks = 10;
 
+    /// <summary>
+    /// Stable identity for the notification-area icon. Windows 11 keys an icon's
+    /// promotion state (shown on the taskbar vs. hidden in the overflow flyout)
+    /// on the icon's identity. Without a GUID that identity is derived from the
+    /// executable path, which changes on every MSIX/Store update (each version
+    /// installs into a new versioned <c>WindowsApps</c> folder), so the shell
+    /// treats the post-update icon as new and demotes it to the overflow. A fixed
+    /// <c>guidItem</c> (with <see cref="NativeMethods.NIF_GUID"/>) is path
+    /// independent, so the user's chosen position survives updates. This value
+    /// must never change once shipped. Exposed so the peek window can resolve the
+    /// icon's rectangle by the same GUID (once <see cref="NativeMethods.NIF_GUID"/>
+    /// is used, the shell no longer resolves the icon by its <c>(HWND, uID)</c>).
+    /// </summary>
+    public static readonly Guid TrayIconGuid = new Guid("6f9a2c14-8d3b-4e7a-9c21-5b0e1f2a7d84");
+
     private readonly IntPtr windowHandle;
     private readonly DispatcherQueue dispatcherQueue;
     private IntPtr iconHandle;
@@ -163,7 +178,7 @@ public sealed class TrayIcon : IDisposable
     private bool RegisterIcon()
     {
         var data = BuildData(tooltipText);
-        data.uFlags = NativeMethods.NIF_MESSAGE | NativeMethods.NIF_ICON | NativeMethods.NIF_TIP;
+        data.uFlags = NativeMethods.NIF_MESSAGE | NativeMethods.NIF_ICON | NativeMethods.NIF_TIP | NativeMethods.NIF_GUID;
         if (tooltipText.Length > 0)
         {
             data.uFlags |= NativeMethods.NIF_SHOWTIP;
@@ -173,12 +188,32 @@ public sealed class TrayIcon : IDisposable
 
         if (NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_ADD, ref data) == false)
         {
-            return false;
+            // A GUID-identified NIM_ADD fails when the GUID is still registered — to
+            // the previous package version's path after a Store update, or leaked by
+            // a prior instance that never removed its icon. Clear the stale
+            // registration by GUID and retry the add once.
+            DeleteByGuid();
+            if (NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_ADD, ref data) == false)
+            {
+                return false;
+            }
         }
 
         data.uVersion = NativeMethods.NOTIFYICON_VERSION_4;
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_SETVERSION, ref data);
         return true;
+    }
+
+    /// <summary>
+    /// Removes any notification-area registration for <see cref="TrayIconGuid"/>
+    /// by GUID alone. Used to clear a stale registration before retrying a failed
+    /// add; safe to call when no such registration exists.
+    /// </summary>
+    private void DeleteByGuid()
+    {
+        var data = BuildData(null);
+        data.uFlags = NativeMethods.NIF_GUID;
+        NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_DELETE, ref data);
     }
 
     /// <summary>
@@ -233,7 +268,7 @@ public sealed class TrayIcon : IDisposable
         }
 
         var data = BuildData(tooltipText);
-        data.uFlags = NativeMethods.NIF_INFO;
+        data.uFlags = NativeMethods.NIF_INFO | NativeMethods.NIF_GUID;
         data.szInfoTitle = title ?? string.Empty;
         data.szInfo = text ?? string.Empty;
         data.dwInfoFlags = NativeMethods.NIIF_INFO;
@@ -265,6 +300,7 @@ public sealed class TrayIcon : IDisposable
         ticksOutsideIcon = 0;
 
         var data = BuildData(null);
+        data.uFlags = NativeMethods.NIF_GUID;
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_DELETE, ref data);
         added = false;
         Log.ForContext<TrayIcon>().Debug("Tray icon removed.");
@@ -317,7 +353,7 @@ public sealed class TrayIcon : IDisposable
     private void DisarmTooltip()
     {
         var data = BuildData(tooltipText);
-        data.uFlags = NativeMethods.NIF_TIP;
+        data.uFlags = NativeMethods.NIF_TIP | NativeMethods.NIF_GUID;
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
         tooltipDisarmed = true;
     }
@@ -330,7 +366,7 @@ public sealed class TrayIcon : IDisposable
         }
 
         var data = BuildData(tooltipText);
-        data.uFlags = NativeMethods.NIF_TIP | NativeMethods.NIF_SHOWTIP;
+        data.uFlags = NativeMethods.NIF_TIP | NativeMethods.NIF_SHOWTIP | NativeMethods.NIF_GUID;
         NativeMethods.Shell_NotifyIcon(NativeMethods.NIM_MODIFY, ref data);
         tooltipDisarmed = false;
     }
@@ -397,7 +433,7 @@ public sealed class TrayIcon : IDisposable
         identifier.cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf(typeof(NativeMethods.NOTIFYICONIDENTIFIER));
         identifier.hWnd = windowHandle;
         identifier.uID = TrayIconId;
-        identifier.guidItem = Guid.Empty;
+        identifier.guidItem = TrayIconGuid;
 
         int hr = NativeMethods.Shell_NotifyIconGetRect(ref identifier, out NativeMethods.RECT iconRect);
         if (hr != NativeMethods.S_OK)
@@ -433,6 +469,7 @@ public sealed class TrayIcon : IDisposable
         data.hWnd = windowHandle;
         data.uID = TrayIconId;
         data.uCallbackMessage = (uint)NativeMethods.WM_TRAYICON;
+        data.guidItem = TrayIconGuid;
         data.szTip = tooltip ?? string.Empty;
         data.szInfo = string.Empty;
         data.szInfoTitle = string.Empty;

@@ -565,7 +565,7 @@ public sealed class TrayPeekWindow : IDisposable
         identifier.cbSize = (uint)Marshal.SizeOf(typeof(NativeMethods.NOTIFYICONIDENTIFIER));
         identifier.hWnd = trayHwnd;
         identifier.uID = trayIconId;
-        identifier.guidItem = Guid.Empty;
+        identifier.guidItem = TrayIcon.TrayIconGuid;
 
         int hr = NativeMethods.Shell_NotifyIconGetRect(ref identifier, out iconRect);
         if (hr != NativeMethods.S_OK)

@@ -14,6 +14,7 @@
   --text: rgb(255, 255, 255);
   --caret: rgb(255, 255, 255);
   --selection: Highlight;
+  --accent: Highlight;
 }
 
 * {
@@ -95,6 +96,65 @@ body {
   to {
     background-color: transparent;
   }
+}
+
+/* Checkable tasks (Docs/Specs/19-CHECKABLE-TASKS.md): the "- [ ] " marker is replaced by this
+   widget. Sized against the 15px/1.6 editor metrics; the check glyph is a rotated border corner so
+   no image asset is involved. The checked fill uses the system accent (set via the theme message);
+   the unchecked border derives from the theme text colour so it works on light and dark.
+   The 8px gap after the box is part of the widget's own width (box drawn by ::before), not a
+   margin: the caret and empty-line measurements use the widget box and ignore margins, so a
+   margin-based gap left the caret flush against the checkbox on an empty task. */
+.cm-task-checkbox {
+  display: inline-block;
+  position: relative;
+  width: 23px;
+  height: 15px;
+  vertical-align: -2px;
+  cursor: pointer;
+}
+
+.cm-task-checkbox::before {
+  content: "";
+  position: absolute;
+  box-sizing: border-box;
+  left: 0;
+  top: 0;
+  width: 15px;
+  height: 15px;
+  border: 1.4px solid color-mix(in srgb, var(--text) 60%, transparent);
+  border-radius: 3px;
+}
+
+.cm-task-checkbox:hover::before {
+  border-color: var(--text);
+}
+
+.cm-task-checkbox.cm-task-checked::before {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* The glyph's outer box is (width + border) x (height + border) = 5.3 x 8.8 (pseudo-elements are
+   content-box; the * reset does not reach them). rotate(45deg) keeps the center fixed, so centering
+   in the 15px box means left = 7.5 - 5.3/2, top = 7.5 - 8.8/2, minus a 0.9px optical lift because a
+   check's visual mass sits at its bottom vertex and dead-center reads bottom-heavy (the vertex ends
+   up ~2px off the bottom inner edge, tips ~4px under the top). */
+.cm-task-checkbox.cm-task-checked::after {
+  content: "";
+  position: absolute;
+  left: 4.85px;
+  top: 2.2px;
+  width: 3.5px;
+  height: 7px;
+  border: solid rgb(255, 255, 255);
+  border-width: 0 1.8px 1.8px 0;
+  transform: rotate(45deg);
+}
+
+/* Completed-task text dims but stays readable (no strikethrough by design). */
+.cm-task-done {
+  opacity: 0.55;
 }
 
 /* Thin scrollbar approximating the WinUI editor scrollbar: faint idle thumb, brighter on hover.

@@ -5,7 +5,7 @@
 The first formatting feature of the CodeMirror editor: a line can be a
 **task** — a clickable checkbox followed by text — created and managed the way
 Notion does it, with no toolbar or UI chrome. Everything lives page-side in the
-web editor bundle (`QuinSlate.Ui/WebEditor/build/src/main.js` + `editor.css`);
+web editor bundle (`QuinSlate.Ui/WebEditor/build/src/tasks.js` + `editor.css`);
 no host/bridge changes.
 
 ## Text representation

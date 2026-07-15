@@ -7,7 +7,7 @@ buffer other than by typing, or before re-diagnosing "the emoji panel doesn't in
 ## The rule
 
 **The editor's contenteditable must keep `autocorrect="on"`** (set in
-`WebEditor/build/src/main.js` via `EditorView.contentAttributes`, deliberately overriding
+`WebEditor/build/src/editorSetup.js` via `EditorView.contentAttributes`, deliberately overriding
 CodeMirror's built-in `"off"`). Edge/WebView2 silently drops the Windows emoji panel's
 (Win+. / Win+;) TSF commit into any contenteditable that combines `autocorrect="off"` with
 block-level children — and CM6 documents are always block `.cm-line` divs. The drop happens in

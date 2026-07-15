@@ -1,6 +1,6 @@
 # Web editor: the CodeMirror 6 bundle and its build
 
-> _Last updated: 2026-07-14_
+> _Last updated: 2026-07-15_
 
 The buffer editor is a CodeMirror 6 web app hosted in a `WebView2` (see ADR
 [04-EDITOR-CODEMIRROR-WEBVIEW2.md](../Decisions/04-EDITOR-CODEMIRROR-WEBVIEW2.md) and spec
@@ -17,7 +17,24 @@ QuinSlate.Ui/WebEditor/
     ├── package.json      # pinned @codemirror/{state,view,commands} + esbuild
     ├── package-lock.json # committed lockfile (exact versions)
     ├── build.mjs         # esbuild bundler → ../editor.bundle.js
-    ├── src/main.js       # the editor source: CM6 setup + the host bridge
+    ├── src/              # the editor source, split into focused ES modules
+    │   ├── main.js           # entry point: wires the modules up, posts "ready"
+    │   ├── hostBridge.js     # postToHost/onHostMessage + the HostOrigin annotation
+    │   ├── editorContext.js  # shared session state: the view, active index, accent
+    │   ├── crlfText.js       # CRLF length maths + incoming-text normalisation
+    │   ├── charLimit.js      # the capFilter transaction filter + limitReached report
+    │   ├── contentSync.js    # debounced contentSync push to the host
+    │   ├── inlineCalc.js     # "=" detection, calcRequest/calcResult handling
+    │   ├── calcHighlight.js  # the fading calc-result mark decoration
+    │   ├── tasks.js          # checkable tasks: widget, decorations, keymap
+    │   ├── panelShortcuts.js # panel keymap forwarded to the host
+    │   ├── editorTheme.js    # the CM6 theme (fonts, caret, selection)
+    │   ├── editorSetup.js    # baseExtensions, makeState, view creation + DOM listeners
+    │   ├── buffers.js        # the five per-buffer states, activate/setText
+    │   ├── entrance.js       # the tab-content entrance replay
+    │   ├── startupReveal.js  # caret-blink hold + the startup reveal choreography
+    │   ├── appearance.js     # theme colours + background PNG from the host
+    │   └── hostMessages.js   # dispatch table for incoming host messages
     └── node_modules/     # gitignored
 ```
 
@@ -27,8 +44,8 @@ QuinSlate.Ui/WebEditor/
   npm. Only the three shipped files (`editor.html`, `editor.css`,
   `editor.bundle.js`) are packaged as `Content`; everything under `build/` is
   excluded.
-- **Edit the editor logic in `build/src/main.js`, never in the built
-  `editor.bundle.js`.** After changing `main.js` (or bumping a pinned CM6
+- **Edit the editor logic in the modules under `build/src/`, never in the built
+  `editor.bundle.js`.** After changing any source module (or bumping a pinned CM6
   version in `package.json`), rebuild the bundle and commit the regenerated
   `editor.bundle.js`:
 
@@ -49,7 +66,7 @@ QuinSlate.Ui/WebEditor/
   `calcRequest`/`calcResult`) are never logged on either side — only message
   names, indices, and lengths.
 - **The character cap is enforced in exactly one place:** the `capFilter`
-  transaction filter in `main.js`. Every route into the document — typing, IME,
+  transaction filter in `build/src/charLimit.js`. Every route into the document — typing, IME,
   dictation, paste, drag-drop, and the host's own `insert` message — is a CM6
   transaction, so it passes through the filter and nothing else needs to clamp.
   A clamped user edit reports a `limitReached` message (index, cause, dropped
@@ -59,7 +76,7 @@ QuinSlate.Ui/WebEditor/
   silently drops the Windows emoji panel's (Win+. / Win+;) insert into any
   contenteditable that combines `autocorrect="off"` with block-level children —
   which CodeMirror always has (`.cm-line` divs). The drop is browser-side: the page
-  sees zero DOM events, so no page-side code can detect or fix it. `main.js`
+  sees zero DOM events, so no page-side code can detect or fix it. `build/src/editorSetup.js`
   overrides CM6's built-in `"off"` for exactly this reason (`spellcheck` stays
   `"false"`). Do not "restore" `autocorrect: "off"` for editor hygiene. See
   [03-EDITOR-OS-TEXT-INPUT.md](03-EDITOR-OS-TEXT-INPUT.md) and

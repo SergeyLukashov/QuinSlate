@@ -32,7 +32,7 @@ The working panel commit arrives as a composition (`compositionstart` →
 worked because it pastes through the keyboard path.
 
 **The fix is one attribute:** `autocorrect: "on"` in the editor's `contentAttributes`
-(`WebEditor/build/src/main.js`). `EditorView.contentAttributes` overrides CM6's built-in `"off"`.
+(`WebEditor/build/src/editorSetup.js`). `EditorView.contentAttributes` overrides CM6's built-in `"off"`.
 `spellcheck` stays `"false"` (no squiggles); with `autocorrect="on"` the editor simply respects
 the user's Windows autocorrect setting (off by default system-wide) like any native field.
 

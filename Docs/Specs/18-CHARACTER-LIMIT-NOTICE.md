@@ -49,7 +49,7 @@ Detection is page-side, notification is host-side.
 
 | Piece | Where |
 |---|---|
-| Detection (the one choke point) | `capFilter` in `QuinSlate.Ui/WebEditor/build/src/main.js` |
+| Detection (the one choke point) | `capFilter` in `QuinSlate.Ui/WebEditor/build/src/charLimit.js` |
 | Bridge message `limitReached` (index, cause, dropped count — **no text**) | page → host |
 | `LimitReached` event / `EditorLimitEventArgs` | `QuinSlate.Ui/Components/EditorHost.cs` |
 | Throttle (leading-edge, clock-injected, unit-tested) | `QuinSlate.Ui/Services/LimitNoticeThrottle.cs` |

@@ -57,7 +57,7 @@ body {
    be revealed mid-cycle: the caret cuts out (or in) moments after the window appears. Solid by
    construction beats pausing: `animation-play-state: paused` resumed on this engine at the
    wall-clock phase, not the frozen one, putting the release back in the phase lottery
-   (captured frame-by-frame). See resetCaretBlink in main.js for the two-step release that
+   (captured frame-by-frame). See resetCaretBlink in build/src/startupReveal.js for the two-step release that
    anchors a fresh cycle without exposing a single mid-phase frame. !important beats the inline
    animation-name the CM6 cursor layer maintains on itself. */
 .caret-hold .cm-cursorLayer {

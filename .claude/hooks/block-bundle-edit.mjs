@@ -1,5 +1,5 @@
 // PreToolUse hook: deny Edit/Write on the built editor.bundle.js.
-// The bundle is a build artifact — edit QuinSlate.Ui/WebEditor/build/src/main.js instead.
+// The bundle is a build artifact — edit the modules under QuinSlate.Ui/WebEditor/build/src/ instead.
 let raw = "";
 process.stdin.on("data", (chunk) => (raw += chunk));
 process.stdin.on("end", () => {
@@ -19,7 +19,7 @@ process.stdin.on("end", () => {
           permissionDecision: "deny",
           permissionDecisionReason:
             "editor.bundle.js is a built artifact and must never be hand-edited. " +
-            "Edit QuinSlate.Ui/WebEditor/build/src/main.js, then rebuild: " +
+            "Edit the modules under QuinSlate.Ui/WebEditor/build/src/, then rebuild: " +
             "cd QuinSlate.Ui/WebEditor/build && npm ci && npm run build. " +
             "See Docs/Wiki/06-WEB-EDITOR-BUNDLE.md.",
         },

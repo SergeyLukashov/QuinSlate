@@ -3,8 +3,8 @@
 Full guide: `Docs/Wiki/06-WEB-EDITOR-BUNDLE.md`. ADR: `Docs/Decisions/04-EDITOR-CODEMIRROR-WEBVIEW2.md`. Spec: `Docs/Specs/17-EDITOR-CODEMIRROR-MIGRATION.md`.
 
 - **Never hand-edit `editor.bundle.js`** — it is a built artifact (committed and shipped so
-  `dotnet build` never runs npm). Edit `build/src/main.js`, then rebuild and commit the
-  regenerated bundle:
+  `dotnet build` never runs npm). Edit the ES modules under `build/src/` (`main.js` is only
+  the entry point that wires them up), then rebuild and commit the regenerated bundle:
 
   ```bash
   cd QuinSlate.Ui/WebEditor/build

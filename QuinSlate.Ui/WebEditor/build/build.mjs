@@ -1,4 +1,5 @@
-// Bundles src/main.js (CodeMirror 6 + the QuinSlate host bridge) into a single
+// Bundles the editor source (src/main.js entry point plus its modules — CodeMirror 6
+// + the QuinSlate host bridge) into a single
 // IIFE at ../editor.bundle.js. The output is committed to the repository so a
 // normal QuinSlate build never runs npm. Rebuild only when the editor source or
 // a pinned dependency changes:

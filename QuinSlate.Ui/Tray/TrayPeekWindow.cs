@@ -112,6 +112,15 @@ public sealed class TrayPeekWindow : IDisposable
     }
 
     /// <summary>
+    /// Raised on the UI thread once a started warm-up ends — either it completed and the peek
+    /// window was hidden again, or a hover takeover / teardown superseded it. Lets the host lift
+    /// any state it held only for the warm-up's duration (the main window suppresses its
+    /// inactive-shadow repaint across the warm-up's foreground steal). Only fires for a warm-up
+    /// that <see cref="WarmUp"/> actually started.
+    /// </summary>
+    public event EventHandler WarmUpCompleted;
+
+    /// <summary>
     /// Creates the peek window and runs its XAML island through a first composition pass at
     /// startup, off the hover path. The window is shown non-activated and fully transparent
     /// (it is permanently layered with alpha 0 at rest, so nothing is painted on screen) and
@@ -123,17 +132,22 @@ public sealed class TrayPeekWindow : IDisposable
     /// once after the main window is up; a hover arriving mid-warm-up simply takes over the
     /// already-created window.
     /// </summary>
-    public void WarmUp()
+    /// <returns>
+    /// <c>true</c> if a warm-up was started and <see cref="WarmUpCompleted"/> will follow;
+    /// <c>false</c> if it could not start (already created, disposed, or window bring-up failed),
+    /// in which case no completion is raised.
+    /// </returns>
+    public bool WarmUp()
     {
         if (disposed || peekWindow != null)
         {
-            return;
+            return false;
         }
 
         EnsureWindowCreated();
         if (peekHwnd == IntPtr.Zero || appWindow == null)
         {
-            return;
+            return false;
         }
 
         // Size the window to the peek's real dimensions before its content loads. The panel fills
@@ -150,6 +164,7 @@ public sealed class TrayPeekWindow : IDisposable
         panel.Loaded += OnWarmUpPanelLoaded;
         NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_SHOWNOACTIVATE);
         Log.ForContext<TrayPeekWindow>().Debug("Peek warm-up started.");
+        return true;
     }
 
     private void OnWarmUpPanelLoaded(object sender, RoutedEventArgs e)
@@ -167,6 +182,7 @@ public sealed class TrayPeekWindow : IDisposable
         warmUpInFlight = false;
         NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_HIDE);
         Log.ForContext<TrayPeekWindow>().Debug("Peek warm-up complete; window hidden.");
+        WarmUpCompleted?.Invoke(this, EventArgs.Empty);
     }
 
     private void CancelWarmUp()
@@ -181,6 +197,10 @@ public sealed class TrayPeekWindow : IDisposable
         {
             panel.Loaded -= OnWarmUpPanelLoaded;
         }
+
+        // A hover takeover or teardown supersedes the warm-up before it finished; the host still
+        // needs its terminal callback so it can lift any warm-up-scoped state it is holding.
+        WarmUpCompleted?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>

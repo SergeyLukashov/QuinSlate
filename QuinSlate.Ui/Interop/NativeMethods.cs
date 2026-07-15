@@ -113,6 +113,8 @@ internal static class NativeMethods
     public const uint WM_ACTIVATE = 0x0006;
     public const int WA_INACTIVE = 0;
 
+    public const uint WM_NCACTIVATE = 0x0086;
+
     public const uint WM_SIZE = 0x0005;
     public const int SIZE_MINIMIZED = 1;
 

@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities" xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10" IgnorableNamespaces="uap rescap">
-  <Identity Name="19589Sergejdev.QuinSlate" Publisher="CN=728BA5DB-B625-4BAE-822A-1FB55E5161EA" Version="0.9.7.0" />
+  <Identity Name="19589Sergejdev.QuinSlate" Publisher="CN=728BA5DB-B625-4BAE-822A-1FB55E5161EA" Version="0.9.8.0" />
   <mp:PhoneIdentity PhoneProductId="a0ffe3a7-c7e2-4fc5-9b6e-554d516cf0f9" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>QuinSlate</DisplayName>

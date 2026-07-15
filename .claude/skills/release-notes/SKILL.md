@@ -80,20 +80,32 @@ say so.
 ## Document A: "What's New" (chat)
 
 Print it in a fenced block so it's cleanly copyable into the Store listing or a
-GitHub release:
+GitHub release. Just the bullets, no title line and no version number inside the
+block, since the Store listing and the GitHub release UI both already show the
+version elsewhere and a hardcoded title is one more thing to edit out before pasting:
 
 ```
-What's New in 0.9.7
-
-- Long notes render to the last line, and a buffer now holds up to a million characters.
-- Drag tabs to put your buffers in the order you actually think in.
-- QuinSlate opens clean, with no flicker or half-drawn panel on the way in.
-- Emoji show in full colour again in tab names, the picker, and your notes.
+- QuinSlate opens clean, with no flicker or half-drawn panel on the way in
+- Long notes render to the last line, and a buffer now holds up to a million characters
+- Drag tabs to put your buffers in the order you actually think in
+- Emoji show in full colour again in tab names, the picker, and your notes
 ```
 
 **3-6 bullets**, one line each, roughly 8-15 words. More than eight means you are
-listing commits instead of listing changes. Order by how much a user cares: the thing
-they'll be happiest about first, small fixes last.
+listing commits instead of listing changes.
+
+**Sort by significance, most significant first.** These are fragments, not
+sentences, so nothing else signals importance the way a headline font would in
+print - order is the only signal you get. Ask "which of these would the user be
+happiest to read first" and put that one on top; small polish and cosmetic fixes
+sink to the bottom. This is independent of commit order or how big the diff was, a
+one-line fix for silently-dropped keystrokes outranks a large but low-stakes visual
+tweak.
+
+**No trailing period on these bullets.** They read as short, punchy fragments (the
+way Store listings and GitHub release notes format them), and a trailing period on
+a fragment reads as a typo, not as polish. This rule is specific to this document -
+Document B's bullets are full technical sentences and keep normal punctuation.
 
 Write what changed and what they can now do, in plain words, present tense. Name the
 actual thing ("tabs", "emoji picker", "startup"); vague nouns like "the experience"
@@ -102,10 +114,10 @@ or "performance" are how notes turn to mush.
 **Examples**
 
 Commit: `Add drag-to-reorder for buffer tabs`
-Bullet: `Drag tabs to put your buffers in the order you actually think in.`
+Bullet: `Drag tabs to put your buffers in the order you actually think in`
 
 Commit: `Fix monochrome emoji glyph in tab headers and picker button`
-Bullet: `Emoji show in full colour again in tab names and the picker.`
+Bullet: `Emoji show in full colour again in tab names and the picker`
 
 Commit: `Update Microsoft Store badge link and target`
 Bullet: *(none, nothing changed in the app)*

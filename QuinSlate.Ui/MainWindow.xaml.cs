@@ -97,6 +97,13 @@ public sealed partial class MainWindow : Window
     private bool isPanelVisible;
     private bool isWindowActive;
     private bool isStartupRevealComplete;
+
+    // Set while the tray-peek warm-up runs. The warm-up's first XAML-island composition briefly
+    // steals foreground (see PeekWarmUpDelayMilliseconds); left alone, DWM repaints this window's
+    // drop shadow to its smaller inactive form and back a couple of seconds into startup — a
+    // visible shadow pulse. While set, WM_NCACTIVATE keeps the active non-client frame so no
+    // inactive shadow is ever drawn.
+    private bool suppressInactiveShadowRepaint;
     private DispatcherQueueTimer startupRevealTimer;
     private DispatcherQueueTimer peekWarmUpTimer;
     private long lastDeactivatedTick;
@@ -325,10 +332,28 @@ public sealed partial class MainWindow : Window
             peekWarmUpTimer = null;
             if (isTornDown == false && trayPeekWindow != null)
             {
-                trayPeekWindow.WarmUp();
+                // Guard the window's drop shadow across the warm-up's foreground steal; cleared
+                // when the warm-up ends (OnPeekWarmUpCompleted). If it never started, drop the
+                // guard at once so the shadow is not pinned to its active form.
+                suppressInactiveShadowRepaint = true;
+                trayPeekWindow.WarmUpCompleted += OnPeekWarmUpCompleted;
+                if (trayPeekWindow.WarmUp() == false)
+                {
+                    OnPeekWarmUpCompleted(trayPeekWindow, EventArgs.Empty);
+                }
             }
         };
         peekWarmUpTimer.Start();
+    }
+
+    private void OnPeekWarmUpCompleted(object sender, EventArgs e)
+    {
+        if (trayPeekWindow != null)
+        {
+            trayPeekWindow.WarmUpCompleted -= OnPeekWarmUpCompleted;
+        }
+
+        suppressInactiveShadowRepaint = false;
     }
 
     private void ConfigureWindowAppearance()
@@ -547,6 +572,15 @@ public sealed partial class MainWindow : Window
             };
             Marshal.StructureToPtr(info, lParam, false);
             return IntPtr.Zero;
+        }
+
+        if (msg == NativeMethods.WM_NCACTIVATE && suppressInactiveShadowRepaint && wParam == IntPtr.Zero)
+        {
+            // Force the active (foreground) non-client frame while the tray-peek warm-up briefly
+            // steals foreground, so DWM does not repaint the drop shadow to its inactive form and
+            // back — the startup shadow pulse. Passing wParam = TRUE draws the active frame; lParam
+            // (the update-region handle, possibly -1 for "no repaint") is preserved.
+            return NativeMethods.CallWindowProc(originalWndProc, hWnd, msg, new IntPtr(1), lParam);
         }
 
         if (msg == NativeMethods.WM_ACTIVATE)

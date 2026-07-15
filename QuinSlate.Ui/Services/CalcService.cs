@@ -237,6 +237,8 @@ internal static class CalcService
             throw new FormatException("Expected number");
         }
 
+        ConsumeExponentSuffix(expr, ref pos);
+
         string numStr = expr.Substring(start, pos - start);
         if (!double.TryParse(numStr, NumberStyles.Float, CultureInfo.InvariantCulture, out double num))
         {
@@ -244,6 +246,37 @@ internal static class CalcService
         }
 
         return num;
+    }
+
+    // Accepts the scientific-notation suffix that FormatResult itself emits for large
+    // values ("1.37E+52"), so a previous result can be chained into a follow-up
+    // expression. The suffix is consumed only when a digit follows the optional sign;
+    // otherwise the 'e'/'E' is left in place ("2E + 1" stays a parse failure, and the
+    // sign is not swallowed away from a genuine operator).
+    private static void ConsumeExponentSuffix(string expr, ref int pos)
+    {
+        if (pos >= expr.Length || (expr[pos] != 'e' && expr[pos] != 'E'))
+        {
+            return;
+        }
+
+        int cursor = pos + 1;
+        if (cursor < expr.Length && (expr[cursor] == '+' || expr[cursor] == '-'))
+        {
+            cursor++;
+        }
+
+        if (cursor >= expr.Length || !char.IsDigit(expr[cursor]))
+        {
+            return;
+        }
+
+        while (cursor < expr.Length && char.IsDigit(expr[cursor]))
+        {
+            cursor++;
+        }
+
+        pos = cursor;
     }
 
     private static void EnsureDepth(int depth)

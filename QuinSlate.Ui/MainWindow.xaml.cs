@@ -1055,6 +1055,10 @@ public sealed partial class MainWindow : Window
         isPanelVisible = false;
         isWindowActive = false;
 
+        // A notice left over from this session must not be the first thing the panel shows when it
+        // is next summoned, and the next clamp deserves an immediate answer.
+        Panel.ResetLimitNotice();
+
         // Only on a genuine user-initiated hide of a shown panel — never the init-time hide
         // of a startup-hidden (login) launch, where the panel was never visible.
         if (wasVisible)

@@ -25,6 +25,12 @@ namespace QuinSlate.Ui.Components;
 /// </remarks>
 internal sealed class EditorHost
 {
+    /// <summary>Cause of a clamped edit: a paste or a drag-drop of text.</summary>
+    public const string CausePaste = "paste";
+
+    /// <summary>Cause of a clamped edit: typing, an IME commit, or dictation.</summary>
+    public const string CauseType = "type";
+
     private const string VirtualHostName = "quinslate.editor";
     private const string EditorPageUrl = "https://quinslate.editor/editor.html";
     private const string EditorAssetsRelativePath = "WebEditor";
@@ -46,6 +52,13 @@ internal sealed class EditorHost
 
     /// <summary>Raised when a panel-level keyboard shortcut is typed inside the editor.</summary>
     public event EventHandler<string> KeyCommandReceived;
+
+    /// <summary>
+    /// Raised when a user edit was clamped at the buffer character cap, so the host can surface a
+    /// (throttled) notice. Every route into the document — typing, IME, paste, drag-drop, and the
+    /// host's own <see cref="InsertText"/> — reports through this one event.
+    /// </summary>
+    public event EventHandler<EditorLimitEventArgs> LimitReached;
 
     /// <summary>Raised when the editor is right-clicked, so the host can show the shared menu.</summary>
     public event EventHandler<EditorContextMenuEventArgs> ContextMenuRequested;
@@ -263,6 +276,12 @@ internal sealed class EditorHost
                 break;
             case "key":
                 KeyCommandReceived?.Invoke(this, GetString(root, "command"));
+                break;
+            case "limitReached":
+                LimitReached?.Invoke(this, new EditorLimitEventArgs(
+                    GetInt(root, "index"),
+                    GetString(root, "cause"),
+                    GetInt(root, "dropped")));
                 break;
             case "contextMenu":
                 ContextMenuRequested?.Invoke(this, new EditorContextMenuEventArgs(

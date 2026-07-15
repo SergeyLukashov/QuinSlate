@@ -61,6 +61,7 @@ of the app-data directory. Never log buffer/note contents.
 - Follow SOLID principles. Each class has a single, focused responsibility.
 - `private` fields use `camelCase`. Properties and methods use `PascalCase`.
 - `var` is fine when the right-hand side makes the type obvious; use concrete types elsewhere.
+- Keep files, classes, and functions as small as possible. **A class over 500 lines is not acceptable** — split it along SOLID lines (extract the distinct responsibility into its own class, in its own file) rather than letting it grow.
 - No `dynamic`.
 - Prefer `async`/`await` over raw `Task.Run` where possible.
 - Async/await for file I/O. Synchronous file writes only in the shutdown flush path.
@@ -103,8 +104,7 @@ dotnet format QuinSlate.slnx                  # after EVERY task that writes or 
 ```
 
 QuinSlate is MSIX-packaged: `dotnet run` and launching the bare exe do not work
-(unpackaged WinUI fails with `REGDB_E_CLASSNOTREG`). To run, deploy, or screenshot the
-packaged app for visual verification, use the `winui3-visual-verify` skill.
+(unpackaged WinUI fails with `REGDB_E_CLASSNOTREG`).
 
 ---
 

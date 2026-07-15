@@ -48,6 +48,13 @@ QuinSlate.Ui/WebEditor/
   carrying buffer text (`init`, `setText`, `insert`, `contentSync`,
   `calcRequest`/`calcResult`) are never logged on either side — only message
   names, indices, and lengths.
+- **The character cap is enforced in exactly one place:** the `capFilter`
+  transaction filter in `main.js`. Every route into the document — typing, IME,
+  dictation, paste, drag-drop, and the host's own `insert` message — is a CM6
+  transaction, so it passes through the filter and nothing else needs to clamp.
+  A clamped user edit reports a `limitReached` message (index, cause, dropped
+  count — no text) that the host throttles into the "tab is full" notice; see
+  [../Specs/18-CHARACTER-LIMIT-NOTICE.md](../Specs/18-CHARACTER-LIMIT-NOTICE.md).
 - **The editor's `contentAttributes` must keep `autocorrect: "on"`.** Edge/WebView2
   silently drops the Windows emoji panel's (Win+. / Win+;) insert into any
   contenteditable that combines `autocorrect="off"` with block-level children —

@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:QuinSlate.Ui.Views"
+    xmlns:components="using:QuinSlate.Ui.Components"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -242,6 +243,11 @@
                         HorizontalAlignment="Stretch"
                         VerticalAlignment="Stretch" />
             </Grid>
+
+            <!-- Transient "this tab is full" notice, shown when an edit is clamped at the character
+                 cap. Declared after EditorHostContent so it paints over the WebView2 (the same
+                 overlay trick as EditorStartupCover); the control itself is non-interactive. -->
+            <components:LimitNoticeView x:Name="LimitNoticeSurface" />
         </Grid>
 
         <!-- Pin and close buttons as a top-level OVERLAY anchored to the window's top-right

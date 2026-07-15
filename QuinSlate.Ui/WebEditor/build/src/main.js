@@ -23,6 +23,10 @@ import {
 // Constants (parity with AppConstants.MaxBufferLength and the calc/animation specs)
 // ---------------------------------------------------------------------------
 const MAX_CRLF_LENGTH = 1000000; // AppConstants.MaxBufferLength, counted with CRLF breaks (break = 2)
+// Cause values of the limitReached message; the host words its notice from these
+// (EditorHost.CausePaste / CauseType).
+const CAUSE_PASTE = "paste";
+const CAUSE_TYPE = "type";
 const BUFFER_MIN = 1;
 const BUFFER_MAX = 5;
 const SYNC_DEBOUNCE_MS = 300; // matches the retired contentExtractTimer cadence
@@ -84,6 +88,18 @@ function truncateToCrlfBudget(text, budget) {
   return text;
 }
 
+// Every clamp the user caused is reported to the host, which throttles the notice and shows it.
+// Host-origin transactions (init, setText) are excluded: clamping them is not a user action.
+// Only an index, a cause, and a count cross the bridge — never buffer text.
+function reportLimitReached(tr, dropped) {
+  if (tr.annotation(HostOrigin) != null || dropped <= 0) {
+    return;
+  }
+  const cause = tr.isUserEvent("input.paste") || tr.isUserEvent("input.drop") ? CAUSE_PASTE : CAUSE_TYPE;
+  // A transaction filter must not have side effects while it runs; report once the transaction is applied.
+  queueMicrotask(() => postToHost("limitReached", { index: activeIndex, cause, dropped }));
+}
+
 // Transaction filter enforcing the CRLF cap in one place. Any
 // change (typing, paste, IME commit, drop) is truncated so the resulting
 // document never exceeds the cap; editor content and persisted content stay
@@ -95,6 +111,8 @@ const capFilter = EditorState.transactionFilter.of((tr) => {
   if (crlfLengthOfDoc(tr.newDoc) <= MAX_CRLF_LENGTH) {
     return tr;
   }
+
+  reportLimitReached(tr, crlfLengthOfDoc(tr.newDoc) - MAX_CRLF_LENGTH);
 
   const startDoc = tr.startState.doc;
   let deletedCrlf = 0;

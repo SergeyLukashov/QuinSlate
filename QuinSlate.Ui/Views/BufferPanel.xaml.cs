@@ -149,6 +149,12 @@ public sealed partial class BufferPanel : UserControl
     private const int StartupCoverFallbackMs = 2500;
 
     /// <summary>
+    /// The throttled "this tab is full" notice, shown when the editor page clamps an edit at the
+    /// character cap.
+    /// </summary>
+    private LimitNotice limitNotice;
+
+    /// <summary>
     /// True while a one-shot retry of <see cref="ApplyDitheredBackground"/> is pending because the
     /// editor host was not laid out yet (see <see cref="ScheduleDitheredRetry"/>).
     /// </summary>
@@ -347,6 +353,9 @@ public sealed partial class BufferPanel : UserControl
         editorHost.Painted += OnEditorPainted;
         editorHost.EntranceStarted += OnEditorEntranceStarted;
         editorHost.CreationFailed += OnEditorCreationFailed;
+        editorHost.LimitReached += OnEditorLimitReached;
+
+        limitNotice = new LimitNotice(LimitNoticeSurface);
 
         // A flat mid-tone stands in on every surface until the dithered mesh swaps in (the window
         // via the fallback brush here; the editor via the WebView2 DefaultBackgroundColor set on
@@ -667,6 +676,9 @@ public sealed partial class BufferPanel : UserControl
         {
             lastActivatedBufferIndex = bufferIndex;
             editorHost.Activate(bufferIndex);
+
+            // The notice is about the tab that was full, not the one now on screen.
+            ResetLimitNotice();
         }
 
         FocusActiveEditor();
@@ -1460,6 +1472,34 @@ public sealed partial class BufferPanel : UserControl
 
         string text = await dataView.GetTextAsync();
         editorHost.InsertText(text);
+    }
+
+    /// <summary>
+    /// Hands a clamped edit to the notice. Every route into the document reports here — typing, IME,
+    /// dictation, the Windows emoji panel, paste, drag-drop, and the host's own insert path
+    /// (context-menu paste) — so a buffer sitting at the cap reports once per keystroke; the notice
+    /// is what throttles that into one calm message.
+    /// </summary>
+    private void OnEditorLimitReached(object sender, EditorLimitEventArgs e)
+    {
+        LimitNoticeCause cause = e.Cause == EditorHost.CausePaste
+            ? LimitNoticeCause.Paste
+            : LimitNoticeCause.Typing;
+
+        limitNotice.Report(e.Index, cause, e.DroppedCharacters);
+    }
+
+    /// <summary>
+    /// Drops the character-limit notice and re-arms it, so the next clamp is acknowledged
+    /// immediately. Called when the notice stops being about what the user is looking at: a tab
+    /// switch, or the panel hiding.
+    /// </summary>
+    public void ResetLimitNotice()
+    {
+        if (limitNotice != null)
+        {
+            limitNotice.Reset();
+        }
     }
 
     private void OnEditorContentSynced(object sender, EditorContentEventArgs e)

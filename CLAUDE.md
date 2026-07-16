@@ -103,6 +103,15 @@ dotnet test QuinSlate.slnx -p:Platform=x64    # after significant changes; requi
 dotnet format QuinSlate.slnx                  # after EVERY task that writes or modifies any .cs file — no exceptions
 ```
 
+The web editor has its own suite (Node's built-in runner — no test framework).
+Required before considering any task complete that touches `QuinSlate.Ui/WebEditor/build/src/`:
+
+```bash
+cd QuinSlate.Ui/WebEditor/build
+npm test                                      # node --test over test/*.test.mjs
+npm run build                                 # regenerate the committed editor.bundle.js
+```
+
 QuinSlate is MSIX-packaged: `dotnet run` and launching the bare exe do not work
 (unpackaged WinUI fails with `REGDB_E_CLASSNOTREG`).
 

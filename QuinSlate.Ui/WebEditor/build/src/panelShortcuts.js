@@ -14,8 +14,8 @@ function sendKey(command) {
 
 export const panelKeymap = Prec.highest(
   keymap.of([
-    // Tab / Shift+Tab cycle buffers; Tab never inserts a tab or moves DOM focus.
-    { key: "Tab", preventDefault: true, run: () => sendKey("cycle-next"), shift: () => sendKey("cycle-prev") },
+    // Ctrl+Tab / Ctrl+Shift+Tab cycle buffers. Plain Tab belongs to indentation
+    // (indent.js) — it never cycles, inserts a tab, or moves DOM focus.
     { key: "Mod-Tab", preventDefault: true, run: () => sendKey("cycle-next") },
     { key: "Mod-Shift-Tab", preventDefault: true, run: () => sendKey("cycle-prev") },
     { key: "Mod-1", preventDefault: true, run: () => sendKey("select-1") },

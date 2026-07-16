@@ -251,9 +251,30 @@ captured by a CM6 keymap (highest precedence) and forwarded to the host; the
 existing XAML path continues to serve focus-elsewhere cases. Behaviour must
 be identical regardless of where focus is:
 
-- **Tab / Shift+Tab** inside the editor: cycle buffers forward/back
-  (wrapping). **Tab never inserts a tab character and never moves DOM
-  focus.**
+- **Tab / Shift+Tab** inside the editor: indent / outdent by one level
+  (`indent.js`). On a list item that means nesting, under Notion's guardrails —
+  see [19-CHECKABLE-TASKS.md § Nesting](19-CHECKABLE-TASKS.md#nesting); on a
+  plain line it is ordinary text indentation, with nothing to guard. Details:
+  - **One level is two spaces**, the same unit list depth uses, so one Tab is
+    one level on any line: indent a plain line once, type `- `, and the bullet
+    arrives at depth 1. **Tab never inserts a tab character** — buffers are
+    plain `.txt` — **and never moves DOM focus.**
+  - **Tab shifts whole lines**, wherever the caret sits in them, so Shift+Tab is
+    its exact mirror. It does not insert spaces at the caret.
+  - **The caret rides the shift**, like any text editor: Tab on an empty line or
+    at column 0 leaves the caret *past* the new indent, not before it. This needs
+    an explicit `selection: state.selection.map(changes, 1)` on the transaction —
+    CM6's default association maps a position sitting exactly at the insertion
+    point to before the inserted text, so the line would move and the caret would
+    not. Positions already inside the content shift either way.
+  - A multi-line selection shifts every line it touches, as one undo step; blank
+    lines are skipped (indenting them would only leave trailing whitespace), but
+    a caret alone on a blank line still indents, so the user can indent before
+    typing.
+  - Depth is capped at 8 levels, plain lines included, so stored depth never
+    outruns what the marker widgets can render.
+  - Shift+Tab at column 0 does nothing. Tab cycled buffers until indentation
+    landed; cycling is now Ctrl+Tab only.
 - **Ctrl+Tab / Ctrl+Shift+Tab:** cycle buffers.
 - **Ctrl+1..5** (top row and numpad): jump to buffer N and focus its editor.
 - **F2:** open the tab-edit flyout for the selected tab.
@@ -372,6 +393,13 @@ Anything else that looks or behaves differently is a regression.
 ---
 
 ## Verification checklist (gates completion)
+
+The editor's logic has a unit suite — `cd QuinSlate.Ui/WebEditor/build && npm test`
+(Node's built-in runner; see [../Wiki/06-WEB-EDITOR-BUNDLE.md](../Wiki/06-WEB-EDITOR-BUNDLE.md)).
+It covers item parsing, Tab/Shift+Tab indentation and its guardrails, task and
+list Enter/shorthand/toggle, the renumber filter, caret positions, and the CRLF
+length maths, and it runs headless, so **it proves none of the rendering below**.
+The checklist stays a manual pass.
 
 Run on the dev machine (250% 4K + laptop mixed-DPI) and ideally the old
 low-GPU laptop:

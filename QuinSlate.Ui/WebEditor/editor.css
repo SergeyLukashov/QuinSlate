@@ -105,10 +105,23 @@ body {
    The 8px gap after the box is part of the widget's own width (box drawn by ::before), not a
    margin: the caret and empty-line measurements use the widget box and ignore margins, so a
    margin-based gap left the caret flush against the checkbox on an empty task. */
+/* Nesting depth (Docs/Specs/19-CHECKABLE-TASKS.md, Docs/Specs/20-LISTS.md): a marker widget
+   swallows the item's leading indent spaces along with the marker itself, so one level of nesting
+   is one extra marker column (23px) of widget width — a child's marker lands exactly under where
+   its parent's text starts. The widget sets --list-depth inline (already clamped to the max depth);
+   the pixel step lives here so every marker metric stays in this file. Depth is added as width and
+   offset rather than a margin for the same reason the trailing gap is: the caret and empty-line
+   measurements use the widget box and ignore margins. */
+.cm-task-checkbox,
+.cm-list-bullet,
+.cm-list-number {
+  --list-indent: calc(var(--list-depth, 0) * 23px);
+}
+
 .cm-task-checkbox {
   display: inline-block;
   position: relative;
-  width: 23px;
+  width: calc(23px + var(--list-indent));
   height: 15px;
   vertical-align: -2px;
   cursor: pointer;
@@ -118,7 +131,7 @@ body {
   content: "";
   position: absolute;
   box-sizing: border-box;
-  left: 0;
+  left: var(--list-indent);
   top: 0;
   width: 15px;
   height: 15px;
@@ -143,7 +156,7 @@ body {
 .cm-task-checkbox.cm-task-checked::after {
   content: "";
   position: absolute;
-  left: 4.85px;
+  left: calc(4.85px + var(--list-indent));
   top: 2.2px;
   width: 3.5px;
   height: 7px;
@@ -165,7 +178,7 @@ body {
 .cm-list-bullet {
   display: inline-block;
   position: relative;
-  width: 23px;
+  width: calc(23px + var(--list-indent));
   height: 15px;
   vertical-align: -2px;
 }
@@ -173,7 +186,7 @@ body {
 .cm-list-bullet::before {
   content: "";
   position: absolute;
-  left: 4.5px;
+  left: calc(4.5px + var(--list-indent));
   top: 4.5px;
   width: 6px;
   height: 6px;
@@ -183,7 +196,10 @@ body {
 
 .cm-list-number {
   display: inline-block;
-  min-width: 17px;
+  /* border-box (the * reset): the indent is padding inside the box, so min-width carries it too or
+     the number's 17px column would be eaten by it. */
+  min-width: calc(17px + var(--list-indent));
+  padding-left: var(--list-indent);
   padding-right: 6px;
   /* Cap the box to the font size so the inline-block does not take the full 1.6 line-height —
      that inflated the line box and made the text caret sit too high. The glyph keeps its own

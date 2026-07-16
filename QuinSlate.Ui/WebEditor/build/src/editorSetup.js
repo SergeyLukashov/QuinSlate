@@ -12,6 +12,7 @@ import { calcHighlightField } from "./calcHighlight.js";
 import { detectCalc } from "./inlineCalc.js";
 import { taskPlugin, taskKeymap } from "./tasks.js";
 import { listPlugin, listKeymap, listRenumber } from "./lists.js";
+import { indentKeymap } from "./indent.js";
 import { panelKeymap } from "./panelShortcuts.js";
 import { queueSync, flushSync } from "./contentSync.js";
 import { editorTheme } from "./editorTheme.js";
@@ -24,6 +25,9 @@ const baseExtensions = [
   // kind. Tasks come first: a "- [ ] " line is a task, not a bullet.
   taskKeymap,
   listKeymap,
+  // Tab/Shift+Tab for every line — item kinds and plain text alike — so it sits
+  // alongside rather than inside either module.
+  indentKeymap,
   keymap.of([...historyKeymap, ...standardKeymap]),
   taskPlugin,
   listPlugin,

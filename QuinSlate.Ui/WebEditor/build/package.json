@@ -5,7 +5,8 @@
   "description": "Vendored CodeMirror 6 editor bundle for QuinSlate. Built into ../editor.bundle.js. The built artifact is committed; building QuinSlate never requires npm.",
   "type": "module",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "test": "node --test --import ./test/setup.mjs test/*.test.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "6.10.4",

@@ -22,9 +22,9 @@ public static class DefaultBuffers
     private const string Tab2 =
         "What needs doing. No reason it has to be boring.\r\n" +
         "\r\n" +
-        "- Crank up the techno and aggressively dust the blinds\r\n" +
-        "- Play dishwasher Tetris to fit every single dirty plate\r\n" +
-        "- Sweep the kitchen floor while moonwalking like a pro\r\n" +
+        "- [x] Crank up the techno and aggressively dust the blinds\r\n" +
+        "- [ ] Play dishwasher Tetris to fit every single dirty plate\r\n" +
+        "- [ ] Sweep the kitchen floor while moonwalking like a pro\r\n" +
         "\r\n" +
         "See the pin up top? Flip it — the panel floats over everything while you work. Unpin when it's in the way.\r\n";
 
@@ -39,10 +39,10 @@ public static class DefaultBuffers
     private const string Tab4 =
         "Links for the next hour, or forever. Your take.\r\n" +
         "\r\n" +
-        "- https://example.com\r\n" +
-        "- the PR link\r\n" +
-        "- the doc everyone keeps asking for\r\n" +
-        "- that thing from the call\r\n" +
+        "- https://quinslate.com\r\n" +
+        "- https://git.new/quinslate\r\n" +
+        "- https://apps.microsoft.com/detail/9PF611LPJMJJ\r\n" +
+        "- <a sample link />\r\n" +
         "\r\n" +
         "Hover the tray icon: you'll see the first line of every tab.\r\n" +
         "So write good first lines. A first line is a label.\r\n";

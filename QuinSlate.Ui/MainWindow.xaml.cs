@@ -630,10 +630,21 @@ public sealed partial class MainWindow : Window
 
         if (msg == NativeMethods.WM_ENDSESSION)
         {
-            if (wParam != IntPtr.Zero && !isTornDown)
+            if (wParam != IntPtr.Zero)
             {
-                Teardown();
+                if (!isTornDown)
+                {
+                    Teardown();
+                }
+
+                // Unlike a logoff, the Restart Manager — which drives Store/MSIX updates and any
+                // installer needing our files — only asks the app to close; it never terminates it.
+                // The process must exit itself or the platform force-kills it after 30 seconds and
+                // files an Application Hang. Windows' WM_CLOSE fallback for apps that ignore
+                // WM_ENDSESSION cannot cover this: close is bound to hide-to-tray.
+                Environment.Exit(App.ExitCodeNormal);
             }
+
             return IntPtr.Zero;
         }
 

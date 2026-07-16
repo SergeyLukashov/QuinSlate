@@ -12,6 +12,7 @@ import { calcHighlightField } from "./calcHighlight.js";
 import { detectCalc } from "./inlineCalc.js";
 import { taskPlugin, taskKeymap } from "./tasks.js";
 import { listPlugin, listKeymap, listRenumber } from "./lists.js";
+import { linkPlugin } from "./links.js";
 import { indentKeymap } from "./indent.js";
 import { panelKeymap } from "./panelShortcuts.js";
 import { queueSync, flushSync } from "./contentSync.js";
@@ -32,6 +33,8 @@ const baseExtensions = [
   taskPlugin,
   listPlugin,
   listRenumber,
+  // Marks URLs anywhere in the text; no keymap, and it never touches the document.
+  linkPlugin,
   EditorView.lineWrapping,
   drawSelection(),
   editorTheme,

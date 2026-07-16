@@ -20,8 +20,8 @@ namespace QuinSlate.Ui.Components;
 /// </summary>
 /// <remarks>
 /// Messages carrying buffer text (<c>init</c>, <c>setText</c>, <c>insert</c>, <c>contentSync</c>,
-/// <c>calcRequest</c>/<c>calcResult</c>) are never logged — not the payload, not a prefix, not on
-/// either side. Only message names, indices, and lengths may be logged.
+/// <c>calcRequest</c>/<c>calcResult</c>, <c>openLink</c>) are never logged — not the payload, not a
+/// prefix, not on either side. Only message names, indices, and lengths may be logged.
 /// </remarks>
 internal sealed class EditorHost
 {
@@ -274,6 +274,9 @@ internal sealed class EditorHost
             case "calcRequest":
                 HandleCalcRequest(GetInt(root, "index"), GetString(root, "lineContent"));
                 break;
+            case "openLink":
+                HandleOpenLink(GetString(root, "href"));
+                break;
             case "key":
                 KeyCommandReceived?.Invoke(this, GetString(root, "command"));
                 break;
@@ -308,6 +311,43 @@ internal sealed class EditorHost
             writer.WriteBoolean("ok", ok);
             writer.WriteString("result", ok ? result : string.Empty);
         });
+    }
+
+    private static void HandleOpenLink(string href)
+    {
+        // The href is buffer text: it is never logged, here or on failure — only the outcome is.
+        if (LinkService.TryCreateLaunchUri(href, out Uri uri) == false)
+        {
+            Log.ForContext<EditorHost>().Warning(
+                "Declined a link from the editor page: not an absolute http/https/mailto URI.");
+            return;
+        }
+
+        _ = LaunchLinkAsync(uri);
+    }
+
+    private static async Task LaunchLinkAsync(Uri uri)
+    {
+        try
+        {
+            bool launched = await Windows.System.Launcher.LaunchUriAsync(uri);
+            if (launched == false)
+            {
+                Log.ForContext<EditorHost>().Warning(
+                    "The shell declined to launch a link from the editor ({Scheme}).", uri.Scheme);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Deliberately not the exception object: its message could echo the URI — buffer text —
+            // into the log. The type and HRESULT identify a shell failure without it, and the stack
+            // of a fire-and-forget launch says nothing this message does not.
+            Log.ForContext<EditorHost>().Warning(
+                "Failed to launch a link from the editor ({Scheme}): {ExceptionType} 0x{HResult:X8}.",
+                uri.Scheme,
+                ex.GetType().Name,
+                ex.HResult);
+        }
     }
 
     /// <summary>Populates all five buffer states once, at startup.</summary>
@@ -407,8 +447,22 @@ internal sealed class EditorHost
         });
     }
 
-    /// <summary>Applies editor colours (text, caret, selection, calc accent) for the current theme.</summary>
-    public void SetTheme(Color text, Color caret, Color selection, Color accent)
+    /// <summary>
+    /// Applies editor colours for the current theme.
+    /// </summary>
+    /// <param name="text">The editor foreground.</param>
+    /// <param name="caret">The caret colour.</param>
+    /// <param name="selection">The selection background.</param>
+    /// <param name="accent">
+    /// The raw Windows accent, used where it sits <em>behind</em> content (the task checkbox fill,
+    /// the calc result highlight).
+    /// </param>
+    /// <param name="link">
+    /// The accent as readable foreground text, resolved against the gradient by
+    /// <see cref="Services.AccentTextColorResolver"/>. Separate from <paramref name="accent"/>
+    /// because a mid-tone that works as a fill is too dim as text.
+    /// </param>
+    public void SetTheme(Color text, Color caret, Color selection, Color accent, Color link)
     {
         PostJson(writer =>
         {
@@ -420,6 +474,7 @@ internal sealed class EditorHost
             writer.WriteString("caret", ToCssRgba(caret));
             writer.WriteString("selection", ToCssRgba(selection));
             writer.WriteString("accent", ToCssRgb(accent));
+            writer.WriteString("link", ToCssRgb(link));
         });
     }
 

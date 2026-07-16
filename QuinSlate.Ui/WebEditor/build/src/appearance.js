@@ -19,6 +19,11 @@ export function applyTheme(message) {
     setAccent(message.accent);
     root.style.setProperty("--accent", message.accent);
   }
+  // Distinct from --accent: the raw accent is a fill (checkbox, selection, calc highlight); this is
+  // the host's contrast-checked shade of it for text. See Services/AccentTextColorResolver.cs.
+  if (message.link) {
+    root.style.setProperty("--link", message.link);
+  }
 }
 
 export function applyBackground(message) {

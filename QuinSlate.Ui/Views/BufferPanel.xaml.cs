@@ -65,6 +65,12 @@ public sealed partial class BufferPanel : UserControl
     private static readonly Color EditorTextColorDark = Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
     private static readonly Color EditorTextColorLight = Color.FromArgb(0xE4, 0x00, 0x00, 0x00);
 
+    // What AccentTextColorResolver blends toward when a user's accent shade is still too dim against
+    // the gradient. Opaque by construction: a blend needs a solid endpoint, so these are pure white /
+    // pure black rather than the alpha-carrying editor text colours above.
+    private static readonly Color LinkReinforcementDark = Color.FromArgb(0xFF, 0xFF, 0xFF, 0xFF);
+    private static readonly Color LinkReinforcementLight = Color.FromArgb(0xFF, 0x00, 0x00, 0x00);
+
     // Must stay rooted in a field: UISettings raises ColorValuesChanged off a weak reference, so a
     // collected instance silently stops delivering accent changes.
     private readonly UISettings uiSettings = new UISettings();
@@ -1056,8 +1062,8 @@ public sealed partial class BufferPanel : UserControl
     }
 
     /// <summary>
-    /// Sends the editor's per-theme colours (text, caret, selection, calc accent) to the page. Read
-    /// from the current theme so the surface matches the RichEditBox foreground, and the Windows
+    /// Sends the editor's per-theme colours (text, caret, selection, calc accent, link) to the page.
+    /// Read from the current theme so the surface matches the RichEditBox foreground, and the Windows
     /// accent so selection and the calc highlight match the rest of the shell.
     /// </summary>
     private void ApplyEditorThemeColors()
@@ -1074,7 +1080,24 @@ public sealed partial class BufferPanel : UserControl
         // which resolves to AccentFillColorSelectedTextBackgroundBrush -> the opaque SystemAccentColor.
         // CodeMirror paints .cm-selectionBackground beneath the text, so an opaque fill reproduces it.
         Color accent = ReadAccentColor();
-        editorHost.SetTheme(text, text, accent, accent);
+        editorHost.SetTheme(text, text, accent, accent, ReadLinkColor(isDark));
+    }
+
+    /// <summary>
+    /// The colour link text is drawn in: the OS accent shade WinUI itself uses for accent-coloured
+    /// text, verified against the gradient the editor actually paints on.
+    /// </summary>
+    private Color ReadLinkColor(bool isDark)
+    {
+        // AccentTextFillColorPrimaryBrush resolves to SystemAccentColorLight3 on dark and
+        // SystemAccentColorDark2 on light; these are the same shades behind those resources.
+        // Read from UISettings rather than the XAML resource for the reason ReadAccentColor gives:
+        // ColorValuesChanged can beat XAML's theme-resource refresh.
+        Color preferred = uiSettings.GetColorValue(isDark ? UIColorType.AccentLight3 : UIColorType.AccentDark2);
+        return AccentTextColorResolver.Resolve(
+            preferred,
+            DitheredGradientBrushFactory.MidColor(isDark),
+            isDark ? LinkReinforcementDark : LinkReinforcementLight);
     }
 
     /// <summary>

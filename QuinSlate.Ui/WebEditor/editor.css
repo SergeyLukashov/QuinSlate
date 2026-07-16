@@ -6,15 +6,17 @@
   highlight.
 */
 
-/* Pre-theme-message fallbacks only: the host overwrites all three via the `theme` message. The text
-   pair mirrors the dark theme (WinUI TextFillColorPrimary = #FFFFFF; light's is rgba(0,0,0,.894)).
-   Selection falls back to the `Highlight` CSS system colour rather than a guessed blue, so a missed
-   theme message degrades to the OS selection colour instead of the wrong accent. */
+/* Pre-theme-message fallbacks only: the host overwrites every one of these via the `theme` message.
+   The text pair mirrors the dark theme (WinUI TextFillColorPrimary = #FFFFFF; light's is
+   rgba(0,0,0,.894)). Selection falls back to the `Highlight` CSS system colour rather than a guessed
+   blue, and --link to `LinkText`, so a missed theme message degrades to the OS's own colours instead
+   of a wrong accent. */
 :root {
   --text: rgb(255, 255, 255);
   --caret: rgb(255, 255, 255);
   --selection: Highlight;
   --accent: Highlight;
+  --link: LinkText;
 }
 
 * {
@@ -96,6 +98,25 @@ body {
   to {
     background-color: transparent;
   }
+}
+
+/* Clickable links (Docs/Specs/21-LINKS.md): a mark decoration over the URL's own characters — no
+   widget and no document rewrite, so a link stays plain editable text. The underline is held back
+   for hover, where the pointer cursor is already saying the same thing; a permanent one turns a
+   buffer of links into a wall of underscores, which is the opposite of what a scratchpad wants.
+
+   --link, NOT --accent. The raw accent is a mid-tone: right behind white glyphs (the checkbox fill,
+   the selection, the calc highlight) and too dim in front of the gradient. --link is the host's
+   accent shade for text, contrast-checked against the mesh — see Services/AccentTextColorResolver.cs
+   and Docs/Specs/21-LINKS.md § Colour. Do not "simplify" this back to var(--accent). */
+.cm-link {
+  color: var(--link);
+  cursor: pointer;
+}
+
+.cm-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 /* Checkable tasks (Docs/Specs/19-CHECKABLE-TASKS.md): the "- [ ] " marker is replaced by this

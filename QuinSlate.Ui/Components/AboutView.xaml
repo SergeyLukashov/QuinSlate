@@ -56,7 +56,7 @@
         </StackPanel>
 
         <!-- Body -->
-        <Border Grid.Row="1" Padding="20">
+        <Border x:Name="BodyBorder" Grid.Row="1" Padding="20">
             <StackPanel Spacing="16">
                 <!-- Logo  -->
                 <StackPanel Spacing="18">
@@ -76,7 +76,8 @@
                 </StackPanel>
 
                 <!-- Data path card -->
-                <Border CornerRadius="8"
+                <Border x:Name="DataCardBorder"
+                        CornerRadius="8"
                         BorderThickness="1"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         Background="{ThemeResource ControlFillColorDefaultBrush}"
@@ -88,7 +89,10 @@
                         </StackPanel>
 
                         <!-- Path is middle-ellipsized in code (WinUI has no middle TextTrimming);
-                             the full path is carried in the tooltip and on the Copy-path button. -->
+                             the full path is carried in the tooltip and on the Copy-path button.
+                             The fit is measured from RootGrid, never from this block: a NoWrap
+                             TextBlock reports the width of its own text, not of the space it was
+                             given, so measuring it here would always report "it fits". -->
                         <TextBlock x:Name="PathText"
                                    FontFamily="Consolas"
                                    FontSize="13"

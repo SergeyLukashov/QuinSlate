@@ -39,12 +39,6 @@ public sealed partial class AboutView : UserControl
     private const double ConsolasAdvanceEmRatio = 0.55;
 
     /// <summary>
-    /// Width in DIPs available to the path text inside the data card, derived from the fixed
-    /// card layout: 480 window − 40 body padding − 32 card padding − 2 card border = 406.
-    /// </summary>
-    private const double PathAvailableWidth = 406.0;
-
-    /// <summary>
     /// Raised when the user activates the close affordance. The hosting
     /// <see cref="AboutWindow"/> closes the window in response.
     /// </summary>
@@ -58,6 +52,7 @@ public sealed partial class AboutView : UserControl
     public string StorageDirectory { get; set; }
 
     private string dataDirectory;
+    private string dataPath;
 
     /// <summary>
     /// Constructs the view and wires basic content and theme listeners.
@@ -141,23 +136,66 @@ public sealed partial class AboutView : UserControl
     {
         dataDirectory = ResolveDataDirectory();
 
-        string fullPath = dataDirectory.EndsWith("\\") ? dataDirectory : dataDirectory + "\\";
-        PathText.Text = MiddleEllipsize(fullPath);
-        ToolTipService.SetToolTip(PathText, fullPath);
+        dataPath = dataDirectory.EndsWith("\\") ? dataDirectory : dataDirectory + "\\";
+        PathText.Text = dataPath;
+        ToolTipService.SetToolTip(PathText, dataPath);
+        RootGrid.SizeChanged += OnRootGridSizeChanged;
     }
 
     /// <summary>
-    /// Returns <paramref name="path"/> with its middle replaced by an ellipsis if it would not
-    /// fit the data card on one line, keeping the leading drive/root and the trailing folder
-    /// visible. Exact (not measured) because the path font is monospaced.
+    /// Re-fits the path whenever the card's width changes. <c>RootGrid</c> is the measuring stick
+    /// because it is the window's content, arranged to exactly the client rect. The card's nominal
+    /// width cannot stand in for it: <see cref="AboutWindow"/> sizes the window to 480 DIPs, but
+    /// that is the *outer* rect, and the dialog frame is thick at high DPI — measured at 250%, the
+    /// client is 467.2 DIPs, not 480. Those missing 12.8 DIPs are nearly two characters of path.
+    /// The path's own text block cannot be measured instead: with <c>TextWrapping="NoWrap"</c> its
+    /// <c>ActualWidth</c> is the width of its text (measured: 629 DIPs for the full path), not of
+    /// the slot it was given, so asking it would always answer "it fits".
     /// </summary>
-    private static string MiddleEllipsize(string path)
+    private void OnRootGridSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        string fitted = MiddleEllipsize(dataPath, MeasurePathAvailableWidth(e.NewSize.Width));
+        if (PathText.Text != fitted)
+        {
+            PathText.Text = fitted;
+        }
+    }
+
+    /// <summary>
+    /// Returns the width in DIPs left for the path once the body and data-card insets are taken
+    /// out of <paramref name="cardWidth"/>. The insets are read from the live elements rather than
+    /// restated as constants here, so re-styling the card in XAML cannot silently invalidate the
+    /// fit.
+    /// </summary>
+    private double MeasurePathAvailableWidth(double cardWidth)
+    {
+        Thickness bodyPadding = BodyBorder.Padding;
+        Thickness cardPadding = DataCardBorder.Padding;
+        Thickness cardBorder = DataCardBorder.BorderThickness;
+
+        return cardWidth
+            - bodyPadding.Left - bodyPadding.Right
+            - cardPadding.Left - cardPadding.Right
+            - cardBorder.Left - cardBorder.Right;
+    }
+
+    /// <summary>
+    /// Returns <paramref name="path"/> with its middle replaced by an ellipsis if it would not fit
+    /// <paramref name="availableWidth"/> DIPs on one line, keeping the leading drive/root and the
+    /// trailing folder visible. Exact (not measured) because the path font is monospaced.
+    /// </summary>
+    private static string MiddleEllipsize(string path, double availableWidth)
     {
         double advance = PathFontSize * ConsolasAdvanceEmRatio;
-        int maxChars = (int)(PathAvailableWidth / advance);
+        int maxChars = (int)(availableWidth / advance);
         if (path.Length <= maxChars)
         {
             return path;
+        }
+
+        if (maxChars <= MiddleEllipsis.Length)
+        {
+            return MiddleEllipsis;
         }
 
         int keep = maxChars - MiddleEllipsis.Length;

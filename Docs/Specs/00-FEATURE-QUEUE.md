@@ -21,4 +21,5 @@
 - [ ] 17 Editor migration to CodeMirror 6 in WebView2 — [SPEC](17-EDITOR-CODEMIRROR-MIGRATION.md)
 - [x] 18 Character-limit notice — [SPEC](18-CHARACTER-LIMIT-NOTICE.md)
 - [x] 19 Checkable tasks — [SPEC](19-CHECKABLE-TASKS.md)
+- [x] 20 Bullet and numbered lists — [SPEC](20-LISTS.md)
 

@@ -157,6 +157,46 @@ body {
   opacity: 0.55;
 }
 
+/* Bullet and numbered lists (Docs/Specs/20-LISTS.md): the "- " / "<n>. " marker is replaced by
+   one of these widgets. Both reserve the same 23px indent as the task checkbox so list, task, and
+   ordered content line up. The bullet dot is drawn (no font glyph); the number right-aligns in a
+   17px column with a 6px gap so single- and double-digit content share an indent. Colours derive
+   from the theme text colour, so both work on light and dark. */
+.cm-list-bullet {
+  display: inline-block;
+  position: relative;
+  width: 23px;
+  height: 15px;
+  vertical-align: -2px;
+}
+
+.cm-list-bullet::before {
+  content: "";
+  position: absolute;
+  left: 4.5px;
+  top: 4.5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--text);
+}
+
+.cm-list-number {
+  display: inline-block;
+  min-width: 17px;
+  padding-right: 6px;
+  /* Cap the box to the font size so the inline-block does not take the full 1.6 line-height —
+     that inflated the line box and made the text caret sit too high. The glyph keeps its own
+     baseline (vertical-align: baseline), so the number sits on the same baseline as the line's
+     content text; the checkbox/bullet use -2px only because they nudge a *drawn* box, not a glyph. */
+  height: 15px;
+  line-height: 15px;
+  vertical-align: baseline;
+  text-align: right;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Thin scrollbar approximating the WinUI editor scrollbar: faint idle thumb, brighter on hover.
    Its track is transparent and its gutter is reserved unconditionally (`scrollbar-gutter: stable`
    in the CM6 theme), so the text inset does not change when a buffer becomes scrollable. The

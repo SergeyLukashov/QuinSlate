@@ -11,6 +11,7 @@ import { capFilter } from "./charLimit.js";
 import { calcHighlightField } from "./calcHighlight.js";
 import { detectCalc } from "./inlineCalc.js";
 import { taskPlugin, taskKeymap } from "./tasks.js";
+import { listPlugin, listKeymap, listRenumber } from "./lists.js";
 import { panelKeymap } from "./panelShortcuts.js";
 import { queueSync, flushSync } from "./contentSync.js";
 import { editorTheme } from "./editorTheme.js";
@@ -18,11 +19,15 @@ import { editorTheme } from "./editorTheme.js";
 const baseExtensions = [
   history(),
   panelKeymap,
-  // Registered before standardKeymap so the task Enter/Space handlers get
-  // first refusal; they return false whenever the caret is not on a task.
+  // Registered before standardKeymap so the task/list Enter/Space handlers get
+  // first refusal; they return false whenever the caret is not on their line
+  // kind. Tasks come first: a "- [ ] " line is a task, not a bullet.
   taskKeymap,
+  listKeymap,
   keymap.of([...historyKeymap, ...standardKeymap]),
   taskPlugin,
+  listPlugin,
+  listRenumber,
   EditorView.lineWrapping,
   drawSelection(),
   editorTheme,

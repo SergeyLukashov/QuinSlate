@@ -5,7 +5,8 @@
 // (charLimit.js), inline-calc detection with evaluation staying in C#
 // (inlineCalc.js, calcHighlight.js), panel keyboard shortcuts
 // (panelShortcuts.js), the shared context menu (editorSetup.js), debounced
-// content push (contentSync.js), and checkable tasks (tasks.js).
+// content push (contentSync.js), checkable tasks (tasks.js), and bullet /
+// numbered lists (lists.js).
 
 import { postToHost, onHostMessage } from "./hostBridge.js";
 import { applyCaretHold } from "./startupReveal.js";

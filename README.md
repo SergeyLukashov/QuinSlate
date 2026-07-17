@@ -1,5 +1,7 @@
 # QuinSlate
 
+![QuinSlate - The fastest place to put a thought down](.github/assets/banner.png)
+
 A lightweight, always-at-hand scratchpad for Windows. QuinSlate lives in the
 system tray and gives you five persistent text slates you can summon with a
 global hotkey. Jot notes, stash clipboard snippets, do quick inline math, and

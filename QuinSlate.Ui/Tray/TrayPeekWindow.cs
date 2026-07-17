@@ -60,7 +60,7 @@ public sealed class TrayPeekWindow : IDisposable
     private const byte OpacityTransparent = 0;
     private const byte OpacityOpaque = 255;
     private bool isVisible;
-    private bool warmUpInFlight;
+    private TrayPeekWarmUp warmUp;
     private bool disposed;
     private bool iconRectUnavailable;
     private float dpiScale = 1.0f;
@@ -122,13 +122,14 @@ public sealed class TrayPeekWindow : IDisposable
 
     /// <summary>
     /// Creates the peek window and runs its XAML island through a first composition pass at
-    /// startup, off the hover path. The window is shown non-activated and fully transparent
-    /// (it is permanently layered with alpha 0 at rest, so nothing is painted on screen) and
-    /// hidden again once its content has loaded. Without this, the island's first-ever
-    /// bring-up — window class registration, content load, compositor/swap-chain creation —
-    /// all runs when the user first hovers the tray icon; on slow integrated GPUs that cold
-    /// start both lags the first peek and is the window where the layered-fade crash was
-    /// observed (see Docs/Investigations/04-TRAY-PEEK-HOVER-FAILFAST-CRASH.md). Safe to call
+    /// startup, off the hover path, via <see cref="TrayPeekWarmUp"/>. The window is shown
+    /// non-activated and fully transparent (it is permanently layered with alpha 0 at rest, so
+    /// nothing is painted on screen) and hidden again once its first frames have rendered.
+    /// Without this, the island's first-ever bring-up — window class registration, content
+    /// load, compositor/swap-chain creation — all runs when the user first hovers the tray
+    /// icon; on slow integrated GPUs that cold start both lags the first peek and is the
+    /// window where the layered-fade crash was observed
+    /// (see Docs/Investigations/04-TRAY-PEEK-HOVER-FAILFAST-CRASH.md). Safe to call
     /// once after the main window is up; a hover arriving mid-warm-up simply takes over the
     /// already-created window.
     /// </summary>
@@ -160,47 +161,27 @@ public sealed class TrayPeekWindow : IDisposable
         (windowWidth, windowHeight) = CalculatePhysicalWindowSize();
         appWindow.Resize(new SizeInt32(windowWidth, windowHeight));
 
-        warmUpInFlight = true;
-        panel.Loaded += OnWarmUpPanelLoaded;
-        NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_SHOWNOACTIVATE);
-        Log.ForContext<TrayPeekWindow>().Debug("Peek warm-up started.");
+        warmUp = new TrayPeekWarmUp(panel, peekHwnd);
+        warmUp.Completed += OnWarmUpEnded;
+        warmUp.Start();
         return true;
     }
 
-    private void OnWarmUpPanelLoaded(object sender, RoutedEventArgs e)
+    private void OnWarmUpEnded(object sender, EventArgs e)
     {
-        if (panel != null)
-        {
-            panel.Loaded -= OnWarmUpPanelLoaded;
-        }
-
-        if (warmUpInFlight == false)
-        {
-            return;
-        }
-
-        warmUpInFlight = false;
-        NativeMethods.ShowWindow(peekHwnd, NativeMethods.SW_HIDE);
-        Log.ForContext<TrayPeekWindow>().Debug("Peek warm-up complete; window hidden.");
+        warmUp.Completed -= OnWarmUpEnded;
+        warmUp = null;
         WarmUpCompleted?.Invoke(this, EventArgs.Empty);
     }
 
     private void CancelWarmUp()
     {
-        if (warmUpInFlight == false)
+        if (warmUp != null)
         {
-            return;
+            // A hover takeover or teardown supersedes the warm-up before it finished; Cancel
+            // raises its Completed exactly once, so the host still gets its terminal callback.
+            warmUp.Cancel();
         }
-
-        warmUpInFlight = false;
-        if (panel != null)
-        {
-            panel.Loaded -= OnWarmUpPanelLoaded;
-        }
-
-        // A hover takeover or teardown supersedes the warm-up before it finished; the host still
-        // needs its terminal callback so it can lift any warm-up-scoped state it is holding.
-        WarmUpCompleted?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -408,7 +389,7 @@ public sealed class TrayPeekWindow : IDisposable
         EnsureWindowCreated();
 
         // A hover during the startup warm-up takes over the window: the warm-up's pending
-        // hide-on-loaded must not fire later and hide a peek the user is looking at. The
+        // hide-on-rendered must not fire later and hide a peek the user is looking at. The
         // window may still be in its warm-up show (transparent), which the normal flow below
         // handles — it repositions, replays the fade from alpha 0, and re-shows.
         CancelWarmUp();

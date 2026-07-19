@@ -139,6 +139,17 @@ public sealed partial class SettingsService
     }
 
     /// <summary>
+    /// The user's manual theme preference. <see cref="AppTheme.System"/> (the default) follows the
+    /// Windows app theme; <see cref="AppTheme.Light"/> and <see cref="AppTheme.Dark"/> pin the app
+    /// to that theme.
+    /// </summary>
+    public AppTheme Theme
+    {
+        get => settings.Theme;
+        set => settings.Theme = value;
+    }
+
+    /// <summary>
     /// Returns the five tab definitions from settings, in the persisted order. The array order
     /// <em>is</em> the left-to-right tab order (the user reorders tabs by dragging them), so the
     /// stored sequence is preserved rather than re-sorted by <c>Id</c>. Unknown and duplicate ids
@@ -384,6 +395,7 @@ public sealed partial class SettingsService
         public int WindowTop { get; set; }
         public bool TrayPeekEnabled { get; set; } = true;
         public bool IsPinned { get; set; }
+        public AppTheme Theme { get; set; }
         public List<SettingsService.TabEntry> Tabs { get; set; }
         public List<string> RecentEmoji { get; set; }
     }
@@ -393,6 +405,7 @@ public sealed partial class SettingsService
     /// Required because the trimmed/published build disables reflection-based
     /// <see cref="JsonSerializer"/>; the generator emits the metadata at compile time.
     /// </summary>
+    [JsonSourceGenerationOptions(UseStringEnumConverter = true)]
     [JsonSerializable(typeof(AppSettings))]
     private sealed partial class SettingsJsonContext : JsonSerializerContext
     {

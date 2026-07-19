@@ -146,7 +146,8 @@
                     VerticalAlignment="Center"
                     TextTrimming="CharacterEllipsis"
                     FontSize="13"
-                    FontFamily="Segoe UI Variable Text" />
+                    FontFamily="Segoe UI Variable Text"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                 <TextBlock
                     x:Name="Preview0"
                     Grid.Row="0"
@@ -156,7 +157,8 @@
                     Padding="0, 0, 12, 0"
                     Margin="0,-1.5,0,0"
                     FontSize="13"
-                    FontFamily="Cascadia Code" />
+                    FontFamily="Cascadia Code"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
 
                 <!-- Row 1 -->
                 <TextBlock
@@ -185,7 +187,8 @@
                     VerticalAlignment="Center"
                     TextTrimming="CharacterEllipsis"
                     FontSize="13"
-                    FontFamily="Segoe UI Variable Text" />
+                    FontFamily="Segoe UI Variable Text"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                 <TextBlock
                     x:Name="Preview1"
                     Grid.Row="1"
@@ -195,7 +198,8 @@
                     Padding="0, 0, 12, 0"
                     Margin="0,-1.5,0,0"
                     FontSize="13"
-                    FontFamily="Cascadia Code" />
+                    FontFamily="Cascadia Code"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
 
                 <!-- Row 2 -->
                 <TextBlock
@@ -224,7 +228,8 @@
                     VerticalAlignment="Center"
                     TextTrimming="CharacterEllipsis"
                     FontSize="13"
-                    FontFamily="Segoe UI Variable Text" />
+                    FontFamily="Segoe UI Variable Text"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                 <TextBlock
                     x:Name="Preview2"
                     Grid.Row="2"
@@ -234,7 +239,8 @@
                     Padding="0, 0, 12, 0"
                     Margin="0,-1.5,0,0"
                     FontSize="13"
-                    FontFamily="Cascadia Code" />
+                    FontFamily="Cascadia Code"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
 
                 <!-- Row 3 -->
                 <TextBlock
@@ -263,7 +269,8 @@
                     VerticalAlignment="Center"
                     TextTrimming="CharacterEllipsis"
                     FontSize="13"
-                    FontFamily="Segoe UI Variable Text" />
+                    FontFamily="Segoe UI Variable Text"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                 <TextBlock
                     x:Name="Preview3"
                     Grid.Row="3"
@@ -273,7 +280,8 @@
                     Padding="0, 0, 12, 0"
                     Margin="0,-1.5,0,0"
                     FontSize="13"
-                    FontFamily="Cascadia Code" />
+                    FontFamily="Cascadia Code"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
 
                 <!-- Row 4 -->
                 <TextBlock
@@ -302,7 +310,8 @@
                     VerticalAlignment="Center"
                     TextTrimming="CharacterEllipsis"
                     FontSize="13"
-                    FontFamily="Segoe UI Variable Text" />
+                    FontFamily="Segoe UI Variable Text"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                 <TextBlock
                     x:Name="Preview4"
                     Grid.Row="4"
@@ -312,7 +321,8 @@
                     Padding="0, 0, 12, 0"
                     Margin="0,-1.5,0,0"
                     FontSize="13"
-                    FontFamily="Cascadia Code" />
+                    FontFamily="Cascadia Code"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
 
             </Grid>
 

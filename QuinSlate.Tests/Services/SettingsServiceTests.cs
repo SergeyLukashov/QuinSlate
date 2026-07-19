@@ -1,3 +1,4 @@
+using QuinSlate.Ui.Models;
 using QuinSlate.Ui.Services;
 
 namespace QuinSlate.Tests.Services;
@@ -313,6 +314,45 @@ public sealed class SettingsServiceTests : IDisposable
     public void HasShownTrayNotice_Default_IsFalse()
     {
         Assert.False(settingsService.HasShownTrayNotice);
+    }
+
+    [Fact]
+    public void Theme_Default_IsSystem()
+    {
+        Assert.Equal(AppTheme.System, settingsService.Theme);
+    }
+
+    [Fact]
+    public async Task SaveAsync_PersistsThemeAsString()
+    {
+        settingsService.Theme = AppTheme.Dark;
+
+        await settingsService.SaveAsync();
+
+        var content = await File.ReadAllTextAsync(settingsService.SettingsFilePath, TestContext.Current.CancellationToken);
+        Assert.Contains("\"Theme\":\"Dark\"", content);
+    }
+
+    [Fact]
+    public async Task LoadAsync_ExistingFile_RestoresTheme()
+    {
+        var json = "{\"Theme\":\"Light\"}";
+        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json, TestContext.Current.CancellationToken);
+
+        await settingsService.LoadAsync();
+
+        Assert.Equal(AppTheme.Light, settingsService.Theme);
+    }
+
+    [Fact]
+    public async Task LoadAsync_FileWithoutTheme_DefaultsToSystem()
+    {
+        var json = "{\"HasRegisteredStartup\":false}";
+        await File.WriteAllTextAsync(settingsService.SettingsFilePath, json, TestContext.Current.CancellationToken);
+
+        await settingsService.LoadAsync();
+
+        Assert.Equal(AppTheme.System, settingsService.Theme);
     }
 
     [Fact]

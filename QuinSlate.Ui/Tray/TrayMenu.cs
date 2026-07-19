@@ -4,6 +4,8 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using QuinSlate.Ui.Interop;
+using QuinSlate.Ui.Models;
+using QuinSlate.Ui.Services;
 using System;
 using Windows.Graphics;
 using WinRT.Interop;
@@ -19,8 +21,15 @@ public sealed class TrayMenu
     private const string OpenLabel = "Open QuinSlate";
     private const string LaunchOnStartupLabel = "Launch on startup";
     private const string PeekPreviewLabel = "Peek preview";
+    private const string ThemeLabel = "Theme";
+    private const string ThemeSystemLabel = "System default";
+    private const string ThemeLightLabel = "Light";
+    private const string ThemeDarkLabel = "Dark";
+    private const string ThemeGroupName = "QuinSlateThemeGroup";
     private const string AboutLabel = "About";
     private const string ExitLabel = "Exit";
+
+    private const string TrayMenuPresenterStyleKey = "TrayMenuFlyoutPresenterStyle";
 
     private const string SegoeFluentIconsFamily = "Segoe Fluent Icons";
 
@@ -31,6 +40,7 @@ public sealed class TrayMenu
     private const double SeparatorMarginY = 2.0;
 
     private const string OpenGlyph = "\xE8A7";
+    private const string ThemeGlyph = "\xE790";
     private const string AboutGlyph = "\xE946";
     private const string ExitGlyph = "\xE711";
     private const string CheckmarkGlyph = "\xE73E";
@@ -52,6 +62,8 @@ public sealed class TrayMenu
     /// <param name="onExit">Action invoked when the Exit item is clicked.</param>
     /// <param name="startupEnabled">Whether the "Launch on startup" item is checked.</param>
     /// <param name="peekEnabled">Whether the "Peek preview" item is checked.</param>
+    /// <param name="currentTheme">The theme preference currently in effect, checked in the Theme submenu.</param>
+    /// <param name="onSetTheme">Action invoked with the chosen theme when a Theme submenu item is clicked.</param>
     /// <param name="onClose">Action invoked when the tray menu is closed.</param>
     public void Show(
         Action onOpen,
@@ -61,6 +73,8 @@ public sealed class TrayMenu
         Action onExit,
         bool startupEnabled,
         bool peekEnabled,
+        AppTheme currentTheme,
+        Action<AppTheme> onSetTheme,
         Action onClose = null)
     {
         onCloseAction = onClose;
@@ -79,6 +93,10 @@ public sealed class TrayMenu
         {
             Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent)
         };
+
+        // The flyout (and its Theme cascade) resolves its theme against the window's content root,
+        // not the ShowAt target, so setting RequestedTheme here honours a manual light/dark override.
+        rootGrid.RequestedTheme = ThemeService.ToElementTheme(currentTheme);
         menuWindow.Content = rootGrid;
 
         IntPtr menuHwnd = WindowNative.GetWindowHandle(menuWindow);
@@ -116,15 +134,9 @@ public sealed class TrayMenu
             0, 0, 0, 0,
             NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE);
 
-        // Build the MenuFlyout with a compact solid presenter style
-        var presenterStyle = new Style(typeof(MenuFlyoutPresenter));
-        presenterStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(0, 2, 0, 2)));
-        presenterStyle.Setters.Add(new Setter(Control.MinWidthProperty, 150.0));
-        presenterStyle.Setters.Add(new Setter(Control.BackgroundProperty, GetSolidBackgroundBrush()));
-
         var flyout = new MenuFlyout
         {
-            MenuFlyoutPresenterStyle = presenterStyle
+            MenuFlyoutPresenterStyle = GetPresenterStyle()
         };
 
         var openItem = new MenuFlyoutItem
@@ -191,6 +203,22 @@ public sealed class TrayMenu
         };
         ApplyCompactStyle(peekItem);
         flyout.Items.Add(peekItem);
+
+        var themeItem = new MenuFlyoutSubItem
+        {
+            Text = ThemeLabel,
+            Icon = new FontIcon
+            {
+                Glyph = ThemeGlyph,
+                FontFamily = new FontFamily(SegoeFluentIconsFamily),
+                FontSize = GlyphFontSize
+            }
+        };
+        themeItem.Items.Add(CreateThemeItem(ThemeSystemLabel, AppTheme.System, currentTheme, onSetTheme));
+        themeItem.Items.Add(CreateThemeItem(ThemeLightLabel, AppTheme.Light, currentTheme, onSetTheme));
+        themeItem.Items.Add(CreateThemeItem(ThemeDarkLabel, AppTheme.Dark, currentTheme, onSetTheme));
+        ApplyCompactStyle(themeItem);
+        flyout.Items.Add(themeItem);
 
         var separator2 = new MenuFlyoutSeparator { Margin = new Thickness(0, SeparatorMarginY, 0, SeparatorMarginY) };
         flyout.Items.Add(separator2);
@@ -280,6 +308,28 @@ public sealed class TrayMenu
         NativeMethods.SetForegroundWindow(menuHwnd);
     }
 
+    private RadioMenuFlyoutItem CreateThemeItem(string text, AppTheme value, AppTheme currentTheme, Action<AppTheme> onSetTheme)
+    {
+        // No Icon: RadioMenuFlyoutItem's own selection bullet occupies the reserved icon column, so
+        // it lines up with the checkmark and glyphs of the sibling items. Setting IsChecked
+        // programmatically does not raise Click, so onSetTheme only ever fires on a real click.
+        var item = new RadioMenuFlyoutItem
+        {
+            Text = text,
+            GroupName = ThemeGroupName,
+            IsChecked = value == currentTheme
+        };
+        item.Click += (s, e) =>
+        {
+            if (onSetTheme != null)
+            {
+                onSetTheme(value);
+            }
+        };
+        ApplyCompactStyle(item);
+        return item;
+    }
+
     private void ApplyCompactStyle(Control item)
     {
         item.Height = ItemHeight;
@@ -288,15 +338,15 @@ public sealed class TrayMenu
         item.Padding = new Thickness(8, 0, 8, 0);
     }
 
-    private static Brush GetSolidBackgroundBrush()
+    private static Style GetPresenterStyle()
     {
         if (Application.Current != null &&
-            Application.Current.Resources.TryGetValue("SolidBackgroundFillColorBaseBrush", out object obj) &&
-            obj is Brush brush)
+            Application.Current.Resources.TryGetValue(TrayMenuPresenterStyleKey, out object obj) &&
+            obj is Style style)
         {
-            return brush;
+            return style;
         }
-        return new SolidColorBrush(Windows.UI.Color.FromArgb(255, 32, 32, 32));
+        return null;
     }
 
     private void Teardown()

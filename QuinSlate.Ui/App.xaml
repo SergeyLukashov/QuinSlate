@@ -31,6 +31,16 @@
             <Color x:Key="AppGradientCornerTRLight">#FFFCF7EF</Color>
             <Color x:Key="AppGradientCornerBLLight">#FFF8F8F6</Color>
 
+            <!-- Compact, opaque presenter for the tray context menu. The Background is a
+                 {ThemeResource} so it resolves against the menu presenter's own element theme
+                 (which follows the tray helper window's RequestedTheme) rather than the app/Windows
+                 theme — a manual light/dark override must theme the menu, not just its text. -->
+            <Style x:Key="TrayMenuFlyoutPresenterStyle" TargetType="MenuFlyoutPresenter">
+                <Setter Property="Background" Value="{ThemeResource SolidBackgroundFillColorBaseBrush}" />
+                <Setter Property="Padding" Value="0,2,0,2" />
+                <Setter Property="MinWidth" Value="150" />
+            </Style>
+
             <ResourceDictionary.ThemeDictionaries>
                 <!-- Fallback gradient brushes (shown only before the dithered brush is applied
                      on load, or if it cannot be built). They reference the colours above so the
@@ -61,7 +71,6 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <ResourceDictionary Source="ms-appx:///Themes/TextBoxStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            <!-- Other app resources here -->
         </ResourceDictionary>
     </Application.Resources>
 </Application>

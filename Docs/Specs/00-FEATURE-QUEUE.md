@@ -1,6 +1,6 @@
 # Feature Queue
 
-> _Last updated: 2026-07-16_
+> _Last updated: 2026-07-19_
 
 - [x] 01 Core buffers, tray icon, hotkey, autosave — [SPEC](01-CORE.md)
 - [x] 02 Launch on startup — [SPEC](02-STARTUP.md)
@@ -23,4 +23,5 @@
 - [x] 19 Checkable tasks — [SPEC](19-CHECKABLE-TASKS.md)
 - [x] 20 Bullet and numbered lists — [SPEC](20-LISTS.md)
 - [x] 21 Clickable links — [SPEC](21-LINKS.md)
+- [x] 22 Manual theme switch — [SPEC](22-THEME-SWITCH.md)
 

@@ -3,7 +3,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using QuinSlate.Ui.Components;
 using QuinSlate.Ui.Constants;
-using Windows.UI;
 using Windows.UI.Text;
 
 namespace QuinSlate.Ui.Tray;
@@ -14,6 +13,12 @@ namespace QuinSlate.Ui.Tray;
 /// </summary>
 public sealed partial class TrayPeekPanel : UserControl
 {
+    // Row text colour comes from the XAML {ThemeResource} foreground so it tracks the panel's own
+    // element theme (a manual light/dark override, not the Windows theme). An empty buffer's
+    // "(empty)" line is dimmed with opacity rather than a second brush, so the single themed
+    // foreground still applies and updates live on a theme change.
+    private const double EmptyPreviewOpacity = 0.6;
+
     private readonly TextBlock[] numbers;
     private readonly TextBlock[] emojis;
     private readonly TextBlock[] titles;
@@ -66,17 +71,16 @@ public sealed partial class TrayPeekPanel : UserControl
             emojis[i].Text = row.Emoji;
             titles[i].Text = row.Title;
             titles[i].FontStyle = FontStyle.Normal;
-            titles[i].Foreground = GetThemeBrush("TextFillColorPrimaryBrush", Color.FromArgb(255, 0, 0, 0));
 
             if (row.IsEmpty)
             {
                 previews[i].Text = "(empty)";
-                previews[i].Foreground = GetThemeBrush("TextFillColorTertiaryBrush", Color.FromArgb(255, 136, 136, 136));
+                previews[i].Opacity = EmptyPreviewOpacity;
             }
             else
             {
                 previews[i].Text = row.Preview;
-                previews[i].Foreground = GetThemeBrush("TextFillColorPrimaryBrush", Color.FromArgb(255, 224, 224, 224));
+                previews[i].Opacity = 1.0;
             }
         }
     }
@@ -117,16 +121,5 @@ public sealed partial class TrayPeekPanel : UserControl
         {
             RootBorder.Background = brush;
         }
-    }
-
-    private static Brush GetThemeBrush(string resourceKey, Color fallbackColor)
-    {
-        if (Microsoft.UI.Xaml.Application.Current != null &&
-            Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue(resourceKey, out object obj) &&
-            obj is Brush brush)
-        {
-            return brush;
-        }
-        return new SolidColorBrush(fallbackColor);
     }
 }

@@ -844,6 +844,11 @@ public sealed partial class BufferPanel : UserControl
     private void OnPanelActualThemeChanged(FrameworkElement sender, object args)
     {
         ApplyDitheredBackground();
+
+        // A manual light/dark override changes the element theme without an OS colour change, so
+        // OnColorValuesChanged does not fire; re-push the editor's per-theme colours here so the
+        // CodeMirror text, caret, and link colours track the panel's theme, not just the mesh.
+        ApplyEditorThemeColors();
     }
 
     private void OnRootGridSizeChanged(object sender, SizeChangedEventArgs e)

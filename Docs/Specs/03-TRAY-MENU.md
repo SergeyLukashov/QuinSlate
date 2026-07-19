@@ -1,6 +1,6 @@
 # SPEC: Tray context menu
 
-> _Last updated: 2026-07-05_
+> _Last updated: 2026-07-19_
 
 ## What
 A right-click menu on the tray icon giving the user access to top-level
@@ -11,11 +11,13 @@ app controls. The only place to quit or change persistent settings.
     Open                     (show the panel; same as left-click or hotkey)
     ─────────────────────
     Launch on startup   [✓]  (checkbox; toggles the packaged startup task)
+    Peek preview        [✓]  (checkbox; toggles the tray-hover buffer preview)
+    Theme               ▸    (submenu: System default / Light / Dark)
     ─────────────────────
     About
     Exit
 
-Order and separators are as above. No other items in v1.
+Order and separators are as above.
 
 ## Behaviour
 
@@ -29,6 +31,15 @@ Launch on startup
 - Toggling enables or disables the packaged startup task immediately — **not** an
   `HKCU\...\Run` registry key, which does not work for an MSIX-packaged app (see
   [02-STARTUP.md](02-STARTUP.md)).
+
+Peek preview
+- Checkbox reflecting the persisted `TrayPeekEnabled` setting. Toggling shows or suppresses the
+  buffer preview that appears when the pointer hovers the tray icon (see [07-BUFFER-PEEK.md](07-BUFFER-PEEK.md)).
+
+Theme
+- Submenu with three mutually exclusive radio items: **System default** (the default; follows the
+  Windows app theme live), **Light**, and **Dark**. The active choice is checked. Selecting one
+  applies it immediately without a restart and persists it. See [22-THEME-SWITCH.md](22-THEME-SWITCH.md).
 
 About
 - Show a rich About card (`AboutView`) styled with the app's dithered gradient background, hosted in its own borderless, owned top-level window (`AboutWindow`) centred over the main window. Using a dedicated window rather than an in-window `ContentDialog` keeps the card at its natural size and fully visible even when the main window has been resized smaller than the card.

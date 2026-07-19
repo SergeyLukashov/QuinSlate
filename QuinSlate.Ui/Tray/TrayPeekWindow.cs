@@ -69,6 +69,7 @@ public sealed class TrayPeekWindow : IDisposable
 
     private BufferService storedBufferService;
     private SettingsService storedSettingsService;
+    private ElementTheme requestedTheme = ElementTheme.Default;
 
     /// <summary>
     /// Creates the peek window container. The underlying WinUI 3 <see cref="Window"/> is
@@ -185,6 +186,21 @@ public sealed class TrayPeekWindow : IDisposable
     }
 
     /// <summary>
+    /// Sets the theme the peek renders in. Applied to the panel immediately when the window already
+    /// exists (its dithered background and row colours rebuild on the resulting theme change), and
+    /// stored so a not-yet-created window adopts it on first bring-up.
+    /// </summary>
+    /// <param name="theme">The theme override (Default follows the Windows app theme).</param>
+    public void SetRequestedTheme(ElementTheme theme)
+    {
+        requestedTheme = theme;
+        if (panel != null)
+        {
+            panel.RequestedTheme = theme;
+        }
+    }
+
+    /// <summary>
     /// Hides the peek window and stops the hover-check timer.
     /// </summary>
     public void Hide()
@@ -230,6 +246,10 @@ public sealed class TrayPeekWindow : IDisposable
             }
 
             subclassDelegate = null;
+            if (panel != null)
+            {
+                panel.ActualThemeChanged -= OnPanelActualThemeChanged;
+            }
             peekWindow.Close();
             peekWindow = null;
             panel = null;
@@ -248,6 +268,7 @@ public sealed class TrayPeekWindow : IDisposable
         peekWindow = new Window();
 
         panel = new TrayPeekPanel();
+        panel.RequestedTheme = requestedTheme;
         peekWindow.Content = panel;
 
         peekHwnd = WindowNative.GetWindowHandle(peekWindow);
@@ -259,10 +280,20 @@ public sealed class TrayPeekWindow : IDisposable
         ApplyNonActivatingStyles();
         ConfigurePresenter();
         NativeMethods.SetRoundedCornerPreference(peekHwnd);
+        NativeMethods.SetImmersiveDarkMode(peekHwnd, panel.ActualTheme == ElementTheme.Dark);
+        panel.ActualThemeChanged += OnPanelActualThemeChanged;
         SubclassWndProc();
 
         var windowId = Microsoft.UI.Win32Interop.GetWindowIdFromWindow(peekHwnd);
         appWindow = AppWindow.GetFromWindowId(windowId);
+    }
+
+    private void OnPanelActualThemeChanged(FrameworkElement sender, object args)
+    {
+        if (peekHwnd != IntPtr.Zero && panel != null)
+        {
+            NativeMethods.SetImmersiveDarkMode(peekHwnd, panel.ActualTheme == ElementTheme.Dark);
+        }
     }
 
     private void ApplyNonActivatingStyles()

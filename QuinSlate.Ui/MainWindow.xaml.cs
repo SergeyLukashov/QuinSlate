@@ -89,6 +89,7 @@ public sealed partial class MainWindow : Window
     private BufferService bufferService;
     private StartupService startupService;
     private SettingsService settingsService;
+    private ThemeService themeService;
     private HotkeyManager hotkeyManager;
     private TrayIcon trayIcon;
     private TrayPeekWindow trayPeekWindow;
@@ -161,6 +162,14 @@ public sealed partial class MainWindow : Window
 
         Title = WindowTitle;
 
+        // Apply the saved theme to the content root before the panel builds its first background
+        // mesh and editor colours, so the initial paint already matches the chosen theme.
+        themeService = new ThemeService(settingsService);
+        if (Content is FrameworkElement themeRoot)
+        {
+            themeService.Register(themeRoot);
+        }
+
         IReadOnlyList<QuinSlate.Ui.Models.TabDefinition> tabDefinitions = settingsService.GetTabs();
         Panel.Initialise(bufferService, buffers, settingsService, tabDefinitions);
 
@@ -174,6 +183,7 @@ public sealed partial class MainWindow : Window
             DitheredGradientBrushFactory.MidColor(false),
             DitheredGradientBrushFactory.MidColor(true));
         backgroundBrush.SetTheme(IsDarkTheme());
+        NativeMethods.SetImmersiveDarkMode(windowHandle, IsDarkTheme());
         if (Content is FrameworkElement contentRoot)
         {
             contentRoot.ActualThemeChanged += OnContentActualThemeChanged;
@@ -186,6 +196,7 @@ public sealed partial class MainWindow : Window
         }
 
         trayPeekWindow = new TrayPeekWindow();
+        trayPeekWindow.SetRequestedTheme(themeService.CurrentElementTheme);
 
         trayIcon = new TrayIcon(windowHandle);
         trayIcon.LeftClicked += OnTrayLeftClicked;
@@ -545,6 +556,22 @@ public sealed partial class MainWindow : Window
         {
             backgroundBrush.SetTheme(IsDarkTheme());
         }
+
+        NativeMethods.SetImmersiveDarkMode(windowHandle, IsDarkTheme());
+    }
+
+    private void ApplyTheme(QuinSlate.Ui.Models.AppTheme theme)
+    {
+        if (themeService == null)
+        {
+            return;
+        }
+
+        themeService.Set(theme);
+        if (trayPeekWindow != null)
+        {
+            trayPeekWindow.SetRequestedTheme(themeService.CurrentElementTheme);
+        }
     }
 
     private IntPtr WindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
@@ -750,6 +777,8 @@ public sealed partial class MainWindow : Window
             onExit: () => ExitApplication(),
             startupEnabled: startupEnabled,
             peekEnabled: peekEnabled,
+            currentTheme: themeService.Current,
+            onSetTheme: theme => ApplyTheme(theme),
             onClose: () =>
             {
                 isContextMenuOpen = false;
@@ -790,7 +819,7 @@ public sealed partial class MainWindow : Window
         // build finished; building while the panel is still hidden lets the show below paint
         // promptly.
         string storageDirectory = bufferService != null ? bufferService.AppDataDirectory : null;
-        aboutWindow = new AboutWindow(windowHandle, storageDirectory);
+        aboutWindow = new AboutWindow(windowHandle, storageDirectory, themeService);
         aboutWindow.Closed += OnAboutWindowClosed;
 
         PrepareModalBackdrop();

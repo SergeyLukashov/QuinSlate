@@ -89,6 +89,12 @@ public sealed class EmojiPicker
 
         EnsurePickerBuilt();
 
+        // The picker surface is prewarmed and reused (its whole point), so it stays outside the
+        // themed visual tree between opens; pin it to the anchor's resolved theme on each open so it
+        // adopts a theme switch made since the last open. The sprite glyphs are theme-independent
+        // images, so unlike the rename flyout this surface is not rebuilt per theme.
+        cachedView.RequestedTheme = anchor.ActualTheme;
+
         cachedView.Reset(recentEmoji);
 
         FlyoutBase.SetAttachedFlyout(anchor, cachedFlyout);

@@ -4,6 +4,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
 using QuinSlate.Ui.Interop;
+using QuinSlate.Ui.Services;
 using System;
 using System.Runtime.InteropServices;
 using Windows.Graphics;
@@ -53,6 +54,7 @@ public sealed class AboutWindow : Window
     private const double CloseButtonZoneLogical = 56;
 
     private readonly AboutView view;
+    private readonly ThemeService themeService;
     private readonly IntPtr ownerHwnd;
     private readonly IntPtr hwnd;
     private readonly AppWindow appWindow;
@@ -74,14 +76,23 @@ public sealed class AboutWindow : Window
     /// </summary>
     /// <param name="ownerHwnd">HWND of the main window that owns this dialog.</param>
     /// <param name="storageDirectory">Live data directory to display in the card.</param>
-    public AboutWindow(IntPtr ownerHwnd, string storageDirectory)
+    /// <param name="themeService">The single theme source; the card registers with it so a theme
+    /// switch made (via the tray icon) while the card is open re-themes it live.</param>
+    public AboutWindow(IntPtr ownerHwnd, string storageDirectory, ThemeService themeService)
     {
         this.ownerHwnd = ownerHwnd;
+        this.themeService = themeService;
 
         view = new AboutView();
         view.StorageDirectory = storageDirectory;
         view.CloseRequested += OnCloseRequested;
         view.Loaded += OnViewLoaded;
+        view.ActualThemeChanged += OnViewActualThemeChanged;
+
+        // Registering applies the current theme now and re-applies it whenever the preference
+        // changes while the card is open (the tray menu is reachable even behind this modal).
+        themeService.Register(view);
+
         AddEscapeAccelerator();
         Content = view;
 
@@ -94,12 +105,13 @@ public sealed class AboutWindow : Window
         backgroundBrush = new WindowBackgroundBrush(
             DitheredGradientBrushFactory.MidColor(false),
             DitheredGradientBrushFactory.MidColor(true));
-        backgroundBrush.SetTheme(view.ActualTheme != ElementTheme.Light);
+        backgroundBrush.SetTheme(view.ActualTheme == ElementTheme.Dark);
 
         SubclassWndProc();
         ConfigurePresenter();
         ApplyOwnedToolWindowStyles();
         NativeMethods.SetRoundedCornerPreference(hwnd);
+        NativeMethods.SetImmersiveDarkMode(hwnd, view.ActualTheme == ElementTheme.Dark);
         BeginHiddenForFade();
         ApplySizeAndPosition();
         UpdateDragRegion();
@@ -164,6 +176,23 @@ public sealed class AboutWindow : Window
     private void OnCloseRequested(object sender, EventArgs e)
     {
         Close();
+    }
+
+    /// <summary>
+    /// Keeps the bare-window erase fill and the DWM frame in step with the card's resolved theme.
+    /// The card's XAML content re-themes itself through <c>{ThemeResource}</c> and the view's own
+    /// theme handler, but these two are outside the WinUI compositor and must be updated by hand —
+    /// both when a manual override is applied and when Windows flips light/dark while the card is up.
+    /// </summary>
+    private void OnViewActualThemeChanged(FrameworkElement sender, object args)
+    {
+        bool isDark = view.ActualTheme == ElementTheme.Dark;
+        if (backgroundBrush != null)
+        {
+            backgroundBrush.SetTheme(isDark);
+        }
+
+        NativeMethods.SetImmersiveDarkMode(hwnd, isDark);
     }
 
     private void SubclassWndProc()
@@ -403,8 +432,10 @@ public sealed class AboutWindow : Window
 
         StopFadeTimer();
 
+        themeService.Unregister(view);
         view.CloseRequested -= OnCloseRequested;
         view.Loaded -= OnViewLoaded;
+        view.ActualThemeChanged -= OnViewActualThemeChanged;
 
         if (ownerDisabled && ownerHwnd != IntPtr.Zero)
         {

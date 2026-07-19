@@ -28,6 +28,7 @@ public sealed class TabEditFlyout
 
     private Flyout cachedFlyout;
     private TabEditFlyoutView cachedView;
+    private ElementTheme builtTheme = ElementTheme.Default;
     private bool isOpen;
     private int editingTabIndex = -1;
     private string pendingEmoji;
@@ -69,6 +70,10 @@ public sealed class TabEditFlyout
 
         this.emojiPicker = emojiPicker;
         this.settingsService = settingsService;
+
+        // The shared picker outlives any single built view, so subscribe once here rather than in
+        // EnsureBuilt (which rebuilds the view on a theme change and would otherwise re-subscribe).
+        this.emojiPicker.EmojiSelected += OnEmojiSelected;
     }
 
     /// <summary>
@@ -85,7 +90,7 @@ public sealed class TabEditFlyout
             return;
         }
 
-        EnsureBuilt();
+        EnsureBuilt(anchor.ActualTheme);
 
         editingTabIndex = bufferIndex;
         pendingEmoji = tab.Emoji;
@@ -97,19 +102,29 @@ public sealed class TabEditFlyout
         FlyoutBase.ShowAttachedFlyout(anchor);
     }
 
-    private void EnsureBuilt()
+    private void EnsureBuilt(ElementTheme theme)
     {
-        if (cachedFlyout != null)
+        if (cachedFlyout != null && builtTheme == theme)
         {
             return;
         }
 
+        // A cached view realized in the previous theme keeps that theme's brushes for the first
+        // frame when reshown, which reads as a flash after a theme switch. Rebuild the view (and
+        // its flyout) in the new theme instead, so its very first realization paints correctly.
+        if (cachedFlyout != null)
+        {
+            cachedView.SaveRequested -= OnSaveRequested;
+            cachedView.CancelRequested -= OnCancelRequested;
+            cachedView.EmojiButtonClicked -= OnEmojiButtonClicked;
+            cachedFlyout.Closed -= OnFlyoutClosed;
+        }
+
         cachedView = new TabEditFlyoutView();
+        cachedView.RequestedTheme = theme;
         cachedView.SaveRequested += OnSaveRequested;
         cachedView.CancelRequested += OnCancelRequested;
         cachedView.EmojiButtonClicked += OnEmojiButtonClicked;
-
-        emojiPicker.EmojiSelected += OnEmojiSelected;
 
         var presenterStyle = new Style(typeof(FlyoutPresenter));
         presenterStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(PresenterPadding)));
@@ -135,6 +150,8 @@ public sealed class TabEditFlyout
             ShowMode = FlyoutShowMode.Standard,
         };
         cachedFlyout.Closed += OnFlyoutClosed;
+
+        builtTheme = theme;
     }
 
     private void OnEmojiButtonClicked(object sender, EventArgs e)

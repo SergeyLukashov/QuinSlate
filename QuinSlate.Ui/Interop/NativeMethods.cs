@@ -45,6 +45,13 @@ internal static class NativeMethods
     private const int DwmCloakOn = 1;
     private const int DwmCloakOff = 0;
 
+    // DWMWA_USE_IMMERSIVE_DARK_MODE: when set, DWM draws the window's non-client frame (the thin
+    // border and title bar) in its dark variant. Value 20 is the stable attribute id on Windows 10
+    // build 19041+ and Windows 11 (the app's minimum target).
+    private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+    private const int DwmImmersiveDarkModeOn = 1;
+    private const int DwmImmersiveDarkModeOff = 0;
+
     public const uint NIM_ADD = 0x00000000;
     public const uint NIM_MODIFY = 0x00000001;
     public const uint NIM_DELETE = 0x00000002;
@@ -522,6 +529,19 @@ internal static class NativeMethods
     {
         int preference = DWMWCP_ROUND;
         DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref preference, sizeof(int));
+    }
+
+    /// <summary>
+    /// Sets whether DWM draws the window's non-client frame (its thin border and title bar) in the
+    /// dark variant. The frame follows the Windows app theme by default and ignores a per-element
+    /// <c>RequestedTheme</c> override, so a window pinned to a theme that differs from Windows must
+    /// set this explicitly (and again whenever its resolved theme changes) to avoid a light hairline
+    /// border around a dark surface, or vice versa.
+    /// </summary>
+    public static void SetImmersiveDarkMode(IntPtr hwnd, bool dark)
+    {
+        int value = dark ? DwmImmersiveDarkModeOn : DwmImmersiveDarkModeOff;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref value, sizeof(int));
     }
 
     /// <summary>

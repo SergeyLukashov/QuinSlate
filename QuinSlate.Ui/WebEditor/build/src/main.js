@@ -9,13 +9,21 @@
 // numbered lists (lists.js).
 
 import { postToHost, onHostMessage } from "./hostBridge.js";
+import { registerGlobalErrorLogging, logInformation } from "./pageLog.js";
 import { applyCaretHold } from "./startupReveal.js";
 import { createEditor } from "./editorSetup.js";
 import { handleHostMessage } from "./hostMessages.js";
 
+// First, so a failure anywhere in the start-up below reaches the host's log.
+registerGlobalErrorLogging();
 applyCaretHold();
 createEditor();
 onHostMessage(handleHostMessage);
 
 // Signal the host that the page and CM6 are ready to receive init/activate.
 postToHost("ready");
+
+// A once-per-load lifecycle breadcrumb (no buffer content): confirms the page
+// booted CM6 and the log bridge is live, and marks the page's start in the
+// shared log next to the host's own startup entries.
+logInformation("Editor page ready.");

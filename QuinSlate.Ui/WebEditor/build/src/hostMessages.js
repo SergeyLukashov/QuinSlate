@@ -2,6 +2,7 @@
 // Components/EditorHost.cs can ask the page to do.
 
 import { undo, redo, selectAll } from "@codemirror/commands";
+import { logError, logWarning, describeError } from "./pageLog.js";
 import { getView } from "./editorContext.js";
 import { normaliseIncoming } from "./crlfText.js";
 import { initBuffers, activate, setText } from "./buffers.js";
@@ -45,7 +46,20 @@ function insertClamped(text) {
   );
 }
 
+// A throwing handler is logged (message *name* only — the payload may carry
+// buffer text) and swallowed, so one bad message cannot detach the bridge.
 export function handleHostMessage(message) {
+  try {
+    dispatchHostMessage(message);
+  } catch (error) {
+    logError(
+      "Handling the host message '" + (message && message.type) + "' failed: " + describeError(error),
+      error
+    );
+  }
+}
+
+function dispatchHostMessage(message) {
   switch (message.type) {
     case "init":
       initBuffers(message.buffers);
@@ -84,6 +98,7 @@ export function handleHostMessage(message) {
       applyBackground(message);
       break;
     default:
+      logWarning("Unknown host message type '" + message.type + "'.");
       break;
   }
 }

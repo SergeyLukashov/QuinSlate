@@ -1,6 +1,6 @@
 # Web editor: the CodeMirror 6 bundle and its build
 
-> _Last updated: 2026-07-16_
+> _Last updated: 2026-07-19_
 
 The buffer editor is a CodeMirror 6 web app hosted in a `WebView2` (see ADR
 [04-EDITOR-CODEMIRROR-WEBVIEW2.md](../Decisions/04-EDITOR-CODEMIRROR-WEBVIEW2.md) and spec
@@ -24,6 +24,7 @@ QuinSlate.Ui/WebEditor/
     ├── src/              # the editor source, split into focused ES modules
     │   ├── main.js           # entry point: wires the modules up, posts "ready"
     │   ├── hostBridge.js     # postToHost/onHostMessage + the HostOrigin annotation
+    │   ├── pageLog.js        # page-side logging over the bridge into Serilog + global error capture
     │   ├── editorContext.js  # shared session state: the view, active index, accent
     │   ├── crlfText.js       # CRLF length maths + incoming-text normalisation
     │   ├── charLimit.js      # the capFilter transaction filter + limitReached report
@@ -76,6 +77,15 @@ QuinSlate.Ui/WebEditor/
   carrying buffer text (`init`, `setText`, `insert`, `contentSync`,
   `calcRequest`/`calcResult`) are never logged on either side — only message
   names, indices, and lengths.
+- **The page logs into the same Serilog pipeline as C#.** `pageLog.js` posts
+  `log` messages (level, message, optional stack) over the bridge;
+  `Components/EditorPageLogForwarder.cs` writes them to the rolling file sink
+  under the `QuinSlate.Ui.WebEditor.EditorPage` source context. Uncaught page
+  errors and unhandled promise rejections are captured globally (`main.js`
+  registers this first), a throwing host-message handler is logged by message
+  *name* and swallowed, and each distinct message is forwarded at most 10 times
+  per page load so an error loop cannot flood the log. The buffer-contents rule
+  applies to every `log` call site: names, indices, counts, lengths — never text.
 - **The character cap is enforced in exactly one place:** the `capFilter`
   transaction filter in `build/src/charLimit.js`. Every route into the document — typing, IME,
   dictation, paste, drag-drop, and the host's own `insert` message — is a CM6

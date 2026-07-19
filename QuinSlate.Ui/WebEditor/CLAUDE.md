@@ -38,6 +38,10 @@ Full guide: `Docs/Wiki/06-WEB-EDITOR-BUNDLE.md`. ADR: `Docs/Decisions/04-EDITOR-
 - The page is served over the `https://quinslate.editor/` virtual-host mapping; the host↔page
   contract is the JSON bridge in `Components/EditorHost.cs`. **Never log buffer text across
   the bridge** — only message names, indices, and lengths.
+- Page-side logging goes through `build/src/pageLog.js` (`logDebug`/`logInformation`/
+  `logWarning`/`logError`), which posts `log` messages the host forwards into the shared
+  Serilog file sink (`Components/EditorPageLogForwarder.cs`). Global error capture is wired
+  in `main.js`. Log calls must never include document text.
 - **`contentAttributes` must keep `autocorrect: "on"`** (`spellcheck` stays `"false"`).
   Edge/WebView2 silently drops Windows emoji-panel input into a contenteditable with
   `autocorrect="off"` + block children; the page sees zero DOM events, so nothing page-side

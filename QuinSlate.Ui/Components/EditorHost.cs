@@ -286,6 +286,12 @@ internal sealed class EditorHost
                     GetString(root, "cause"),
                     GetInt(root, "dropped")));
                 break;
+            case "log":
+                EditorPageLogForwarder.Forward(
+                    GetString(root, "level"),
+                    GetString(root, "message"),
+                    GetString(root, "stack"));
+                break;
             case "contextMenu":
                 ContextMenuRequested?.Invoke(this, new EditorContextMenuEventArgs(
                     GetDouble(root, "x"),

@@ -1,6 +1,6 @@
 # SPEC: Application logging
 
-> _Last updated: 2026-07-05_
+> _Last updated: 2026-07-19_
 
 ## What
 Add a proper, always-on logging subsystem so that the application's behaviour,
@@ -68,6 +68,17 @@ members (these are infrastructure types, same bar as `Services/` and `Interop/`)
 
 Call sites obtain a contextual logger idiomatically via
 `Serilog.Log.ForContext<T>()`; no custom logging facade is introduced.
+
+**Web editor page (added 2026-07-19):** the CodeMirror page logs into the same
+pipeline. `WebEditor/build/src/pageLog.js` posts `log` messages (level,
+message, optional stack) over the WebView2 bridge, and
+`Components/EditorPageLogForwarder.cs` forwards them to the file sink under the
+`QuinSlate.Ui.WebEditor.EditorPage` source context. Page levels mirror
+Serilog's (`debug`/`information`/`warning`/`error`), so the release
+Information floor applies unchanged. Uncaught page errors and unhandled
+promise rejections are captured globally; repeats of one message are capped at
+10 per page load and both sides clamp lengths. The PII guardrail is identical:
+log calls carry names, indices, counts, and lengths — never buffer text.
 
 ## File location, rolling and retention
 

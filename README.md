@@ -13,7 +13,7 @@ have it all autosaved to plain text.
 
 ## Features
 
-- **5 persistent slates** - as colour-coded tabs, autosaved to plain `.txt` files.
+- **5 persistent slates** - named, emoji-tagged, autosaved to plain `.txt`.
 - **Global hotkey** - (Ctrl+Shift+Q) to toggle the panel from anywhere.
 - **System tray icon** - with left-click toggle and context menu.
 - **Peek panel** - glance at a buffer without stealing focus.

@@ -28,6 +28,11 @@ export const editorTheme = EditorView.theme({
   },
   ".cm-content": {
     padding: "0",
+    // Room for the open search pill (searchSpacer.js). Unlike the fixed insets it is meant to
+    // scroll away, so it is content padding rather than a WebView2 margin; 0 while search is shut.
+    // The minimum height grows with it so a slate too short to scroll can still scroll it away.
+    paddingTop: "var(--search-spacer, 0px)",
+    minHeight: "calc(100% + var(--search-spacer, 0px))",
     caretColor: "var(--caret)",
     // CM6 sets no cursor, and the UA default (auto) only resolves to an I-beam where there is text
     // under the pointer: the padding strip, the marker widgets, and the space past the end of a

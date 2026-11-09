@@ -1,6 +1,6 @@
 # TabView drag-reorder: the four SDK traps
 
-> _Last updated: 2026-08-08_
+> _Last updated: 2026-09-24_
 
 How QuinSlate's five tabs came to be drag-reorderable, and the four separate WinUI `TabView`
 behaviours that had to be worked around to make it look right. Every number below was measured
@@ -118,7 +118,7 @@ nothing to scroll and nothing to overflow. A unit test asserts the invariant
 
 ### Why the offset is re-pinned from `ViewChanged`
 
-`BufferPanel.ResetStripScrollWhenTabsFit` also forces the offset back to 0 whenever the tabs are
+`TabStripLayout.ResetStripScrollWhenTabsFit` also forces the offset back to 0 whenever the tabs are
 meant to fit. It is hooked to the strip `ScrollViewer`'s **`ViewChanged`**, not to the end of a
 reorder: a one-shot reset driven off the collection change *does not work*, because the SDK scrolls
 the dropped tab into view **after** the tab collection has settled and overwrites it. Below the
@@ -179,7 +179,7 @@ test asserts the default window still fits five tabs above the floor.
 
 - **Dragging a tab that is not the active one does not activate it.** A plain click selects
   normally; only the drag path differs (likely the `GettingFocus` cancel in
-  `BufferPanel.OnTabItemGettingFocus`). Browsers select the tab the moment you pick it up.
+  `BufferTabStrip.OnTabItemGettingFocus`). Browsers select the tab the moment you pick it up.
 - The tabs now sit up to ~5 DIP narrower in total than the strip. Invisible, but real.
 - Behaviour on a **maximized** window is covered by the unit-test sweep (320–3840 DIP, sub-DIP
   steps, asserting the tab run never exceeds the viewport) but has **not been verified against

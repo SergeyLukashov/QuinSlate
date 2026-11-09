@@ -2,27 +2,39 @@
 // Per-buffer undo/selection/scroll live in the EditorState and survive the swap.
 
 import { HostOrigin } from "./hostBridge.js";
-import { BUFFER_MIN, BUFFER_MAX, getView, getActiveIndex, setActiveIndex } from "./editorContext.js";
+import {
+  BUFFER_MIN,
+  BUFFER_MAX,
+  getView,
+  getActiveIndex,
+  setActiveIndex,
+  storeBufferState,
+  getStoredBufferState,
+} from "./editorContext.js";
 import { normaliseIncoming } from "./crlfText.js";
 import { makeState } from "./editorSetup.js";
 import { flushSync } from "./contentSync.js";
 import { playEntrance } from "./entrance.js";
+import { onBuffersLoaded, onSlateActivated, onSlateReplaced } from "./search.js";
+import { getShownSpacer, realignAfterRestore } from "./searchSpacer.js";
 
-const states = new Map(); // index -> EditorState
 // CM6 keeps scroll in the DOM, not the EditorState, so per-buffer scroll must be preserved across
 // tab switches. scrollSnapshot() captures the exact position as an effect that restores precisely
 // after the state is re-measured (raw scrollTop races the re-measure and lands a few lines off).
-const scrollSnapshotByIndex = new Map(); // index -> StateEffect
+// The search spacer's height rides along, because the snapshot restores a raw offset that the
+// spacer shifts.
+const scrollSnapshotByIndex = new Map(); // index -> { effect: StateEffect, spacer }
 
 export function initBuffers(buffers) {
   for (const buffer of buffers) {
-    states.set(buffer.index, makeState(buffer.text));
+    storeBufferState(buffer.index, makeState(buffer.text));
   }
   setActiveIndex(buffers.length > 0 ? buffers[0].index : BUFFER_MIN);
-  const first = states.get(getActiveIndex());
+  const first = getStoredBufferState(getActiveIndex());
   if (first != null) {
     getView().setState(first);
   }
+  onBuffersLoaded();
 }
 
 export function activate(index) {
@@ -31,17 +43,19 @@ export function activate(index) {
     // Persist pending edits and capture the exact scroll position of the buffer being switched
     // away from before swapping in the target buffer's state.
     flushSync();
-    scrollSnapshotByIndex.set(getActiveIndex(), view.scrollSnapshot());
-    states.set(getActiveIndex(), view.state);
+    scrollSnapshotByIndex.set(getActiveIndex(), { effect: view.scrollSnapshot(), spacer: getShownSpacer() });
+    storeBufferState(getActiveIndex(), view.state);
     setActiveIndex(index);
-    const next = states.get(index);
+    const next = getStoredBufferState(index);
     if (next != null) {
       view.setState(next);
       const snapshot = scrollSnapshotByIndex.get(index);
       if (snapshot != null) {
-        view.dispatch({ effects: snapshot });
+        view.dispatch({ effects: snapshot.effect });
+        realignAfterRestore(view, snapshot.spacer);
       }
     }
+    onSlateActivated(index);
   }
   playEntrance();
 }
@@ -55,6 +69,7 @@ export function setText(index, text) {
       annotations: HostOrigin.of(true),
     });
   } else {
-    states.set(index, makeState(text));
+    storeBufferState(index, makeState(text));
+    onSlateReplaced();
   }
 }

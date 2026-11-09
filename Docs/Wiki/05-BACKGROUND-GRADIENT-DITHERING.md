@@ -1,6 +1,6 @@
 # Background gradient: the TPDF-dithered four-corner mesh
 
-> _Last updated: 2026-07-14_
+> _Last updated: 2026-09-24_
 
 The window and editor surfaces are painted with a warm, logo-derived **four-corner bilinear
 gradient mesh** (amber `#F2900F` / warm grey `#98948D`). Each corner of the surface has its own
@@ -38,12 +38,12 @@ dithering via a high-precision stop collection was also too weak here. Both were
   (used if even the code path below cannot run). They are linear gradients and **must never be the
   surface actually presented**: on this dark, low-contrast field they band, and the window vs.
   editor gradients meet in a visible seam. To avoid a banded flash before the dithered mesh is
-  ready, `BufferPanel.ApplyFallbackBackground` paints the window and editors with the flat
+  ready, `PanelBackgroundPainter.ApplyFallbackBackground` paints the window and editors with the flat
   `DitheredGradientBrushFactory.MidColor` **synchronously in `Initialise`, before the window is
   first shown**, so the first composited frame is a uniform flat tone. The dithered mesh swaps in
   on load; flat-to-mesh is imperceptible because the mesh barely deviates from its mid-tone.
 - The dithered brush is applied in code on `Loaded`, and rebuilt on `ActualThemeChanged` and on
-  resize (`BufferPanel` debounces the resize rebuild; `TrayPeekPanel` is fixed-size). It overrides
+  resize (`PanelBackgroundPainter` debounces the resize rebuild; `TrayPeekPanel` is fixed-size). It overrides
   `TextControlBackground*` in each editor's own resource scope so the focus/hover visual states
   stay dithered, and re-enters the editor's visual state after applying (the focused state pins the
   background via `ThemeResource` when entered and won't otherwise pick up the swapped brush).

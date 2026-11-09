@@ -1,6 +1,6 @@
 # Feature Queue
 
-> _Last updated: 2026-09-06_
+> _Last updated: 2026-09-23_
 
 - [x] 01 Core buffers, tray icon, hotkey, autosave — [SPEC](01-CORE.md)
 - [x] 02 Launch on startup — [SPEC](02-STARTUP.md)
@@ -25,4 +25,4 @@
 - [x] 21 Clickable links — [SPEC](21-LINKS.md)
 - [x] 22 Manual theme switch — [SPEC](22-THEME-SWITCH.md)
 - [x] 23 Markdown formatting — [SPEC](23-MARKDOWN-FORMATTING.md)
-
+- [x] 24 Search across slates — [SPEC](24-SEARCH.md)

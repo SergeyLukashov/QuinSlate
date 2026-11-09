@@ -18,7 +18,7 @@ The five buffers are edited in one WebView2 hosting CodeMirror 6; host and page
 talk over a JSON bridge (`Components/EditorHost.cs`). **The "never log buffer
 contents" rule extends across the bridge:** messages carrying buffer text
 (`init`, `setText`, `insert`, `contentSync`, `calcRequest`/`calcResult`,
-`openLink`) are never logged on either side — only message names, indices, and lengths.
+`openLink`, `searchQuery`, and the Ctrl+F `seed` on `key`) are never logged on either side — only message names, indices, and lengths.
 
 ---
 

@@ -1,6 +1,6 @@
 # SPEC: Buffer keyboard navigation
 
-> _Last updated: 2026-07-16_
+> _Last updated: 2026-09-23_
 
 ## What
 Switch between buffers from the keyboard without using the mouse.
@@ -13,6 +13,19 @@ Switch between buffers from the keyboard without using the mouse.
 
 These shortcuts are active whenever the panel is visible, including when
 the editor has focus.
+
+Search across slates ([24-SEARCH.md](24-SEARCH.md)) adds:
+
+    Ctrl+F                  open the search pill (seeded from a one-line selection),
+                            or re-focus it and select its text
+    F3 / Shift+F3           next / previous match; with the pill closed, reopens it
+                            on the last query and steps once
+    Enter / Shift+Enter     next / previous match, in the search box only
+    Esc                     close the pill and select the current match; bound in
+                            the editor only while the pill is open
+
+Ctrl+1–5 and Ctrl+Tab keep working from the search box: the pill stays open and
+focus stays in the box.
 
 **Plain Tab does not cycle buffers.** It originally did, but Tab now indents:
 nesting the list item under the caret (Notion-style — see
@@ -37,7 +50,10 @@ in `Components/BufferKeyboardController.cs`:
 - **Panel chrome focused** — `HandlePanelPreviewKey` serves the panel host's
   `PreviewKeyDown`, which fires before the focused control sees the key.
 
-`HandlePanelPreviewKey` takes F2 first, then gates everything else behind Ctrl:
+`HandlePanelPreviewKey` takes F2 and F3 first, then gates everything else behind Ctrl
+(Ctrl+F included). The search box is panel chrome, so its F3 and Ctrl+F arrive here
+too; Enter and Esc in the box are handled by the pill itself
+(`Components/SearchPillView.xaml.cs`).
 
     // WinUI 3 desktop has no CoreWindow — read modifier state via
     // InputKeyboardSource, not the UWP Window.Current.CoreWindow.GetKeyState.

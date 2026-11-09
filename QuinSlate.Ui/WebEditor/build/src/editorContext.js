@@ -8,6 +8,9 @@ export const BUFFER_MAX = 5;
 
 let view = null;
 let activeIndex = BUFFER_MIN;
+// Every slate's EditorState while it is off screen. The active slate's live state is the view's own;
+// what is stored for it here is only as fresh as the last tab switch.
+const bufferStates = new Map(); // index -> EditorState
 // The host overwrites this from SystemAccentColor on the `theme` message, which arrives immediately
 // after `ready` and so before any calc can run. Until then fall back to the CSS system colour for the
 // OS selection highlight rather than a hardcoded blue, which would misreport the user's accent.
@@ -27,6 +30,23 @@ export function getActiveIndex() {
 
 export function setActiveIndex(index) {
   activeIndex = index;
+}
+
+export function storeBufferState(index, state) {
+  bufferStates.set(index, state);
+}
+
+export function getStoredBufferState(index) {
+  return bufferStates.get(index);
+}
+
+// The live state of any slate — the view's for the active one, the stored one for the rest. Search
+// reads all five through here.
+export function getBufferState(index) {
+  if (index === activeIndex && view != null) {
+    return view.state;
+  }
+  return bufferStates.get(index);
 }
 
 export function getAccent() {

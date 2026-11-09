@@ -51,6 +51,15 @@ internal static class TabStripCalculator
     /// <summary>Right margin applied to the emoji glyph inside each tab header.</summary>
     internal const double TabEmojiMarginRight = 5;
 
+    /// <summary>Gap between a tab's title and its search match-count badge.</summary>
+    internal const double TabSearchBadgeGap = 6;
+
+    /// <summary>
+    /// Inset between a tab's search badge and the tab's right edge. Mirrors the empty space the
+    /// emoji glyph's own left side bearing leaves before its ink on the other side of the tab.
+    /// </summary>
+    internal const double TabSearchBadgeMarginRight = 3;
+
     /// <summary>
     /// Horizontal chrome consumed by a tab around its header content:
     /// the <c>TabViewItem</c> Padding (3 + 3) plus the <c>TabBackground</c> pill left Margin (0).
@@ -119,8 +128,12 @@ internal static class TabStripCalculator
     /// </summary>
     /// <param name="perTabWidth">Stable equal-mode per-tab width (from <see cref="ComputePerTabMaxWidth"/>).</param>
     /// <param name="emojiWidth">Measured width of the emoji TextBlock (may be 0 before layout).</param>
-    internal static double ComputeTitleMaxWidth(double perTabWidth, double emojiWidth)
+    /// <param name="badgeWidth">
+    /// Width the search badge takes after the title, gap included, or 0 while it is hidden. The
+    /// badge never truncates, so the title gives way to it.
+    /// </param>
+    internal static double ComputeTitleMaxWidth(double perTabWidth, double emojiWidth, double badgeWidth = 0)
     {
-        return System.Math.Max(0, perTabWidth - TabHorizontalChrome - emojiWidth - TabEmojiMarginRight - TabTitleSafetyPadding);
+        return System.Math.Max(0, perTabWidth - TabHorizontalChrome - emojiWidth - TabEmojiMarginRight - TabTitleSafetyPadding - badgeWidth);
     }
 }

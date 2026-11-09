@@ -16,4 +16,10 @@ internal sealed class TabHeaderView
 
     /// <summary>The <see cref="TextBlock"/> that displays the tab title.</summary>
     public TextBlock TitleBlock { get; set; }
+
+    /// <summary>
+    /// The search match-count badge after the title (<c>Docs/Specs/24-SEARCH.md § Tab badges</c>),
+    /// collapsed unless a search has results in this tab.
+    /// </summary>
+    public InfoBadge SearchBadge { get; set; }
 }

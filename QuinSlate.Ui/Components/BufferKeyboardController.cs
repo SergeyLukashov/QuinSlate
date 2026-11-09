@@ -13,11 +13,12 @@ namespace QuinSlate.Ui.Components;
 /// Shortcuts arrive from two places and must behave identically:
 /// <list type="bullet">
 /// <item>When the web editor has focus, the CodeMirror keymap forwards the shortcut over the
-/// bridge and the panel calls <see cref="CycleBuffer"/>, <see cref="SelectBuffer"/>, or raises
+/// bridge and <see cref="EditorKeyCommandRouter"/> calls <see cref="CycleBuffer"/>, <see cref="SelectBuffer"/>, or raises
 /// <see cref="EditFlyoutRequested"/> — keys typed inside the WebView2 never reach XAML
 /// <c>PreviewKeyDown</c>.</item>
 /// <item>When focus is on panel chrome, <see cref="HandlePanelPreviewKey"/> handles the same
-/// shortcuts from the panel's <c>PreviewKeyDown</c>.</item>
+/// shortcuts from the panel's <c>PreviewKeyDown</c>. The search box counts as chrome: F3 and Ctrl+F
+/// typed there arrive here too.</item>
 /// </list>
 /// Selecting a buffer sets <see cref="TabView.SelectedIndex"/>; the panel's
 /// <c>SelectionChanged</c> handler then activates and focuses that buffer's editor.
@@ -33,6 +34,15 @@ public sealed class BufferKeyboardController
     /// the 1-based buffer index of the currently selected tab.
     /// </summary>
     public event EventHandler<int> EditFlyoutRequested;
+
+    /// <summary>Raised on Ctrl+F from panel chrome: open the search pill, or re-focus it.</summary>
+    public event EventHandler SearchOpenRequested;
+
+    /// <summary>
+    /// Raised on F3 (<c>true</c>, next match) or Shift+F3 (<c>false</c>, previous) from panel chrome,
+    /// the search box included.
+    /// </summary>
+    public event EventHandler<bool> SearchStepRequested;
 
     /// <summary>Constructs the controller over the panel's <see cref="TabView"/>.</summary>
     public BufferKeyboardController(TabView tabView)
@@ -64,9 +74,24 @@ public sealed class BufferKeyboardController
             return;
         }
 
+        if (e.Key == VirtualKey.F3)
+        {
+            bool shift = IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift));
+            SearchStepRequested?.Invoke(this, shift == false);
+            e.Handled = true;
+            return;
+        }
+
         bool ctrl = IsKeyDown(InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control));
         if (!ctrl)
         {
+            return;
+        }
+
+        if (e.Key == VirtualKey.F)
+        {
+            SearchOpenRequested?.Invoke(this, EventArgs.Empty);
+            e.Handled = true;
             return;
         }
 

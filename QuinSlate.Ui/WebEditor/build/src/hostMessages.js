@@ -10,6 +10,7 @@ import { flushSync } from "./contentSync.js";
 import { applyCalcResult } from "./inlineCalc.js";
 import { resetCaretBlink, beginRevealEntrance } from "./startupReveal.js";
 import { applyTheme, applyBackground } from "./appearance.js";
+import { handleSearchQuery, handleSearchStep, handleSearchClose } from "./search.js";
 
 function handleCommand(name) {
   const view = getView();
@@ -96,6 +97,15 @@ function dispatchHostMessage(message) {
       break;
     case "background":
       applyBackground(message);
+      break;
+    case "searchQuery":
+      handleSearchQuery(message);
+      break;
+    case "searchStep":
+      handleSearchStep(message);
+      break;
+    case "searchClose":
+      handleSearchClose(message);
       break;
     default:
       logWarning("Unknown host message type '" + message.type + "'.");

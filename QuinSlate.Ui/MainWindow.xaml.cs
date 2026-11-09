@@ -41,7 +41,7 @@ public sealed partial class MainWindow : Window
 
     // The floor leaves the tab run the same 141 DIP it had at the old 280 minimum, before the
     // button cluster grew by two buttons; below that the strip is chevrons and little else.
-    private const int PanelMinWidth = 360;
+    internal const int PanelMinWidth = 360;
     private const int PanelMinHeight = 280;
     private const int PanelDefaultInset = 40;
     private const int SettingsDebounceMilliseconds = 500;
@@ -1171,6 +1171,9 @@ public sealed partial class MainWindow : Window
         // A notice left over from this session must not be the first thing the panel shows when it
         // is next summoned, and the next clamp deserves an immediate answer.
         Panel.ResetLimitNotice();
+
+        // Panel hide closes the search, the same rule the notice follows.
+        Panel.CloseSearch();
 
         // Only on a genuine user-initiated hide of a shown panel — never the init-time hide
         // of a startup-hidden (login) launch, where the panel was never visible.

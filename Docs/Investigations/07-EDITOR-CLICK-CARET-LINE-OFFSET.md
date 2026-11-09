@@ -1,6 +1,6 @@
 # Editor click/caret line offset
 
-> _Last updated: 2026-09-07_
+> _Last updated: 2026-09-24_
 
 **Status: open — instrumentation added, awaiting a log capture from the affected machine.**
 
@@ -45,7 +45,7 @@ be the source of a host/page scale disagreement.
 ## Candidate causes
 
 The editor is a top-level overlay whose position is set by **mutating a margin after the WebView2
-exists**: `PositionEditorHost()` (`Views/BufferPanel.xaml.cs`) assigns `EditorHostLayer.Margin`
+exists**: `EditorOverlayPositioner.Position()` (`Components/EditorOverlayPositioner.cs`) assigns `EditorHostLayer.Margin`
 from the TabView content presenter's origin, and runs on TabView `Loaded`/`SizeChanged`, panel
 `Loaded`, and RootGrid `SizeChanged` — so on every window resize, maximize and restore.
 
@@ -114,7 +114,7 @@ Pair each `Click probe (host) #n` with the `Click probe (page)` line carrying th
 |---|---|
 | host `y` == page `y`, `caretTopDelta` within `-24..0` | The press was mapped correctly and the caret landed on the clicked line — the offset was not reproduced in this capture. |
 | host `y` == page `y`, `caretTopDelta` past `-24` | The press was mapped correctly and the editor still put the caret a line high — cause 3. |
-| host `y` != page `y`, difference constant across the buffer | Cause 1: fix by not repositioning the WebView2 through margin mutation (give `EditorHostLayer` a fixed grid placement, or force a bounds refresh after each `PositionEditorHost()`). |
+| host `y` != page `y`, difference constant across the buffer | Cause 1: fix by not repositioning the WebView2 through margin mutation (give `EditorHostLayer` a fixed grid placement, or force a bounds refresh after each `EditorOverlayPositioner.Position()`). |
 | host `y` != page `y`, difference growing with `y` | Cause 2: compare the page's `dpr` with the host's rasterization scale in the two geometry lines; if they differ, the only remedy is measuring the ratio at startup and correcting for it. |
 | host line with no page partner | A press on the native scrollbar, or on the gutter — ignore, and re-pair from the next matching index. |
 

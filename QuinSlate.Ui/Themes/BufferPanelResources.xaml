@@ -456,6 +456,56 @@
         </Setter>
     </Style>
 
+    <!-- A tab's search match count (Docs/Specs/24-SEARCH.md § Tab badges): an InfoBadge after the
+         title, tinted with the accent like the editor's other-match highlight. The tab holding the
+         current match switches to solid accent through the SearchBadgeStates group, which
+         SearchController drives; both states only swap colours, so the badge never changes size.
+         Tight line bounds centre the digits optically in the capsule. Retemplated only to show text
+         instead of InfoBadge.Value, because the count caps at "99+" and a numeric InfoBadge can only
+         show the number. The text is the badge's Tag, which SearchController sets. The digits are
+         Raw to screen readers: the tab's ItemStatus carries the count. -->
+    <Style x:Key="SearchCountBadgeStyle" TargetType="InfoBadge">
+        <Setter Property="Background" Value="{ThemeResource SearchBadgeBackground}" />
+        <Setter Property="Foreground" Value="{ThemeResource SearchBadgeForeground}" />
+        <Setter Property="MinWidth" Value="16" />
+        <Setter Property="MinHeight" Value="16" />
+        <Setter Property="Padding" Value="4,0,4,0" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="InfoBadge">
+                    <Border x:Name="BadgeRoot"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="SearchBadgeStates">
+                                <VisualState x:Name="Match" />
+                                <VisualState x:Name="Current">
+                                    <VisualState.Setters>
+                                        <Setter Target="BadgeRoot.Background" Value="{ThemeResource SearchBadgeCurrentBackground}" />
+                                        <Setter Target="BadgeText.Foreground" Value="{ThemeResource SearchBadgeCurrentForeground}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <TextBlock x:Name="BadgeText"
+                                   Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
+                                   Foreground="{TemplateBinding Foreground}"
+                                   FontSize="{TemplateBinding FontSize}"
+                                   FontWeight="{TemplateBinding FontWeight}"
+                                   TextLineBounds="Tight"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   AutomationProperties.AccessibilityView="Raw" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Default">
             <!-- The editor/text-control surface reuses the warm app background gradient
@@ -500,6 +550,13 @@
             <SolidColorBrush x:Key="TabViewItemHeaderForegroundSelected" Color="{ThemeResource TabViewItemHeaderForegroundSelectedColor}" />
             <Color x:Key="TabViewItemHeaderHoverIndicatorColor">#55FFFFFF</Color>
             <SolidColorBrush x:Key="TabViewItemHeaderHoverIndicatorBrush" Color="{ThemeResource TabViewItemHeaderHoverIndicatorColor}" />
+            <!-- Search badges: the accent tint at about the editor's other-match strength, and solid
+                 accent on the tab holding the current match. -->
+            <x:Double x:Key="SearchBadgeTintOpacity">0.22</x:Double>
+            <SolidColorBrush x:Key="SearchBadgeBackground" Color="{ThemeResource SystemAccentColor}" Opacity="{StaticResource SearchBadgeTintOpacity}" />
+            <StaticResource x:Key="SearchBadgeForeground" ResourceKey="AccentTextFillColorPrimaryBrush" />
+            <StaticResource x:Key="SearchBadgeCurrentBackground" ResourceKey="AccentFillColorDefaultBrush" />
+            <StaticResource x:Key="SearchBadgeCurrentForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Light">
             <!-- The editor/text-control surface reuses the warm app background gradient
@@ -544,6 +601,13 @@
             <SolidColorBrush x:Key="TabViewItemHeaderForegroundSelected" Color="{ThemeResource TabViewItemHeaderForegroundSelectedColor}" />
             <Color x:Key="TabViewItemHeaderHoverIndicatorColor">#55000000</Color>
             <SolidColorBrush x:Key="TabViewItemHeaderHoverIndicatorBrush" Color="{ThemeResource TabViewItemHeaderHoverIndicatorColor}" />
+            <!-- Search badges: the accent tint at about the editor's other-match strength, and solid
+                 accent on the tab holding the current match. -->
+            <x:Double x:Key="SearchBadgeTintOpacity">0.22</x:Double>
+            <SolidColorBrush x:Key="SearchBadgeBackground" Color="{ThemeResource SystemAccentColor}" Opacity="{StaticResource SearchBadgeTintOpacity}" />
+            <StaticResource x:Key="SearchBadgeForeground" ResourceKey="AccentTextFillColorPrimaryBrush" />
+            <StaticResource x:Key="SearchBadgeCurrentBackground" ResourceKey="AccentFillColorDefaultBrush" />
+            <StaticResource x:Key="SearchBadgeCurrentForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <!-- The editor/text-control surface reuses the warm app background gradient
@@ -587,6 +651,13 @@
             <SolidColorBrush x:Key="TabViewItemHeaderForegroundSelected" Color="{ThemeResource TabViewItemHeaderForegroundSelectedColor}" />
             <Color x:Key="TabViewItemHeaderHoverIndicatorColor">#55FFFFFF</Color>
             <SolidColorBrush x:Key="TabViewItemHeaderHoverIndicatorBrush" Color="{ThemeResource TabViewItemHeaderHoverIndicatorColor}" />
+            <!-- Search badges: the accent tint at about the editor's other-match strength, and solid
+                 accent on the tab holding the current match. -->
+            <x:Double x:Key="SearchBadgeTintOpacity">0.22</x:Double>
+            <SolidColorBrush x:Key="SearchBadgeBackground" Color="{ThemeResource SystemAccentColor}" Opacity="{StaticResource SearchBadgeTintOpacity}" />
+            <StaticResource x:Key="SearchBadgeForeground" ResourceKey="AccentTextFillColorPrimaryBrush" />
+            <StaticResource x:Key="SearchBadgeCurrentBackground" ResourceKey="AccentFillColorDefaultBrush" />
+            <StaticResource x:Key="SearchBadgeCurrentForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <!-- High contrast: a flat system window colour, not a gradient, so contrast rules are respected. -->
@@ -620,6 +691,12 @@
             <SolidColorBrush x:Key="TabViewItemHeaderForegroundSelected" Color="{ThemeResource TabViewItemHeaderForegroundSelectedColor}" />
             <Color x:Key="TabViewItemHeaderHoverIndicatorColor">{ThemeResource SystemColorWindowTextColor}</Color>
             <SolidColorBrush x:Key="TabViewItemHeaderHoverIndicatorBrush" Color="{ThemeResource TabViewItemHeaderHoverIndicatorColor}" />
+            <!-- Search badges: a tint has no high-contrast equivalent, so both states use the
+                 highlight pair. -->
+            <SolidColorBrush x:Key="SearchBadgeBackground" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="SearchBadgeForeground" Color="{ThemeResource SystemColorHighlightTextColor}" />
+            <SolidColorBrush x:Key="SearchBadgeCurrentBackground" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="SearchBadgeCurrentForeground" Color="{ThemeResource SystemColorHighlightTextColor}" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

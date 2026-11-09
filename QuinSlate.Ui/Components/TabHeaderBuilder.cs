@@ -24,6 +24,14 @@ internal static class TabHeaderBuilder
     // Segoe UI Symbol glyph rather than the colour one. TrayPeekPanel.xaml pins the same font.
     private const string EmojiFontFamily = "Segoe UI Emoji";
 
+    private const int EmojiColumn = 0;
+    private const int TitleColumn = 1;
+    private const int SearchBadgeColumn = 2;
+
+    // Segoe UI Emoji draws its ink ~1 DIP below the centre of its 16px line box, so a badge
+    // centred on that box rides high. A 2 DIP top margin moves the badge's centre down 1 DIP.
+    private const double SearchBadgeTopMargin = 2;
+
     /// <summary>
     /// Builds the header UI for the given <paramref name="buffer"/> and its
     /// <paramref name="tab"/> metadata.
@@ -31,11 +39,13 @@ internal static class TabHeaderBuilder
     /// <param name="buffer">Buffer whose index is used to tag interactive controls.</param>
     /// <param name="tab">Current label state (emoji, title) for the tab.</param>
     /// <param name="onDoubleTapped">Invoked when the header is double-tapped.</param>
+    /// <param name="searchBadgeStyle">The style of the search match-count badge.</param>
     /// <returns>A <see cref="TabHeaderView"/> with all named sub-elements populated.</returns>
     public static TabHeaderView Build(
         Buffer buffer,
         TabDefinition tab,
-        DoubleTappedEventHandler onDoubleTapped)
+        DoubleTappedEventHandler onDoubleTapped,
+        Style searchBadgeStyle)
     {
         var emojiBlock = new TextBlock
         {
@@ -50,18 +60,39 @@ internal static class TabHeaderBuilder
         {
             Text = tab.Title,
             VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Left,
             TextTrimming = TextTrimming.CharacterEllipsis,
             FontSize = TabTitleFontSize,
         };
 
-        var normalPanel = new StackPanel
+        // Pinned to the tab's right edge, never truncated: the title's MaxWidth leaves room for
+        // it, so the title ellipsizes first.
+        var searchBadge = new InfoBadge
         {
-            Orientation = Orientation.Horizontal,
+            Style = searchBadgeStyle,
+            Visibility = Visibility.Collapsed,
             VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Left,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(TabStripCalculator.TabSearchBadgeGap, SearchBadgeTopMargin, TabStripCalculator.TabSearchBadgeMarginRight, 0),
         };
+        SearchBadgeMotion.Attach(searchBadge);
+
+        var normalPanel = new Grid
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        normalPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        normalPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        normalPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        Grid.SetColumn(emojiBlock, EmojiColumn);
+        Grid.SetColumn(titleBlock, TitleColumn);
+        Grid.SetColumn(searchBadge, SearchBadgeColumn);
+
         normalPanel.Children.Add(emojiBlock);
         normalPanel.Children.Add(titleBlock);
+        normalPanel.Children.Add(searchBadge);
 
         var headerContainer = new Grid
         {
@@ -77,6 +108,7 @@ internal static class TabHeaderBuilder
             HeaderContainer = headerContainer,
             EmojiBlock = emojiBlock,
             TitleBlock = titleBlock,
+            SearchBadge = searchBadge,
         };
     }
 }

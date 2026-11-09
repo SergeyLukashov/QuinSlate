@@ -52,7 +52,7 @@
                      (window - footer) — a large static MaxWidth makes every tab measure near
                      MaxWidth, so the strip overflows and clips off the right edge (the overflow
                      bug a static MaxWidth=1000 produced). Equal tabs therefore have always come
-                     from code-behind (UpdateEqualTabMaxWidth) sizing each tab's HEADER to
+                     from code (TabStripLayout.UpdateEqualTabMaxWidth) sizing each tab's HEADER to
                      available/count on every size change.
 
                      Equal mode additionally stamps an explicit Width on every TabViewItem from
@@ -211,7 +211,7 @@
         </TabView>
 
         <!-- The single WebView2 that hosts CodeMirror 6 for all five buffers. It is a top-level
-             overlay positioned by code (PositionEditorHost) to cover exactly the TabView's content
+             overlay positioned by code (EditorOverlayPositioner) to cover exactly the TabView's content
              presenter, so the tab strip stays interactive above it. It is never reparented — the
              page swaps the active buffer's CM6 state internally on tab switch — so Chromium is
              created once and kept alive. EditorHostContent carries the entrance-animation transform;
@@ -257,6 +257,11 @@
                  cap. Declared after EditorHostContent so it paints over the WebView2 (the same
                  overlay trick as EditorStartupCover); the control itself is non-interactive. -->
             <components:LimitNoticeView x:Name="LimitNoticeSurface" />
+
+            <!-- The search pill (Docs/Specs/24-SEARCH.md), top-right of the editor. Declared after
+                 EditorHostContent for the same reason as the notice; unlike the notice it takes input,
+                 but only the pill itself is hit-testable, so the rest of the editor stays clickable. -->
+            <components:SearchPillView x:Name="SearchPill" />
         </Grid>
 
         <!-- Pin, minimize, maximize/restore, and close buttons as a top-level OVERLAY anchored

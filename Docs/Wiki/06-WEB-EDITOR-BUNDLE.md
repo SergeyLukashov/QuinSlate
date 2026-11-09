@@ -1,6 +1,6 @@
 # Web editor: the CodeMirror 6 bundle and its build
 
-> _Last updated: 2026-07-19_
+> _Last updated: 2026-09-23_
 
 The buffer editor is a CodeMirror 6 web app hosted in a `WebView2` (see ADR
 [04-EDITOR-CODEMIRROR-WEBVIEW2.md](../Decisions/04-EDITOR-CODEMIRROR-WEBVIEW2.md) and spec
@@ -44,6 +44,12 @@ QuinSlate.Ui/WebEditor/
     │   ├── entrance.js       # the tab-content entrance replay
     │   ├── startupReveal.js  # caret-blink hold + the startup reveal choreography
     │   ├── appearance.js     # theme colours + background PNG from the host
+    │   ├── searchFold.js     # search: folding + the per-line fold cache (offset map back)
+    │   ├── searchMatch.js    # search: the three tiers, pure (folded lines + query → matches)
+    │   ├── fuzzyDistance.js  # search: bounded Damerau–Levenshtein against word starts
+    │   ├── searchWalk.js     # search: walk order, stepping, relocation after edits (pure)
+    │   ├── searchHighlight.js# search: match/current mark decorations + scroll margin
+    │   ├── search.js         # search: state across the five slates, bridge messages
     │   └── hostMessages.js   # dispatch table for incoming host messages
     └── node_modules/     # gitignored
 ```
@@ -77,7 +83,8 @@ QuinSlate.Ui/WebEditor/
   host↔page contract is the JSON bridge in `Components/EditorHost.cs`.
 - **The "never log buffer contents" rule extends across the bridge:** messages
   carrying buffer text (`init`, `setText`, `insert`, `contentSync`,
-  `calcRequest`/`calcResult`) are never logged on either side — only message
+  `calcRequest`/`calcResult`, `openLink`, `searchQuery`, and the Ctrl+F `seed` on `key`)
+  are never logged on either side — only message
   names, indices, and lengths.
 - **The page logs into the same Serilog pipeline as C#.** `pageLog.js` posts
   `log` messages (level, message, optional stack) over the bridge;
@@ -213,7 +220,9 @@ built-in runner cannot meet.
 ### What the tests do and do not cover
 
 Covered: `listItems.js`, `indent.js`, `tasks.js`, `lists.js`, `crlfText.js` —
-parsing, commands, guardrails, the renumber filter, and caret positions.
+parsing, commands, guardrails, the renumber filter, and caret positions — and search's
+pure modules (`searchFold.js`, `searchMatch.js`, `fuzzyDistance.js`, `searchWalk.js`).
+`search.js` and `searchHighlight.js` need a live view and are verified in the app.
 
 **Not covered: anything that needs layout or a real DOM.** The widgets' `toDOM`
 and every pixel metric in `editor.css` (the 23px indent step, the checkbox glyph

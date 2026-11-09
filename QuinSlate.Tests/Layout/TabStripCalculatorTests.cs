@@ -249,4 +249,20 @@ public sealed class TabStripCalculatorTests
         double result = TabStripCalculator.ComputeTitleMaxWidth(perTab, emojiWidth);
         Assert.Equal(expected, result);
     }
+
+    [Fact]
+    public void ComputeTitleMaxWidth_VisibleSearchBadge_TitleGivesWayToIt()
+    {
+        // 120 - 6 - 16 - 5 - 6 = 87, less a 24-wide badge (18 + the 6 gap) = 63
+        double badgeWidth = 18 + TabStripCalculator.TabSearchBadgeGap;
+        double result = TabStripCalculator.ComputeTitleMaxWidth(120, 16, badgeWidth);
+        Assert.Equal(63, result);
+    }
+
+    [Fact]
+    public void ComputeTitleMaxWidth_BadgeWiderThanTheRoom_ClampsTitleToZero()
+    {
+        double result = TabStripCalculator.ComputeTitleMaxWidth(100, 22, 80);
+        Assert.Equal(0, result);
+    }
 }

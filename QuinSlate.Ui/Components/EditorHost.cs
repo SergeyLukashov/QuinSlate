@@ -5,7 +5,6 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Windows.UI;
@@ -20,7 +19,8 @@ namespace QuinSlate.Ui.Components;
 /// </summary>
 /// <remarks>
 /// Messages carrying buffer text (<c>init</c>, <c>setText</c>, <c>insert</c>, <c>contentSync</c>,
-/// <c>calcRequest</c>/<c>calcResult</c>, <c>openLink</c>) are never logged — not the payload, not a
+/// <c>calcRequest</c>/<c>calcResult</c>, <c>openLink</c>, <c>searchQuery</c>, and the Ctrl+F seed on
+/// <c>key</c>) are never logged — not the payload, not a
 /// prefix, not on either side. Only message names, indices, and lengths may be logged.
 /// </remarks>
 internal sealed class EditorHost
@@ -35,6 +35,7 @@ internal sealed class EditorHost
     private const string EditorPageUrl = "https://quinslate.editor/editor.html";
     private const string EditorAssetsRelativePath = "WebEditor";
     private const string WebView2UserDataFolderName = "WebView2";
+    private const string KeyCommandFindOpen = "find-open";
 
     private static Task<CoreWebView2Environment> sharedEnvironmentTask;
 
@@ -52,6 +53,12 @@ internal sealed class EditorHost
 
     /// <summary>Raised when a panel-level keyboard shortcut is typed inside the editor.</summary>
     public event EventHandler<string> KeyCommandReceived;
+
+    /// <summary>
+    /// Raised when Ctrl+F is pressed inside the editor. The argument is the selection to seed the
+    /// query with (empty when there is none) — buffer text, so it is never logged.
+    /// </summary>
+    public event EventHandler<string> SearchOpenRequested;
 
     /// <summary>
     /// Raised when a user edit was clamped at the buffer character cap, so the host can surface a
@@ -94,7 +101,11 @@ internal sealed class EditorHost
 
         this.webView = webView;
         this.appDataDirectory = appDataDirectory;
+        Search = new EditorSearchChannel(PostJson);
     }
+
+    /// <summary>The search messages (<c>Docs/Specs/24-SEARCH.md § Bridge</c>).</summary>
+    public EditorSearchChannel Search { get; }
 
     /// <summary>Whether the page has reported it is ready to receive content operations.</summary>
     public bool IsReady => isReady;
@@ -154,7 +165,7 @@ internal sealed class EditorHost
             await webView.EnsureCoreWebView2Async(environment);
 
             CoreWebView2 core = webView.CoreWebView2;
-            ConfigureSettings(core.Settings);
+            EditorWebViewSettings.Harden(core.Settings);
 
             core.SetVirtualHostNameToFolderMapping(
                 VirtualHostName,
@@ -177,23 +188,6 @@ internal sealed class EditorHost
         {
             isInitializing = false;
         }
-    }
-
-    private static void ConfigureSettings(CoreWebView2Settings settings)
-    {
-        settings.AreDefaultContextMenusEnabled = false;
-        settings.AreBrowserAcceleratorKeysEnabled = false;
-        settings.IsZoomControlEnabled = false;
-        settings.IsStatusBarEnabled = false;
-        settings.IsSwipeNavigationEnabled = false;
-        settings.IsPasswordAutosaveEnabled = false;
-        settings.IsGeneralAutofillEnabled = false;
-        settings.IsPinchZoomEnabled = false;
-#if DEBUG
-        settings.AreDevToolsEnabled = true;
-#else
-        settings.AreDevToolsEnabled = false;
-#endif
     }
 
     private void OnNavigationStarting(CoreWebView2 sender, CoreWebView2NavigationStartingEventArgs args)
@@ -245,7 +239,7 @@ internal sealed class EditorHost
         {
             using JsonDocument document = JsonDocument.Parse(json);
             JsonElement root = document.RootElement;
-            string type = GetString(root, "type");
+            string type = EditorBridgeJson.GetString(root, "type");
             DispatchMessage(type, root);
         }
         catch (JsonException ex)
@@ -269,40 +263,54 @@ internal sealed class EditorHost
                 EntranceStarted?.Invoke(this, EventArgs.Empty);
                 break;
             case "contentSync":
-                ContentSynced?.Invoke(this, new EditorContentEventArgs(GetInt(root, "index"), GetString(root, "text")));
+                ContentSynced?.Invoke(this, new EditorContentEventArgs(EditorBridgeJson.GetInt(root, "index"), EditorBridgeJson.GetString(root, "text")));
                 break;
             case "calcRequest":
-                HandleCalcRequest(GetInt(root, "index"), GetString(root, "lineContent"));
+                HandleCalcRequest(EditorBridgeJson.GetInt(root, "index"), EditorBridgeJson.GetString(root, "lineContent"));
                 break;
             case "openLink":
-                HandleOpenLink(GetString(root, "href"));
+                EditorLinkLauncher.Launch(EditorBridgeJson.GetString(root, "href"));
                 break;
             case "key":
-                KeyCommandReceived?.Invoke(this, GetString(root, "command"));
+                DispatchKeyCommand(root);
                 break;
             case "limitReached":
                 LimitReached?.Invoke(this, new EditorLimitEventArgs(
-                    GetInt(root, "index"),
-                    GetString(root, "cause"),
-                    GetInt(root, "dropped")));
+                    EditorBridgeJson.GetInt(root, "index"),
+                    EditorBridgeJson.GetString(root, "cause"),
+                    EditorBridgeJson.GetInt(root, "dropped")));
                 break;
             case "log":
                 EditorPageLogForwarder.Forward(
-                    GetString(root, "level"),
-                    GetString(root, "message"),
-                    GetString(root, "stack"));
+                    EditorBridgeJson.GetString(root, "level"),
+                    EditorBridgeJson.GetString(root, "message"),
+                    EditorBridgeJson.GetString(root, "stack"));
                 break;
             case "contextMenu":
                 ContextMenuRequested?.Invoke(this, new EditorContextMenuEventArgs(
-                    GetDouble(root, "x"),
-                    GetDouble(root, "y"),
-                    GetBool(root, "canUndo"),
-                    GetBool(root, "canRedo"),
-                    GetBool(root, "hasSelection")));
+                    EditorBridgeJson.GetDouble(root, "x"),
+                    EditorBridgeJson.GetDouble(root, "y"),
+                    EditorBridgeJson.GetBool(root, "canUndo"),
+                    EditorBridgeJson.GetBool(root, "canRedo"),
+                    EditorBridgeJson.GetBool(root, "hasSelection")));
                 break;
             default:
+                Search.TryReceive(type, root);
                 break;
         }
+    }
+
+    private void DispatchKeyCommand(JsonElement root)
+    {
+        string command = EditorBridgeJson.GetString(root, "command");
+        if (command == KeyCommandFindOpen)
+        {
+            // The seed is the editor's selection — buffer text — so it is passed on, never logged.
+            SearchOpenRequested?.Invoke(this, EditorBridgeJson.GetString(root, "seed"));
+            return;
+        }
+
+        KeyCommandReceived?.Invoke(this, command);
     }
 
     private void HandleCalcRequest(int index, string lineContent)
@@ -317,43 +325,6 @@ internal sealed class EditorHost
             writer.WriteBoolean("ok", ok);
             writer.WriteString("result", ok ? result : string.Empty);
         });
-    }
-
-    private static void HandleOpenLink(string href)
-    {
-        // The href is buffer text: it is never logged, here or on failure — only the outcome is.
-        if (LinkService.TryCreateLaunchUri(href, out Uri uri) == false)
-        {
-            Log.ForContext<EditorHost>().Warning(
-                "Declined a link from the editor page: not an absolute http/https/mailto URI.");
-            return;
-        }
-
-        _ = LaunchLinkAsync(uri);
-    }
-
-    private static async Task LaunchLinkAsync(Uri uri)
-    {
-        try
-        {
-            bool launched = await Windows.System.Launcher.LaunchUriAsync(uri);
-            if (launched == false)
-            {
-                Log.ForContext<EditorHost>().Warning(
-                    "The shell declined to launch a link from the editor ({Scheme}).", uri.Scheme);
-            }
-        }
-        catch (Exception ex)
-        {
-            // Deliberately not the exception object: its message could echo the URI — buffer text —
-            // into the log. The type and HRESULT identify a shell failure without it, and the stack
-            // of a fire-and-forget launch says nothing this message does not.
-            Log.ForContext<EditorHost>().Warning(
-                "Failed to launch a link from the editor ({Scheme}): {ExceptionType} 0x{HResult:X8}.",
-                uri.Scheme,
-                ex.GetType().Name,
-                ex.HResult);
-        }
     }
 
     /// <summary>Populates all five buffer states once, at startup.</summary>
@@ -476,11 +447,11 @@ internal sealed class EditorHost
 
             // Text and caret carry alpha (WinUI's light-theme TextFillColorPrimary is #E4000000), so
             // they must serialise as rgba() — rgb() would silently promote them to fully opaque.
-            writer.WriteString("text", ToCssRgba(text));
-            writer.WriteString("caret", ToCssRgba(caret));
-            writer.WriteString("selection", ToCssRgba(selection));
-            writer.WriteString("accent", ToCssRgb(accent));
-            writer.WriteString("link", ToCssRgb(link));
+            writer.WriteString("text", EditorBridgeJson.ToCssRgba(text));
+            writer.WriteString("caret", EditorBridgeJson.ToCssRgba(caret));
+            writer.WriteString("selection", EditorBridgeJson.ToCssRgba(selection));
+            writer.WriteString("accent", EditorBridgeJson.ToCssRgb(accent));
+            writer.WriteString("link", EditorBridgeJson.ToCssRgb(link));
         });
     }
 
@@ -508,7 +479,7 @@ internal sealed class EditorHost
             return;
         }
 
-        string json = BuildJson(writeBody);
+        string json = EditorBridgeJson.Build(writeBody);
         try
         {
             webView.CoreWebView2.PostWebMessageAsJson(json);
@@ -517,64 +488,5 @@ internal sealed class EditorHost
         {
             Log.ForContext<EditorHost>().Warning(ex, "Failed to post a web message to the editor page.");
         }
-    }
-
-    private static string BuildJson(Action<Utf8JsonWriter> writeBody)
-    {
-        using var stream = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream))
-        {
-            writer.WriteStartObject();
-            writeBody(writer);
-            writer.WriteEndObject();
-        }
-
-        return Encoding.UTF8.GetString(stream.ToArray());
-    }
-
-    private static string ToCssRgb(Color color)
-    {
-        return $"rgb({color.R},{color.G},{color.B})";
-    }
-
-    private static string ToCssRgba(Color color)
-    {
-        double alpha = color.A / 255.0;
-        return string.Format(System.Globalization.CultureInfo.InvariantCulture, "rgba({0},{1},{2},{3:0.###})", color.R, color.G, color.B, alpha);
-    }
-
-    private static string GetString(JsonElement root, string name)
-    {
-        if (root.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String)
-        {
-            return value.GetString();
-        }
-
-        return string.Empty;
-    }
-
-    private static int GetInt(JsonElement root, string name)
-    {
-        if (root.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.Number)
-        {
-            return value.GetInt32();
-        }
-
-        return 0;
-    }
-
-    private static double GetDouble(JsonElement root, string name)
-    {
-        if (root.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.Number)
-        {
-            return value.GetDouble();
-        }
-
-        return 0;
-    }
-
-    private static bool GetBool(JsonElement root, string name)
-    {
-        return root.TryGetProperty(name, out JsonElement value) && (value.ValueKind == JsonValueKind.True);
     }
 }

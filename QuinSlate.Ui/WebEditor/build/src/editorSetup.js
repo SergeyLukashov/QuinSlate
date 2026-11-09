@@ -21,6 +21,8 @@ import { panelKeymap } from "./panelShortcuts.js";
 import { queueSync, flushSync } from "./contentSync.js";
 import { editorTheme } from "./editorTheme.js";
 import { registerClickProbe } from "./clickProbe.js";
+import { searchHighlightPlugin, searchScrollMargins } from "./searchHighlight.js";
+import { onSearchUpdate } from "./search.js";
 
 const SECONDARY_BUTTON = 2;
 
@@ -48,6 +50,10 @@ const baseExtensions = [
   // Headings, bold/italic/strikethrough, inline code, and rules — also decoration-only, and
   // registered after linkPlugin because a URL's characters are claimed before emphasis reads them.
   markdownPlugin,
+  // Search highlights (Docs/Specs/24-SEARCH.md), decoration-only like the two above. Ahead of
+  // calcHighlightField so the calc highlight nests inside a search mark and paints on top of it.
+  searchHighlightPlugin,
+  searchScrollMargins,
   // Returns focus to the content when a scrollbar press moves it to the scroller.
   scrollerFocusPlugin,
   EditorView.lineWrapping,
@@ -72,6 +78,7 @@ const baseExtensions = [
       }
       detectCalc(update);
     }
+    onSearchUpdate(update);
   }),
 ];
 

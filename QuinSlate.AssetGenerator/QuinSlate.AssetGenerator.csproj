@@ -19,7 +19,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SkiaSharp" Version="4.151.1" />
+    <PackageReference Include="SkiaSharp" Version="4.155.0" />
     <PackageReference Include="Svg.Skia" Version="5.2.3" />
     <!-- Win2D renders the emoji atlas through D2D/DWriteCore so the sprites are
          pixel-faithful to how XAML/RichEdit render Segoe UI Emoji (COLRv1
